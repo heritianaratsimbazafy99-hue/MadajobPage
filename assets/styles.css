@@ -1,16 +1,16 @@
 :root {
-  --bg: #07111f;
-  --bg-soft: #0d1a2f;
-  --surface: rgba(15, 29, 51, 0.78);
-  --surface-strong: #10213a;
-  --line: rgba(255, 255, 255, 0.1);
-  --line-strong: rgba(255, 255, 255, 0.18);
-  --text: #eff4ff;
-  --muted: #b6c2da;
-  --accent-1: #00c2a8;
-  --accent-2: #f4c95d;
-  --accent-3: #ff8453;
-  --shadow: 0 32px 80px rgba(0, 0, 0, 0.35);
+  --bg: #06172b;
+  --bg-soft: #113a61;
+  --surface: rgba(12, 45, 77, 0.8);
+  --surface-strong: #153f68;
+  --line: rgba(201, 229, 255, 0.14);
+  --line-strong: rgba(201, 229, 255, 0.24);
+  --text: #f6fbff;
+  --muted: #c0d4e8;
+  --accent-1: #a9cc1c;
+  --accent-2: #2f6798;
+  --accent-3: #d9ef6d;
+  --shadow: 0 32px 80px rgba(0, 18, 40, 0.42);
   --radius-xl: 28px;
   --radius-lg: 22px;
   --radius-md: 16px;
@@ -30,9 +30,9 @@ body {
   font-family: "Space Grotesk", "Segoe UI", sans-serif;
   color: var(--text);
   background:
-    radial-gradient(circle at 20% 10%, rgba(0, 194, 168, 0.18), transparent 28%),
-    radial-gradient(circle at 80% 8%, rgba(244, 201, 93, 0.12), transparent 30%),
-    linear-gradient(180deg, #07111f 0%, #091425 30%, #06111d 100%);
+    radial-gradient(circle at 20% 10%, rgba(169, 204, 28, 0.2), transparent 28%),
+    radial-gradient(circle at 80% 8%, rgba(47, 103, 152, 0.2), transparent 30%),
+    linear-gradient(180deg, #06172b 0%, #0a2745 36%, #061528 100%);
   min-height: 100vh;
 }
 
@@ -53,7 +53,7 @@ body::before {
   height: 18rem;
   top: 10rem;
   right: 6vw;
-  background: rgba(0, 194, 168, 0.16);
+  background: rgba(169, 204, 28, 0.16);
 }
 
 body::after {
@@ -61,7 +61,7 @@ body::after {
   height: 20rem;
   bottom: 6rem;
   left: 4vw;
-  background: rgba(255, 132, 83, 0.14);
+  background: rgba(47, 103, 152, 0.18);
 }
 
 a {
@@ -84,7 +84,7 @@ textarea {
   position: relative;
   z-index: 20;
   border-bottom: 1px solid var(--line);
-  background: rgba(7, 17, 31, 0.72);
+  background: rgba(9, 31, 54, 0.78);
 }
 
 .topbar-inner {
@@ -111,13 +111,13 @@ textarea {
   top: 0;
   z-index: 50;
   backdrop-filter: blur(16px);
-  background: rgba(7, 17, 31, 0.5);
+  background: rgba(8, 28, 49, 0.54);
   transition: background 0.25s ease, border-color 0.25s ease;
   border-bottom: 1px solid transparent;
 }
 
 .site-header.scrolled {
-  background: rgba(7, 17, 31, 0.86);
+  background: rgba(8, 28, 49, 0.9);
   border-bottom-color: var(--line);
 }
 
@@ -137,15 +137,24 @@ textarea {
 }
 
 .brand-mark {
-  width: 46px;
-  height: 46px;
+  width: 58px;
+  height: 58px;
   display: grid;
   place-items: center;
-  border-radius: 16px;
-  background: linear-gradient(135deg, var(--accent-1), var(--accent-2));
+  border-radius: 18px;
+  padding: 0.25rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(235, 245, 255, 0.94));
+  border: 1px solid rgba(169, 204, 28, 0.22);
   color: #07111f;
   font-weight: 800;
-  box-shadow: 0 14px 28px rgba(0, 194, 168, 0.18);
+  box-shadow: 0 16px 34px rgba(7, 32, 58, 0.3);
+}
+
+.brand-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 14px;
 }
 
 .brand strong {
@@ -189,7 +198,7 @@ textarea {
 .site-nav a:hover,
 .site-nav a.is-active {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(169, 204, 28, 0.1);
 }
 
 .hero {
@@ -210,8 +219,8 @@ textarea {
   padding: 0.5rem 0.85rem;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--accent-2);
+  background: rgba(169, 204, 28, 0.08);
+  color: var(--accent-3);
   font-size: 0.82rem;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -277,7 +286,8 @@ textarea {
 }
 
 .btn-secondary {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(47, 103, 152, 0.15);
+  border-color: rgba(169, 204, 28, 0.24);
 }
 
 .btn-ghost {
@@ -313,8 +323,8 @@ textarea {
 .glass-panel {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(180deg, rgba(18, 34, 60, 0.9), rgba(10, 19, 35, 0.88));
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: linear-gradient(180deg, rgba(17, 57, 92, 0.92), rgba(8, 26, 46, 0.92));
+  border: 1px solid rgba(201, 229, 255, 0.14);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow);
 }
@@ -329,8 +339,8 @@ textarea {
   inset: 1rem;
   border-radius: 24px;
   background:
-    radial-gradient(circle at top right, rgba(244, 201, 93, 0.22), transparent 36%),
-    radial-gradient(circle at bottom left, rgba(0, 194, 168, 0.18), transparent 42%);
+    radial-gradient(circle at top right, rgba(169, 204, 28, 0.22), transparent 36%),
+    radial-gradient(circle at bottom left, rgba(47, 103, 152, 0.24), transparent 42%);
 }
 
 .hero-visual > * {
@@ -478,8 +488,8 @@ textarea {
   display: grid;
   place-items: center;
   border-radius: 14px;
-  background: linear-gradient(135deg, rgba(0, 194, 168, 0.18), rgba(244, 201, 93, 0.16));
-  color: var(--accent-2);
+  background: linear-gradient(135deg, rgba(169, 204, 28, 0.2), rgba(47, 103, 152, 0.22));
+  color: var(--accent-3);
   font-weight: 800;
 }
 
@@ -561,8 +571,8 @@ textarea {
   justify-content: center;
   margin-bottom: 1rem;
   border-radius: 50%;
-  background: rgba(244, 201, 93, 0.18);
-  color: var(--accent-2);
+  background: rgba(169, 204, 28, 0.18);
+  color: var(--accent-3);
   font-weight: 800;
 }
 
@@ -681,6 +691,94 @@ textarea {
   margin: 1rem 0 0;
 }
 
+.section-clients {
+  padding-top: 1.25rem;
+}
+
+.clients-shell {
+  padding: 1.35rem;
+}
+
+.clients-overview {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.clients-brand {
+  width: 88px;
+  height: 88px;
+  object-fit: contain;
+  padding: 0.45rem;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(169, 204, 28, 0.3);
+  box-shadow: 0 18px 34px rgba(5, 22, 43, 0.26);
+}
+
+.clients-copy strong {
+  display: block;
+  font-family: "Sora", "Space Grotesk", sans-serif;
+  font-size: 1.15rem;
+}
+
+.clients-copy p {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.logo-marquee {
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+
+.logo-marquee-inner {
+  display: flex;
+  width: max-content;
+  gap: 1rem;
+  animation: client-marquee 30s linear infinite;
+}
+
+.logo-marquee:hover .logo-marquee-inner {
+  animation-play-state: paused;
+}
+
+.logo-group {
+  display: flex;
+  gap: 1rem;
+}
+
+.logo-card {
+  min-width: 170px;
+  height: 108px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem 1.15rem;
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(244, 249, 255, 0.96));
+  border: 1px solid rgba(23, 73, 118, 0.12);
+  box-shadow: 0 18px 38px rgba(4, 23, 44, 0.18);
+}
+
+.logo-card img {
+  max-width: 100%;
+  max-height: 58px;
+  object-fit: contain;
+}
+
+@keyframes client-marquee {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(calc(-50% - 0.5rem));
+  }
+}
+
 [data-reveal] {
   opacity: 0;
   transform: translateY(28px);
@@ -693,27 +791,27 @@ textarea {
 }
 
 .page-candidat {
-  --accent-1: #ff7a18;
-  --accent-2: #ffd166;
-  --accent-3: #ff4d6d;
+  --accent-1: #b9d72e;
+  --accent-2: #2f6798;
+  --accent-3: #eef88f;
 }
 
 .page-formation {
-  --accent-1: #2dd4bf;
-  --accent-2: #f6c453;
-  --accent-3: #7dd3fc;
+  --accent-1: #9fc21c;
+  --accent-2: #4277a8;
+  --accent-3: #dced74;
 }
 
 .page-externalisation {
-  --accent-1: #34d399;
-  --accent-2: #60a5fa;
-  --accent-3: #f59e0b;
+  --accent-1: #95bb18;
+  --accent-2: #3e73a5;
+  --accent-3: #d8ee6e;
 }
 
 .page-entreprise {
-  --accent-1: #38bdf8;
-  --accent-2: #f97316;
-  --accent-3: #22c55e;
+  --accent-1: #a9cc1c;
+  --accent-2: #2a5f90;
+  --accent-3: #dff06f;
 }
 
 @media (max-width: 1024px) {
@@ -740,7 +838,8 @@ textarea {
   .topbar-inner,
   .section-head,
   .footer-inner,
-  .contact-list li {
+  .contact-list li,
+  .clients-overview {
     flex-direction: column;
     align-items: flex-start;
   }
@@ -782,6 +881,11 @@ textarea {
   .testimonial-grid,
   .visual-grid {
     grid-template-columns: 1fr;
+  }
+
+  .logo-card {
+    min-width: 145px;
+    height: 94px;
   }
 
   .hero-actions,
