@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { DashboardShell } from "@/components/dashboard/shell";
+import { JobCreateForm } from "@/components/jobs/job-create-form";
 import { requireRole } from "@/lib/auth";
 import { formatDisplayDate, getAdminSnapshot } from "@/lib/jobs";
 
@@ -77,6 +78,8 @@ export default async function AdminDashboardPage() {
         </div>
 
         <aside className="dashboard-column dashboard-column--aside">
+          <JobCreateForm roleLabel="Admin" />
+
           <div className="panel dashboard-sidecard">
             <p className="eyebrow">Vision admin</p>
             <h2>Le cockpit central de la plateforme.</h2>

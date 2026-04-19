@@ -1,7 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { formatDisplayDate, getPublicJobBySlug } from "@/lib/jobs";
+import { JobApplyForm } from "@/components/jobs/job-apply-form";
+import { getCurrentProfile } from "@/lib/auth";
+import {
+  formatDisplayDate,
+  getCandidateApplicationForJob,
+  getPublicJobBySlug
+} from "@/lib/jobs";
 
 type JobDetailPageProps = {
   params: Promise<{
@@ -16,6 +22,12 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
   if (!job) {
     notFound();
   }
+
+  const profile = await getCurrentProfile();
+  const application =
+    profile?.role === "candidat"
+      ? await getCandidateApplicationForJob(profile.id, job.id)
+      : null;
 
   return (
     <main className="page-shell">
@@ -38,18 +50,42 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
 
           <aside className="panel detail-side-card">
             <h2>Prochaine etape</h2>
-            <p>
-              Dans la phase 3, cette page sera reliee au formulaire de candidature
-              Supabase avec CV, profil candidat et suivi de statut.
-            </p>
-            <div className="hero__actions hero__actions--stack">
-              <Link className="btn btn-primary btn-block" href="/inscription">
-                Creer un compte candidat
-              </Link>
-              <Link className="btn btn-secondary btn-block" href="/connexion">
-                Me connecter pour postuler
-              </Link>
-            </div>
+            {profile?.role === "candidat" ? (
+              application ? (
+                <div className="detail-side-card__stack">
+                  <p>
+                    Vous avez deja postule a cette offre depuis votre espace candidat.
+                  </p>
+                  <div className="panel dashboard-sidecard">
+                    <p className="eyebrow">Statut actuel</p>
+                    <h2>{application.status}</h2>
+                    <p>Soumis le {formatDisplayDate(application.created_at)}</p>
+                  </div>
+                  <div className="hero__actions hero__actions--stack">
+                    <Link className="btn btn-secondary btn-block" href="/app/candidat">
+                      Ouvrir mon suivi
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <JobApplyForm jobId={job.id} jobSlug={job.slug} />
+              )
+            ) : (
+              <>
+                <p>
+                  Connectez-vous en candidat pour postuler directement a cette offre
+                  depuis la plateforme Madajob.
+                </p>
+                <div className="hero__actions hero__actions--stack">
+                  <Link className="btn btn-primary btn-block" href="/inscription">
+                    Creer un compte candidat
+                  </Link>
+                  <Link className="btn btn-secondary btn-block" href="/connexion">
+                    Me connecter pour postuler
+                  </Link>
+                </div>
+              </>
+            )}
           </aside>
         </div>
       </section>

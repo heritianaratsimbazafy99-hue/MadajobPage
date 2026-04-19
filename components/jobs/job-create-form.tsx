@@ -1,0 +1,127 @@
+"use client";
+
+import { useActionState, useEffect, useRef } from "react";
+
+import { createJobAction, type JobActionState } from "@/app/actions/job-actions";
+import { SubmitButton } from "@/components/jobs/submit-button";
+
+const initialState: JobActionState = {
+  status: "idle",
+  message: ""
+};
+
+type JobCreateFormProps = {
+  roleLabel: string;
+};
+
+export function JobCreateForm({ roleLabel }: JobCreateFormProps) {
+  const formRef = useRef<HTMLFormElement>(null);
+  const [state, formAction] = useActionState(createJobAction, initialState);
+
+  useEffect(() => {
+    if (state.status === "success") {
+      formRef.current?.reset();
+    }
+  }, [state.status]);
+
+  return (
+    <form ref={formRef} action={formAction} className="dashboard-form">
+      <div className="dashboard-form__head">
+        <div>
+          <p className="eyebrow">Creation d'offre</p>
+          <h2>Publier une nouvelle annonce</h2>
+        </div>
+        <span className="tag">{roleLabel}</span>
+      </div>
+
+      <div className="form-grid">
+        <label className="field">
+          <span>Titre du poste</span>
+          <input name="title" placeholder="Ex. Responsable commercial B2B" required />
+        </label>
+
+        <label className="field">
+          <span>Lieu</span>
+          <input name="location" placeholder="Antananarivo" />
+        </label>
+
+        <label className="field">
+          <span>Type de contrat</span>
+          <input name="contract_type" placeholder="CDI" />
+        </label>
+
+        <label className="field">
+          <span>Mode de travail</span>
+          <input name="work_mode" placeholder="Presentiel / Hybride / Remote" />
+        </label>
+
+        <label className="field">
+          <span>Secteur</span>
+          <input name="sector" placeholder="Commercial, RH, Finance..." />
+        </label>
+
+        <label className="field">
+          <span>Statut</span>
+          <select name="status" defaultValue="draft">
+            <option value="draft">Brouillon</option>
+            <option value="published">Publiee</option>
+          </select>
+        </label>
+
+        <label className="field field--full">
+          <span>Resume</span>
+          <textarea
+            name="summary"
+            rows={4}
+            placeholder="Resume clair de l'offre pour le site carriere et la plateforme."
+            required
+          />
+        </label>
+
+        <label className="field field--full">
+          <span>Responsabilites</span>
+          <textarea
+            name="responsibilities"
+            rows={4}
+            placeholder="Principales missions, perimetre, objectifs..."
+          />
+        </label>
+
+        <label className="field field--full">
+          <span>Exigences</span>
+          <textarea
+            name="requirements"
+            rows={4}
+            placeholder="Competences, experience, niveau attendu..."
+          />
+        </label>
+
+        <label className="field field--full">
+          <span>Avantages</span>
+          <textarea
+            name="benefits"
+            rows={3}
+            placeholder="Elements de contexte, benefices, environnement..."
+          />
+        </label>
+      </div>
+
+      <label className="checkbox-field">
+        <input type="checkbox" name="is_featured" />
+        <span>Mettre cette offre en avant sur le site carriere</span>
+      </label>
+
+      {state.message ? (
+        <p className={state.status === "error" ? "form-feedback form-feedback--error" : "form-feedback"}>
+          {state.message}
+        </p>
+      ) : null}
+
+      <SubmitButton
+        className="btn btn-primary btn-block"
+        idleLabel="Enregistrer l'offre"
+        pendingLabel="Publication en cours..."
+      />
+    </form>
+  );
+}

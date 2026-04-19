@@ -127,6 +127,54 @@ export async function getPublicJobBySlug(slug: string) {
   return jobs.find((job) => job.slug === slug) ?? null;
 }
 
+export async function getPublishedJobById(jobId: string) {
+  if (!isSupabaseConfigured) {
+    return fallbackJobs.find((job) => job.id === jobId && job.status === "published") ?? null;
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("job_posts")
+    .select("id, title, slug, location, contract_type, work_mode, sector, summary, status, is_featured, published_at")
+    .eq("id", jobId)
+    .eq("status", "published")
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return mapJobRecord(data);
+}
+
+export async function getCandidateApplicationForJob(candidateId: string, jobId: string) {
+  if (!isSupabaseConfigured) {
+    void candidateId;
+    void jobId;
+    return null;
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("applications")
+    .select("id, status, created_at")
+    .eq("candidate_id", candidateId)
+    .eq("job_post_id", jobId)
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return {
+    id: String(data.id),
+    status: String(data.status ?? "submitted"),
+    created_at: String(data.created_at ?? ""),
+    job_title: "",
+    organization_name: null
+  } satisfies CandidateApplication;
+}
+
 export async function getCandidateApplications(_candidateId: string) {
   if (!isSupabaseConfigured) {
     return fallbackApplications;

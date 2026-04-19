@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { DashboardShell } from "@/components/dashboard/shell";
+import { JobCreateForm } from "@/components/jobs/job-create-form";
 import { requireRole } from "@/lib/auth";
 import { formatDisplayDate, getRecruiterSnapshot } from "@/lib/jobs";
 
@@ -84,6 +85,8 @@ export default async function RecruiterDashboardPage() {
         </div>
 
         <aside className="dashboard-column dashboard-column--aside">
+          <JobCreateForm roleLabel="Recruteur" />
+
           <div className="panel dashboard-sidecard">
             <p className="eyebrow">Pilotage</p>
             <h2>Un espace pense pour les operations recrutement.</h2>
