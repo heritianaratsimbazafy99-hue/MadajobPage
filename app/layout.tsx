@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
+import { LegacyUiEffects } from "@/components/site/legacy-ui-effects";
 import { SiteFooter } from "@/components/site/footer";
 import { SiteHeader } from "@/components/site/header";
 
 import "./globals.css";
+import "./legacy.css";
 
 export const metadata: Metadata = {
   title: "Madajob | Plateforme RH et site carriere natif",
@@ -20,6 +22,7 @@ export default function RootLayout({
   return (
     <html lang="fr">
       <body>
+        <LegacyUiEffects />
         <SiteHeader />
         {children}
         <SiteFooter />

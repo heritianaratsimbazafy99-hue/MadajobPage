@@ -22,23 +22,28 @@ export async function SiteHeader() {
       </div>
 
       <header className="site-header">
-        <div className="container site-header__inner">
+        <div className="container header-inner">
           <Link href="/" className="brand" aria-label="Madajob">
-            <Image
-              src={logoMadajob}
-              alt="Logo Madajob"
-              width={54}
-              height={54}
-              className="brand__logo"
-              preload
-            />
+            <span className="brand-mark">
+              <Image
+                src={logoMadajob}
+                alt="Logo Madajob"
+                width={54}
+                height={54}
+                preload
+              />
+            </span>
             <span>
               <strong>Madajob</strong>
               <small>Recrutement & solutions RH</small>
             </span>
           </Link>
 
-          <nav className="site-nav" aria-label="Navigation principale">
+          <button className="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav">
+            Menu
+          </button>
+
+          <nav className="site-nav" id="site-nav" aria-label="Navigation principale">
             <Link href="/">Accueil</Link>
             <Link href="/carrieres">Carrieres</Link>
             <Link href="/candidats">Candidat</Link>
@@ -49,11 +54,8 @@ export async function SiteHeader() {
           </nav>
 
           <div className="site-actions">
-            <Link className="btn btn-secondary" href="/connexion">
-              Connexion
-            </Link>
             <Link className="btn btn-primary" href={spaceHref}>
-              Espace candidat / recruteur
+              Notre plateforme de recrutement
             </Link>
           </div>
         </div>

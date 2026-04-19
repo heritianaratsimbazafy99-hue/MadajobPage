@@ -50,28 +50,51 @@ const steps = [
   }
 ];
 
+const jobs = [
+  {
+    number: "A",
+    title: "Responsable maintenance",
+    text: "Fonctions techniques et industrielles presentees avec des CTA de candidature plus visibles."
+  },
+  {
+    number: "B",
+    title: "Assistante administrative & RH",
+    text: "Roles support, administratifs et RH mis en avant de maniere plus lisible sur mobile comme sur desktop."
+  },
+  {
+    number: "C",
+    title: "Responsable commercial",
+    text: "Opportunites commerciales valorisees avec un meilleur contexte, plus de preuves et un chemin de candidature simplifie."
+  },
+  {
+    number: "D",
+    title: "Expert(e) en comptabilite",
+    text: "Les metiers experts gagnent en lisibilite grace a une structure de page plus editoriale et plus credible."
+  }
+];
+
 export default function CandidatsPage() {
   return (
-    <main className="page-shell">
+    <main className="page page-candidat">
       <section className="hero">
-        <div className="container hero__grid">
-          <div>
-            <p className="eyebrow">Parcours talent</p>
+        <div className="container hero-grid">
+          <div data-reveal>
+            <span className="eyebrow">Parcours talent</span>
             <h1>Trouvez plus vite le poste qui vous correspond</h1>
-            <p className="hero__lead">
+            <p className="lead">
               Retrouvez les offres, le portail carriere, l&apos;application mobile, les
               entretiens en ligne et la cooptation dans un parcours fluide pour avancer
               plus vite vers votre prochain poste.
             </p>
-            <div className="hero__actions">
+            <div className="hero-actions">
               <Link className="btn btn-primary" href="/carrieres">
                 Voir les offres
               </Link>
               <Link className="btn btn-secondary" href="/espace/candidat">
-                Ouvrir la plateforme candidat
+                Notre plateforme de recrutement
               </Link>
-              <Link className="btn btn-ghost" href="/connexion">
-                Me connecter
+              <Link className="btn btn-ghost" href="#contact">
+                Contacter l&apos;equipe
               </Link>
             </div>
             <ul className="hero-points">
@@ -82,28 +105,45 @@ export default function CandidatsPage() {
             </ul>
           </div>
 
-          <div className="hero-panel">
-            <div className="stat-card">
-              <span>Portail carriere Madajob</span>
-              <strong>274 offres visibles en un coup d&apos;oeil</strong>
+          <div className="glass-panel hero-visual" data-reveal>
+            <div className="stack-card">
+              <h3>Portail carriere Madajob</h3>
               <p>
                 Consultez les postes ouverts, reperez les opportunites qui vous
                 correspondent et postulez rapidement depuis ordinateur ou mobile.
               </p>
+              <div className="visual-grid">
+                <div className="mini-stat">
+                  <strong data-count="274">274</strong>
+                  <span>offres visibles en un coup d&apos;oeil</span>
+                </div>
+                <div className="mini-stat">
+                  <strong data-count="40000" data-suffix="+">
+                    40 000+
+                  </strong>
+                  <span>profils deja enregistres dans l&apos;ecosysteme</span>
+                </div>
+                <div className="mini-stat">
+                  <strong data-count="100000" data-suffix=" Ar">
+                    100 000 Ar
+                  </strong>
+                  <span>prime de cooptation pour une recommandation retenue</span>
+                </div>
+                <div className="mini-stat">
+                  <strong>iOS & Android</strong>
+                  <span>l&apos;application suit l&apos;emploi, la candidature et la formation</span>
+                </div>
+              </div>
             </div>
-            <div className="metric-stack">
-              <article className="mini-panel">
-                <strong>40 000+</strong>
-                <span>profils deja enregistres dans l&apos;ecosysteme</span>
-              </article>
-              <article className="mini-panel">
-                <strong>100 000 Ar</strong>
-                <span>prime de cooptation pour une recommandation retenue</span>
-              </article>
-              <article className="mini-panel">
-                <strong>iOS & Android</strong>
-                <span>l&apos;application suit l&apos;emploi, la candidature et la formation</span>
-              </article>
+
+            <div className="stack-card">
+              <h3>Experience candidate renforcee</h3>
+              <div className="tag-cloud">
+                <span>Alertes d&apos;offres</span>
+                <span>Postuler en ligne</span>
+                <span>Entretiens digitaux</span>
+                <span>Conseillers Madajob</span>
+              </div>
             </div>
           </div>
         </div>
@@ -111,22 +151,24 @@ export default function CandidatsPage() {
 
       <section className="section">
         <div className="container">
-          <div className="section-heading">
-            <p className="eyebrow">Atouts</p>
-            <h2>Tous les outils pour postuler plus facilement</h2>
-            <p className="section-copy">
-              Madajob met a votre disposition les bons outils pour rechercher un emploi,
-              suivre les offres et rester visible aupres des recruteurs.
+          <div className="section-head" data-reveal>
+            <div>
+              <span className="eyebrow">Atouts</span>
+              <h2>Tous les outils pour postuler plus facilement</h2>
+            </div>
+            <p>
+              Madajob met a votre disposition les bons outils pour rechercher un
+              emploi, suivre les offres et rester visible aupres des recruteurs.
             </p>
           </div>
 
-          <div className="job-grid">
+          <div className="card-grid">
             {tools.map((tool) => (
-              <article key={tool.number} className="panel info-card-next">
-                <span className="icon-chip">{tool.number}</span>
+              <article key={tool.number} className="info-card" data-reveal>
+                <div className="icon-chip">{tool.number}</div>
                 <h3>{tool.title}</h3>
                 <p>{tool.text}</p>
-                <ul className="list-checks">
+                <ul>
                   {tool.items.map((item) => (
                     <li key={item}>{item}</li>
                   ))}
@@ -139,13 +181,21 @@ export default function CandidatsPage() {
 
       <section className="section">
         <div className="container">
-          <div className="section-heading">
-            <p className="eyebrow">Parcours</p>
-            <h2>Comment avancer plus vite vers votre prochain poste</h2>
+          <div className="section-head" data-reveal>
+            <div>
+              <span className="eyebrow">Parcours</span>
+              <h2>Comment avancer plus vite vers votre prochain poste</h2>
+            </div>
+            <p>
+              Chaque etape du parcours est pensee pour vous aider a passer de la
+              recherche d&apos;emploi a la candidature, puis a l&apos;entretien, avec plus
+              de simplicite.
+            </p>
           </div>
+
           <div className="process-grid">
             {steps.map((step) => (
-              <article key={step.step} className="process-card">
+              <article key={step.step} className="process-card" data-reveal>
                 <span className="process-step">{step.step}</span>
                 <h3>{step.title}</h3>
                 <p>{step.text}</p>
@@ -156,15 +206,16 @@ export default function CandidatsPage() {
       </section>
 
       <section className="section">
-        <div className="container split-grid">
-          <article className="panel">
-            <p className="eyebrow">Espace personnel</p>
-            <h2>Un candidat mieux guide, donc plus engage</h2>
+        <div className="container split">
+          <article className="panel" data-reveal>
+            <span className="eyebrow">Espace personnel</span>
+            <h3>Un candidat mieux guide, donc plus engage</h3>
             <p>
               Madajob vous accompagne au-dela des annonces en vous donnant acces aux
-              outils, aux conseils et aux opportunites qui facilitent votre progression professionnelle.
+              outils, aux conseils et aux opportunites qui facilitent votre progression
+              professionnelle.
             </p>
-            <ul className="list-checks">
+            <ul className="panel-list">
               <li>Acces direct aux offres depuis la page carriere et le portail Jobmada.</li>
               <li>Application mobile pour emporter les outils de recherche d&apos;emploi et d&apos;inscription.</li>
               <li>Fonction formation pour suivre les plannings et recevoir les modules pertinents.</li>
@@ -172,11 +223,12 @@ export default function CandidatsPage() {
             </ul>
           </article>
 
-          <article className="panel quote-panel">
-            <p className="eyebrow">Opportunites</p>
+          <article className="panel quote-card" data-reveal>
+            <span className="eyebrow">Opportunites</span>
             <blockquote>
               Un candidat qui comprend vite ce qu&apos;il peut faire sur le site postule
-              davantage, revient plus souvent et recommande plus volontiers la plateforme a son entourage.
+              davantage, revient plus souvent et recommande plus volontiers la
+              plateforme a son entourage.
             </blockquote>
             <footer>Createur d&apos;opportunites</footer>
             <div className="badge-row">
@@ -189,15 +241,40 @@ export default function CandidatsPage() {
         </div>
       </section>
 
+      <section className="section">
+        <div className="container">
+          <div className="section-head" data-reveal>
+            <div>
+              <span className="eyebrow">Exemples d&apos;offres</span>
+              <h2>Les opportunites sont mises en scene plus clairement</h2>
+            </div>
+            <p>
+              La page met en avant des roles concrets pour rendre la promesse plus
+              tangible des l&apos;atterrissage.
+            </p>
+          </div>
+
+          <div className="card-grid">
+            {jobs.map((job) => (
+              <article key={job.number} className="info-card" data-reveal>
+                <div className="icon-chip">{job.number}</div>
+                <h3>{job.title}</h3>
+                <p>{job.text}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <section className="section" id="contact">
         <div className="container contact-wrap">
-          <article className="panel contact-card-next contact-card-next--accent">
+          <article className="contact-card glass-panel" data-reveal>
             <h2>Envie de postuler ou de recommander un talent ?</h2>
-            <p className="hero__lead">
+            <p className="lead">
               Accedez rapidement aux offres, postulez facilement et gardez toutes les
               informations utiles a portee de main, sur desktop comme sur mobile.
             </p>
-            <div className="hero__actions">
+            <div className="contact-actions">
               <Link className="btn btn-primary" href="/carrieres">
                 Acceder aux offres
               </Link>
@@ -207,8 +284,8 @@ export default function CandidatsPage() {
             </div>
           </article>
 
-          <article className="panel contact-card-next">
-            <p className="eyebrow">Contact candidat</p>
+          <article className="contact-card" data-reveal>
+            <span className="eyebrow">Contact candidat</span>
             <ul className="contact-list">
               <li>
                 <strong>Email recrutement</strong>
