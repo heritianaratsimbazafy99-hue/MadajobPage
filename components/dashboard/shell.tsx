@@ -8,21 +8,58 @@ type DashboardShellProps = {
   title: string;
   description: string;
   profile: Profile;
+  currentPath: string;
   children: ReactNode;
 };
 
-const navByRole: Record<AppRole, Array<{ href: string; label: string }>> = {
+type NavItem = {
+  href: string;
+  label: string;
+  hint: string;
+};
+
+const roleLabel: Record<AppRole, string> = {
+  candidat: "Candidat",
+  recruteur: "Recruteur",
+  admin: "Admin"
+};
+
+const navByRole: Record<AppRole, NavItem[]> = {
   candidat: [
-    { href: "/app/candidat", label: "Vue d'ensemble" },
-    { href: "/carrieres", label: "Offres" }
+    { href: "/app/candidat", label: "Tableau de bord", hint: "Profil, CV et candidatures" },
+    { href: "/carrieres", label: "Offres", hint: "Explorer les postes ouverts" }
   ],
   recruteur: [
-    { href: "/app/recruteur", label: "Vue d'ensemble" },
-    { href: "/carrieres", label: "Offres publiques" }
+    { href: "/app/recruteur", label: "Tableau de bord", hint: "Offres, pipeline et suivi" },
+    { href: "/carrieres", label: "Site carriere", hint: "Voir les annonces publiques" }
   ],
   admin: [
-    { href: "/app/admin", label: "Supervision" },
-    { href: "/carrieres", label: "Site carriere" }
+    { href: "/app/admin", label: "Supervision", hint: "Piloter la plateforme" },
+    { href: "/carrieres", label: "Site carriere", hint: "Controler la vitrine publique" }
+  ]
+};
+
+const actionByRole: Record<AppRole, { href: string; label: string }> = {
+  candidat: { href: "/carrieres", label: "Explorer les offres" },
+  recruteur: { href: "/carrieres", label: "Voir le site carriere" },
+  admin: { href: "/carrieres", label: "Verifier les offres publiques" }
+};
+
+const supportByRole: Record<AppRole, string[]> = {
+  candidat: [
+    "Mettre a jour votre profil pour gagner en visibilite.",
+    "Suivre vos candidatures sans revenir au site vitrine.",
+    "Acceder rapidement aux offres et aux prochaines etapes."
+  ],
+  recruteur: [
+    "Piloter vos offres depuis un espace dedie.",
+    "Retrouver vos candidatures et votre avancement en un seul endroit.",
+    "Acceder au site carriere sans quitter la plateforme."
+  ],
+  admin: [
+    "Superviser l'activite, les utilisateurs et les flux critiques.",
+    "Suivre la sante de la plateforme sans passer par la vitrine.",
+    "Centraliser le pilotage des offres et des candidatures."
   ]
 };
 
@@ -30,37 +67,88 @@ export function DashboardShell({
   title,
   description,
   profile,
+  currentPath,
   children
 }: DashboardShellProps) {
   const nav = navByRole[profile.role];
+  const action = actionByRole[profile.role];
+  const profileName = profile.full_name || profile.email || "Utilisateur";
 
   return (
     <div className="dashboard-shell">
       <aside className="dashboard-sidebar">
-        <Link href="/" className="dashboard-brand">
-          Madajob
-        </Link>
-        <p className="dashboard-user">
-          <strong>{profile.full_name || profile.email || "Utilisateur"}</strong>
-          <span>{profile.role}</span>
-        </p>
+        <div className="dashboard-sidebar__head">
+          <Link href="/app" className="dashboard-brand">
+            <span className="dashboard-brand__mark">MJ</span>
+            <span className="dashboard-brand__copy">
+              <strong>Madajob Platform</strong>
+              <small>Espace {roleLabel[profile.role].toLowerCase()}</small>
+            </span>
+          </Link>
+
+          <div className="dashboard-user">
+            <span className="dashboard-status">Session active</span>
+            <strong>{profileName}</strong>
+            <span>{profile.email || "Compte connecte"}</span>
+          </div>
+        </div>
+
         <nav className="dashboard-nav">
-          {nav.map((item) => (
-            <Link key={item.href} href={item.href}>
-              {item.label}
-            </Link>
-          ))}
+          {nav.map((item) => {
+            const isActive = item.href === currentPath;
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={["dashboard-nav__item", isActive ? "is-active" : ""].filter(Boolean).join(" ")}
+              >
+                <span>{item.label}</span>
+                <small>{item.hint}</small>
+              </Link>
+            );
+          })}
         </nav>
-        <SignOutButton />
+
+        <div className="panel dashboard-sidecard">
+          <p className="eyebrow">Pourquoi cette vue</p>
+          <h2>Une interface pensee pour travailler, pas pour naviguer.</h2>
+          <ul className="dashboard-mini-list">
+            {supportByRole[profile.role].map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="dashboard-sidebar__actions">
+          <Link className="btn btn-ghost btn-block" href="/">
+            Retour au site Madajob
+          </Link>
+          <SignOutButton className="btn-block" />
+        </div>
       </aside>
 
       <main className="dashboard-main">
-        <div className="dashboard-hero">
-          <p className="eyebrow">Tableau de bord</p>
-          <h1>{title}</h1>
-          <p>{description}</p>
-        </div>
-        {children}
+        <header className="dashboard-toolbar">
+          <div className="dashboard-toolbar__title">
+            <span className="dashboard-kicker">Plateforme Madajob</span>
+            <h1>{title}</h1>
+            <p>{description}</p>
+          </div>
+
+          <div className="dashboard-toolbar__meta">
+            <div className="dashboard-context">
+              <span className="dashboard-context__label">Role</span>
+              <strong>{roleLabel[profile.role]}</strong>
+              <small>{profile.email || "Compte connecte"}</small>
+            </div>
+            <Link className="btn btn-primary" href={action.href}>
+              {action.label}
+            </Link>
+          </div>
+        </header>
+
+        <div className="dashboard-content">{children}</div>
       </main>
     </div>
   );
