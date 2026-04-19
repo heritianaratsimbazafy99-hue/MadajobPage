@@ -14,6 +14,11 @@ git push
 2. Cliquer sur `Add New Project`.
 3. Selectionner le repository `MadajobPage`.
 4. Vercel detectera automatiquement `Next.js`.
+5. Si le projet existait deja en version statique:
+   - ouvrir `Settings > Build & Development Settings`
+   - verifier `Framework Preset = Next.js`
+   - vider `Output Directory` si `public` ou une autre ancienne valeur est encore presente
+   - laisser Vercel gerer automatiquement la sortie du build Next.js
 
 ## 3. Ajouter les variables d'environnement
 
@@ -43,3 +48,17 @@ Apres ajout des variables:
    - `/inscription`
    - `/carrieres`
    - `/app/*`
+
+## 6. En cas d'erreur "No Output Directory named public"
+
+Cette erreur signifie en general que le projet Vercel garde encore la configuration de l'ancienne version HTML statique.
+
+Correction:
+
+1. Aller dans `Project Settings > Build & Development Settings`
+2. Mettre `Framework Preset` sur `Next.js`
+3. Effacer `Output Directory` si `public` est renseigne
+4. Sauvegarder
+5. Redeployer
+
+Le fichier `vercel.json` du repo force maintenant aussi `framework = nextjs`.
