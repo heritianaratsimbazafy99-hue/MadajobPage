@@ -1,22 +1,28 @@
 {
   "name": "madajob-page",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "private": true,
-  "description": "Madajob website and native careers portal with admin, authentication and application storage.",
-  "main": "server.js",
+  "description": "Madajob website rebuilt with Next.js, Supabase Auth, PostgreSQL and Storage.",
   "scripts": {
-    "dev": "node server.js",
-    "start": "node server.js"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "legacy:server": "node server.js"
   },
   "engines": {
     "node": ">=20"
   },
   "dependencies": {
-    "bcryptjs": "^3.0.3",
-    "better-sqlite3": "^12.4.1",
-    "connect-sqlite3": "^0.9.16",
-    "express": "^5.1.0",
-    "express-session": "^1.18.2",
-    "multer": "^2.0.2"
+    "@supabase/ssr": "^0.7.0",
+    "@supabase/supabase-js": "^2.57.4",
+    "next": "^16.0.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.9.1",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "typescript": "^5.9.3"
   }
 }
