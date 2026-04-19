@@ -3,8 +3,8 @@ import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard/shell";
 import { CandidateProfileForm } from "@/components/profile/candidate-profile-form";
 import { requireRole } from "@/lib/auth";
+import { formatDisplayDate } from "@/lib/format";
 import {
-  formatDisplayDate,
   getCandidateApplications,
   getCandidateWorkspace
 } from "@/lib/jobs";
@@ -54,7 +54,7 @@ export default async function CandidateDashboardPage() {
                 <p className="eyebrow">Candidatures</p>
                 <h2>Suivi recent</h2>
               </div>
-              <Link className="text-link" href="/carrieres">
+              <Link className="text-link" href="/app/candidat/offres">
                 Voir toutes les offres
               </Link>
             </div>
@@ -95,7 +95,7 @@ export default async function CandidateDashboardPage() {
               ))}
             </ul>
             <div className="dashboard-action-stack">
-              <Link className="btn btn-primary btn-block" href="/carrieres">
+              <Link className="btn btn-primary btn-block" href="/app/candidat/offres">
                 Explorer les offres
               </Link>
               <Link className="btn btn-secondary btn-block" href="/espace/candidat">

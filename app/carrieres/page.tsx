@@ -1,6 +1,7 @@
 import Link from "next/link";
 
-import { formatDisplayDate, getPublicJobs } from "@/lib/jobs";
+import { formatDisplayDate } from "@/lib/format";
+import { getPublicJobs } from "@/lib/jobs";
 
 export default async function CarrieresPage() {
   const jobs = await getPublicJobs();

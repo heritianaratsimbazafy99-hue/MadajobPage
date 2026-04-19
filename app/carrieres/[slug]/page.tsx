@@ -3,8 +3,8 @@ import { notFound } from "next/navigation";
 
 import { JobApplyForm } from "@/components/jobs/job-apply-form";
 import { getCurrentProfile } from "@/lib/auth";
+import { formatDisplayDate } from "@/lib/format";
 import {
-  formatDisplayDate,
   getCandidateApplicationForJob,
   getPublicJobBySlug
 } from "@/lib/jobs";

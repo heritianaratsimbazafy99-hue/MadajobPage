@@ -4,8 +4,8 @@ import { DashboardShell } from "@/components/dashboard/shell";
 import { ApplicationStatusForm } from "@/components/jobs/application-status-form";
 import { JobCreateForm } from "@/components/jobs/job-create-form";
 import { requireRole } from "@/lib/auth";
+import { formatDisplayDate } from "@/lib/format";
 import {
-  formatDisplayDate,
   getAdminApplications,
   getAdminSnapshot
 } from "@/lib/jobs";

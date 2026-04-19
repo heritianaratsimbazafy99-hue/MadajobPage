@@ -27,7 +27,7 @@ const roleLabel: Record<AppRole, string> = {
 const navByRole: Record<AppRole, NavItem[]> = {
   candidat: [
     { href: "/app/candidat", label: "Tableau de bord", hint: "Profil, CV et candidatures" },
-    { href: "/carrieres", label: "Offres", hint: "Explorer les postes ouverts" }
+    { href: "/app/candidat/offres", label: "Offres", hint: "Explorer les postes ouverts" }
   ],
   recruteur: [
     { href: "/app/recruteur", label: "Tableau de bord", hint: "Offres, pipeline et suivi" },
@@ -40,7 +40,7 @@ const navByRole: Record<AppRole, NavItem[]> = {
 };
 
 const actionByRole: Record<AppRole, { href: string; label: string }> = {
-  candidat: { href: "/carrieres", label: "Explorer les offres" },
+  candidat: { href: "/app/candidat/offres", label: "Explorer les offres" },
   recruteur: { href: "/carrieres", label: "Voir le site carriere" },
   admin: { href: "/carrieres", label: "Verifier les offres publiques" }
 };

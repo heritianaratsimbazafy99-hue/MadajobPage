@@ -1,5 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/env";
+import { createClient } from "@/lib/supabase/server";
 import type {
   CandidateApplication,
   CandidateProfileData,
@@ -468,18 +468,4 @@ export async function getAdminSnapshot() {
     },
     recentJobs: (recentJobsData ?? []).map((item) => mapJobRecord(item))
   };
-}
-
-export function formatDisplayDate(value: string | null) {
-  if (!value) {
-    return "A definir";
-  }
-
-  const date = new Date(value);
-
-  return new Intl.DateTimeFormat("fr-FR", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric"
-  }).format(date);
 }
