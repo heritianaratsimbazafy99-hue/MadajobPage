@@ -769,6 +769,14 @@ textarea {
   flex-shrink: 0;
 }
 
+.logo-card--air,
+.logo-card--telma,
+.logo-card--colas,
+.logo-card--star {
+  min-width: 188px;
+  padding: 0.55rem 0.8rem;
+}
+
 .logo-card img {
   max-width: 100%;
   max-height: 58px;
@@ -786,8 +794,8 @@ textarea {
 }
 
 .logo-card__img--air {
-  max-height: 72px;
-  transform: scale(1.18);
+  max-height: 92px;
+  transform: scale(1.42);
 }
 
 .logo-card__img--bni {
@@ -796,18 +804,18 @@ textarea {
 }
 
 .logo-card__img--telma {
-  max-height: 74px;
-  transform: scale(1.18);
+  max-height: 94px;
+  transform: scale(1.42);
 }
 
 .logo-card__img--colas {
-  max-height: 72px;
-  transform: scale(1.16);
+  max-height: 92px;
+  transform: scale(1.4);
 }
 
 .logo-card__img--star {
-  max-height: 78px;
-  transform: scale(1.22);
+  max-height: 96px;
+  transform: scale(1.5);
 }
 
 @keyframes client-marquee {

@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Administration des annonces | Madajob</title>
+    <meta
+      name="description"
+      content="Administration simple des annonces Madajob pour créer, modifier, publier, exporter ou importer les offres d'emploi du site carrière natif."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Space+Grotesk:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/styles.css" />
+    <link rel="stylesheet" href="assets/careers.css" />
+    <script defer src="assets/script.js"></script>
+    <script defer src="assets/careers.js"></script>
+  </head>
+  <body class="page page-careers" data-careers-page="admin">
+    <div class="topbar">
+      <div class="container topbar-inner">
+        <p>Administration carrière · création rapide · publication immédiate sur le site natif</p>
+        <a href="carrieres.html">Voir le site carrière</a>
+      </div>
+    </div>
+
+    <header class="site-header">
+      <div class="container header-inner">
+        <a class="brand" href="index.html">
+          <span class="brand-mark">
+            <img src="assets/clients/madajob-logo.png" alt="Logo Madajob" />
+          </span>
+          <span>
+            <strong>Madajob</strong>
+            <small>Administration des annonces</small>
+          </span>
+        </a>
+
+        <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav">
+          Menu
+        </button>
+
+        <nav class="site-nav" id="site-nav">
+          <a href="index.html">Accueil</a>
+          <a href="carrieres.html">Carrières</a>
+          <a href="candidat.html">Candidat</a>
+          <a href="formation.html">Formation</a>
+          <a href="externalisation.html">Externalisation</a>
+          <a href="entreprise.html">Entreprise</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="career-hero">
+        <div class="container career-hero-grid">
+          <div data-reveal>
+            <span class="eyebrow">Administration native</span>
+            <h1>Créez et publiez vos annonces en quelques minutes</h1>
+            <p class="lead">
+              Cet espace vous permet de gérer vos annonces Madajob simplement : création, édition, publication, duplication, brouillon, import et export JSON.
+            </p>
+            <div class="hero-actions">
+              <a class="btn btn-primary" href="#job-form-panel">Créer une annonce</a>
+              <a class="btn btn-secondary" href="carrieres.html">Voir le site carrière</a>
+              <a class="btn btn-ghost" href="mailto:recrutement@madajob.mg">Contacter l'équipe</a>
+            </div>
+            <ul class="hero-points">
+              <li>Création rapide</li>
+              <li>Gestion des brouillons</li>
+              <li>Import / export JSON</li>
+              <li>Duplication d'annonce</li>
+            </ul>
+          </div>
+
+          <div class="glass-panel career-spotlight" data-reveal>
+            <div class="admin-stats">
+              <article class="career-stat">
+                <strong id="admin-total">0</strong>
+                <span>annonces enregistrées</span>
+              </article>
+              <article class="career-stat">
+                <strong id="admin-published">0</strong>
+                <span>annonces publiées</span>
+              </article>
+              <article class="career-stat">
+                <strong id="admin-featured">0</strong>
+                <span>annonces mises en avant</span>
+              </article>
+            </div>
+            <p class="career-note">
+              Les annonces sont enregistrées dans ce navigateur pour une gestion immédiate. Vous pouvez aussi exporter le JSON pour le partager ou l'importer sur un autre poste.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="container admin-shell">
+          <article class="admin-panel glass-panel" id="job-form-panel" data-reveal>
+            <span class="eyebrow">Créer / modifier</span>
+            <h2>Fiche annonce</h2>
+            <p class="admin-helper">
+              Renseignez les informations essentielles de l'offre. Les listes “missions”, “profil” et “bénéfices” acceptent une ligne par item.
+            </p>
+
+            <form id="job-form">
+              <input type="hidden" name="jobId" />
+              <div class="admin-form-grid">
+                <div class="field field--full">
+                  <label for="job-title">Titre du poste</label>
+                  <input id="job-title" name="title" type="text" placeholder="Ex: RESPONSABLE ADMINISTRATIF & FINANCIER" required />
+                </div>
+
+                <div class="field">
+                  <label for="job-contract">Type de contrat</label>
+                  <select id="job-contract" name="contract">
+                    <option value="CDI">CDI</option>
+                    <option value="CDD">CDD</option>
+                    <option value="Interim">Interim</option>
+                    <option value="Indépendant">Indépendant</option>
+                    <option value="Stage">Stage</option>
+                  </select>
+                </div>
+
+                <div class="field">
+                  <label for="job-location">Ville</label>
+                  <input id="job-location" name="location" type="text" placeholder="Antananarivo" />
+                </div>
+
+                <div class="field">
+                  <label for="job-department">Département</label>
+                  <input id="job-department" name="department" type="text" placeholder="Commercial, RH, Finance..." />
+                </div>
+
+                <div class="field">
+                  <label for="job-sector">Secteur</label>
+                  <input id="job-sector" name="sector" type="text" placeholder="Commerce et services" />
+                </div>
+
+                <div class="field">
+                  <label for="job-mode">Mode de travail</label>
+                  <select id="job-mode" name="mode">
+                    <option value="Présentiel">Présentiel</option>
+                    <option value="Hybride">Hybride</option>
+                    <option value="À distance">À distance</option>
+                  </select>
+                </div>
+
+                <div class="field">
+                  <label for="job-closing-date">Date limite</label>
+                  <input id="job-closing-date" name="closingDate" type="date" />
+                </div>
+
+                <div class="field">
+                  <label for="job-apply-email">Email de réception</label>
+                  <input id="job-apply-email" name="applyEmail" type="email" value="recrutement@madajob.mg" />
+                </div>
+
+                <div class="field">
+                  <label for="job-apply-url">Lien de candidature externe (optionnel)</label>
+                  <input id="job-apply-url" name="applyUrl" type="url" placeholder="https://..." />
+                </div>
+
+                <div class="field field--full">
+                  <label for="job-summary">Résumé du poste</label>
+                  <textarea id="job-summary" name="summary" placeholder="Résumé clair et vendeur de l'opportunité." required></textarea>
+                </div>
+
+                <div class="field field--full">
+                  <label for="job-missions">Missions principales</label>
+                  <textarea id="job-missions" name="missions" placeholder="Une mission par ligne"></textarea>
+                </div>
+
+                <div class="field field--full">
+                  <label for="job-profile">Profil recherché</label>
+                  <textarea id="job-profile" name="profile" placeholder="Un critère par ligne"></textarea>
+                </div>
+
+                <div class="field field--full">
+                  <label for="job-benefits">Ce que nous proposons</label>
+                  <textarea id="job-benefits" name="benefits" placeholder="Un bénéfice par ligne"></textarea>
+                </div>
+              </div>
+
+              <fieldset class="checkbox-row">
+                <legend>Visibilité de l'annonce</legend>
+                <label class="checkbox-group">
+                  <input type="checkbox" name="published" checked />
+                  <span>Publier l'annonce</span>
+                </label>
+                <label class="checkbox-group">
+                  <input type="checkbox" name="featured" />
+                  <span>Mettre en avant</span>
+                </label>
+              </fieldset>
+
+              <div class="status-row">
+                <p class="status-message" id="admin-status"></p>
+                <div class="hero-actions admin-actions">
+                  <button class="btn btn-primary" type="submit">Enregistrer l'annonce</button>
+                  <button class="btn btn-secondary" type="button" id="job-form-reset">Réinitialiser</button>
+                </div>
+              </div>
+            </form>
+          </article>
+
+          <article class="admin-panel glass-panel" data-reveal>
+            <span class="eyebrow">Pilotage</span>
+            <h2>Liste des annonces</h2>
+            <p class="admin-helper">
+              Modifiez une annonce, dupliquez-la pour gagner du temps, passez-la en brouillon ou exportez tout votre catalogue.
+            </p>
+
+            <div class="admin-toolbar">
+              <button class="btn btn-secondary" type="button" id="admin-export">Exporter JSON</button>
+              <label class="btn btn-secondary" for="admin-import">Importer JSON</label>
+              <input id="admin-import" type="file" accept="application/json" />
+              <button class="btn btn-ghost" type="button" id="admin-restore">Restaurer les annonces de démonstration</button>
+            </div>
+
+            <p class="admin-disclaimer">
+              Utilisation conseillée : créez vos annonces, vérifiez le rendu sur le site carrière, puis exportez le JSON si vous souhaitez conserver ou transférer votre base d'annonces.
+            </p>
+
+            <div class="admin-jobs-list" id="admin-jobs-list"></div>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="container footer-inner">
+        <p>Madajob © <span data-year>2026</span> · Administration des annonces.</p>
+        <div class="footer-links">
+          <a href="index.html">Accueil</a>
+          <a href="carrieres.html">Carrières</a>
+          <a href="candidat.html">Candidat</a>
+          <a href="entreprise.html">Entreprise</a>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
