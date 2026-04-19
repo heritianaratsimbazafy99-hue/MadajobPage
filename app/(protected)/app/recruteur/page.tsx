@@ -1,9 +1,14 @@
 import Link from "next/link";
 
 import { DashboardShell } from "@/components/dashboard/shell";
+import { ApplicationStatusForm } from "@/components/jobs/application-status-form";
 import { JobCreateForm } from "@/components/jobs/job-create-form";
 import { requireRole } from "@/lib/auth";
-import { formatDisplayDate, getRecruiterSnapshot } from "@/lib/jobs";
+import {
+  formatDisplayDate,
+  getRecruiterApplications,
+  getRecruiterSnapshot
+} from "@/lib/jobs";
 
 const recruiterChecklist = [
   "Suivre vos offres actives sans repasser par le site institutionnel.",
@@ -14,6 +19,7 @@ const recruiterChecklist = [
 export default async function RecruiterDashboardPage() {
   const profile = await requireRole(["recruteur"]);
   const snapshot = await getRecruiterSnapshot(profile);
+  const applications = await getRecruiterApplications(profile);
 
   return (
     <DashboardShell
@@ -78,6 +84,45 @@ export default async function RecruiterDashboardPage() {
                 <article className="panel list-card dashboard-card dashboard-card--empty">
                   <h3>Aucune offre pour le moment</h3>
                   <p>La structure recruteur est prete. La prochaine etape sera le vrai CRUD d&apos;offres relie a Supabase.</p>
+                </article>
+              )}
+            </div>
+          </div>
+
+          <div className="dashboard-section">
+            <div className="dashboard-section__head">
+              <div>
+                <p className="eyebrow">Candidatures</p>
+                <h2>Pipeline recent</h2>
+              </div>
+            </div>
+
+            <div className="dashboard-list">
+              {applications.length > 0 ? (
+                applications.map((application) => (
+                  <article key={application.id} className="panel list-card dashboard-card">
+                    <div className="dashboard-card__top">
+                      <h3>{application.candidate_name}</h3>
+                      <span className="tag">{application.status}</span>
+                    </div>
+                    <p>
+                      {application.job_title} · {application.job_location}
+                    </p>
+                    <small>{application.candidate_email}</small>
+                    {application.cover_letter ? <p>{application.cover_letter}</p> : null}
+                    <div className="job-card__meta">
+                      <span>Soumis le {formatDisplayDate(application.created_at)}</span>
+                    </div>
+                    <ApplicationStatusForm
+                      applicationId={application.id}
+                      currentStatus={application.status}
+                    />
+                  </article>
+                ))
+              ) : (
+                <article className="panel list-card dashboard-card dashboard-card--empty">
+                  <h3>Aucune candidature recue pour le moment</h3>
+                  <p>Les candidatures envoyees depuis le site carriere apparaitront ici pour votre suivi.</p>
                 </article>
               )}
             </div>

@@ -1,8 +1,13 @@
 import Link from "next/link";
 
 import { DashboardShell } from "@/components/dashboard/shell";
+import { CandidateProfileForm } from "@/components/profile/candidate-profile-form";
 import { requireRole } from "@/lib/auth";
-import { formatDisplayDate, getCandidateApplications } from "@/lib/jobs";
+import {
+  formatDisplayDate,
+  getCandidateApplications,
+  getCandidateWorkspace
+} from "@/lib/jobs";
 
 const candidateChecklist = [
   "Completer le profil pour etre plus facilement identifie par les recruteurs.",
@@ -13,6 +18,7 @@ const candidateChecklist = [
 export default async function CandidateDashboardPage() {
   const profile = await requireRole(["candidat"]);
   const applications = await getCandidateApplications(profile.id);
+  const candidateProfile = await getCandidateWorkspace(profile);
   const latestApplication = applications[0];
 
   return (
@@ -30,8 +36,8 @@ export default async function CandidateDashboardPage() {
         </article>
         <article className="panel metric-panel">
           <span>Profil</span>
-          <strong>{profile.full_name || "A completer"}</strong>
-          <small>{profile.email || "renseignez votre compte"}</small>
+          <strong>{candidateProfile.profile_completion}%</strong>
+          <small>{candidateProfile.profile_completion > 0 ? "taux de completion actuel" : "completez votre dossier"}</small>
         </article>
         <article className="panel metric-panel">
           <span>Derniere action</span>
@@ -78,6 +84,8 @@ export default async function CandidateDashboardPage() {
         </div>
 
         <aside className="dashboard-column dashboard-column--aside">
+          <CandidateProfileForm profile={candidateProfile} />
+
           <div className="panel dashboard-sidecard">
             <p className="eyebrow">Prochaines etapes</p>
             <h2>Gardez votre dossier actif.</h2>

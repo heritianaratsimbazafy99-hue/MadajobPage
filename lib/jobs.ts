@@ -1,6 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/env";
-import type { CandidateApplication, Job, Profile } from "@/lib/types";
+import type {
+  CandidateApplication,
+  CandidateProfileData,
+  Job,
+  Profile,
+  RecruiterApplication
+} from "@/lib/types";
 
 const fallbackJobs: Job[] = [
   {
@@ -81,6 +87,45 @@ const fallbackApplications: CandidateApplication[] = [
     organization_name: "Madajob"
   }
 ];
+
+const fallbackRecruiterApplications: RecruiterApplication[] = [
+  {
+    id: "recruiter-app-1",
+    status: "screening",
+    created_at: "2026-04-18T12:30:00.000Z",
+    cover_letter: "Disponible rapidement pour un entretien et motive par un environnement B2B exigeant.",
+    candidate_name: "Miora Randriam",
+    candidate_email: "miora@example.com",
+    job_title: "Commercial B2B grands comptes",
+    job_location: "Antananarivo"
+  },
+  {
+    id: "recruiter-app-2",
+    status: "submitted",
+    created_at: "2026-04-17T10:15:00.000Z",
+    cover_letter: "Experience confirmee en relation candidat et gestion de dossier.",
+    candidate_name: "Hery Ranaivo",
+    candidate_email: "hery@example.com",
+    job_title: "Charge(e) relation candidat",
+    job_location: "Antananarivo"
+  }
+];
+
+const fallbackCandidateProfile: CandidateProfileData = {
+  full_name: "",
+  email: "",
+  phone: "",
+  headline: "",
+  city: "",
+  country: "Madagascar",
+  bio: "",
+  experience_years: null,
+  current_position: "",
+  desired_position: "",
+  skills_text: "",
+  cv_text: "",
+  profile_completion: 0
+};
 
 function mapJobRecord(record: Record<string, unknown>): Job {
   return {
@@ -204,6 +249,54 @@ export async function getCandidateApplications(_candidateId: string) {
   });
 }
 
+export async function getCandidateWorkspace(profile: Profile): Promise<CandidateProfileData> {
+  if (!isSupabaseConfigured) {
+    return {
+      ...fallbackCandidateProfile,
+      full_name: profile.full_name ?? "",
+      email: profile.email ?? "",
+      phone: profile.phone ?? ""
+    };
+  }
+
+  const supabase = await createClient();
+  const { data: profileData } = await supabase
+    .from("profiles")
+    .select("full_name, email, phone")
+    .eq("id", profile.id)
+    .maybeSingle();
+
+  const { data: candidateData } = await supabase
+    .from("candidate_profiles")
+    .select(
+      "headline, city, country, bio, experience_years, current_position, desired_position, skills_text, cv_text, profile_completion"
+    )
+    .eq("user_id", profile.id)
+    .maybeSingle();
+
+  return {
+    full_name: String(profileData?.full_name ?? profile.full_name ?? ""),
+    email: String(profileData?.email ?? profile.email ?? ""),
+    phone: String(profileData?.phone ?? profile.phone ?? ""),
+    headline: String(candidateData?.headline ?? ""),
+    city: String(candidateData?.city ?? ""),
+    country: String(candidateData?.country ?? "Madagascar"),
+    bio: String(candidateData?.bio ?? ""),
+    experience_years:
+      typeof candidateData?.experience_years === "number"
+        ? candidateData.experience_years
+        : null,
+    current_position: String(candidateData?.current_position ?? ""),
+    desired_position: String(candidateData?.desired_position ?? ""),
+    skills_text: String(candidateData?.skills_text ?? ""),
+    cv_text: String(candidateData?.cv_text ?? ""),
+    profile_completion:
+      typeof candidateData?.profile_completion === "number"
+        ? candidateData.profile_completion
+        : 0
+  };
+}
+
 export async function getRecruiterSnapshot(profile: Profile) {
   if (!isSupabaseConfigured || !profile.organization_id) {
     return {
@@ -246,6 +339,91 @@ export async function getRecruiterSnapshot(profile: Profile) {
       pipeline: Math.max(3, Math.floor((applicationsCount ?? 0) / 2))
     }
   };
+}
+
+export async function getRecruiterApplications(profile: Profile) {
+  if (!isSupabaseConfigured || !profile.organization_id) {
+    return fallbackRecruiterApplications;
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("applications")
+    .select(
+      `
+      id,
+      status,
+      created_at,
+      cover_letter,
+      candidate:profiles!applications_candidate_id_fkey(full_name, email),
+      job_posts!inner(title, location, organization_id)
+    `
+    )
+    .eq("job_posts.organization_id", profile.organization_id)
+    .order("created_at", { ascending: false })
+    .limit(8);
+
+  if (error || !data) {
+    return fallbackRecruiterApplications;
+  }
+
+  return data.map((item: Record<string, unknown>) => {
+    const candidate = (item.candidate as { full_name?: string | null; email?: string | null } | null) ?? null;
+    const job = (item.job_posts as { title?: string | null; location?: string | null } | null) ?? null;
+
+    return {
+      id: String(item.id),
+      status: String(item.status ?? "submitted"),
+      created_at: String(item.created_at ?? ""),
+      cover_letter: typeof item.cover_letter === "string" ? item.cover_letter : null,
+      candidate_name: candidate?.full_name || candidate?.email || "Candidat Madajob",
+      candidate_email: candidate?.email || "email non renseigne",
+      job_title: job?.title || "Offre Madajob",
+      job_location: job?.location || "Lieu a definir"
+    } satisfies RecruiterApplication;
+  });
+}
+
+export async function getAdminApplications() {
+  if (!isSupabaseConfigured) {
+    return fallbackRecruiterApplications;
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("applications")
+    .select(
+      `
+      id,
+      status,
+      created_at,
+      cover_letter,
+      candidate:profiles!applications_candidate_id_fkey(full_name, email),
+      job_posts(title, location)
+    `
+    )
+    .order("created_at", { ascending: false })
+    .limit(8);
+
+  if (error || !data) {
+    return fallbackRecruiterApplications;
+  }
+
+  return data.map((item: Record<string, unknown>) => {
+    const candidate = (item.candidate as { full_name?: string | null; email?: string | null } | null) ?? null;
+    const job = (item.job_posts as { title?: string | null; location?: string | null } | null) ?? null;
+
+    return {
+      id: String(item.id),
+      status: String(item.status ?? "submitted"),
+      created_at: String(item.created_at ?? ""),
+      cover_letter: typeof item.cover_letter === "string" ? item.cover_letter : null,
+      candidate_name: candidate?.full_name || candidate?.email || "Candidat Madajob",
+      candidate_email: candidate?.email || "email non renseigne",
+      job_title: job?.title || "Offre Madajob",
+      job_location: job?.location || "Lieu a definir"
+    } satisfies RecruiterApplication;
+  });
 }
 
 export async function getAdminSnapshot() {

@@ -1,9 +1,14 @@
 import Link from "next/link";
 
 import { DashboardShell } from "@/components/dashboard/shell";
+import { ApplicationStatusForm } from "@/components/jobs/application-status-form";
 import { JobCreateForm } from "@/components/jobs/job-create-form";
 import { requireRole } from "@/lib/auth";
-import { formatDisplayDate, getAdminSnapshot } from "@/lib/jobs";
+import {
+  formatDisplayDate,
+  getAdminApplications,
+  getAdminSnapshot
+} from "@/lib/jobs";
 
 const adminChecklist = [
   "Superviser l'activite candidats, recruteurs et offres depuis une seule interface.",
@@ -14,6 +19,7 @@ const adminChecklist = [
 export default async function AdminDashboardPage() {
   const profile = await requireRole(["admin"]);
   const snapshot = await getAdminSnapshot();
+  const applications = await getAdminApplications();
 
   return (
     <DashboardShell
@@ -71,6 +77,38 @@ export default async function AdminDashboardPage() {
                     <span>{job.work_mode}</span>
                   </div>
                   <small>Publication : {formatDisplayDate(job.published_at)}</small>
+                </article>
+              ))}
+            </div>
+          </div>
+
+          <div className="dashboard-section">
+            <div className="dashboard-section__head">
+              <div>
+                <p className="eyebrow">Candidatures</p>
+                <h2>Activite recente</h2>
+              </div>
+            </div>
+
+            <div className="dashboard-list">
+              {applications.map((application) => (
+                <article key={application.id} className="panel list-card dashboard-card">
+                  <div className="dashboard-card__top">
+                    <h3>{application.candidate_name}</h3>
+                    <span className="tag">{application.status}</span>
+                  </div>
+                  <p>
+                    {application.job_title} · {application.job_location}
+                  </p>
+                  <small>{application.candidate_email}</small>
+                  {application.cover_letter ? <p>{application.cover_letter}</p> : null}
+                  <div className="job-card__meta">
+                    <span>Soumis le {formatDisplayDate(application.created_at)}</span>
+                  </div>
+                  <ApplicationStatusForm
+                    applicationId={application.id}
+                    currentStatus={application.status}
+                  />
                 </article>
               ))}
             </div>
