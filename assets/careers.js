@@ -1,249 +1,4 @@
-const CAREERS_STORAGE_KEY = "madajob-native-careers-v1";
-const DEFAULT_APPLY_EMAIL = "recrutement@madajob.mg";
-
-const seedJobs = [
-  {
-    id: "MJ-2995",
-    title: "BUSINESS DEVELOPER",
-    contract: "CDI",
-    location: "Antananarivo",
-    department: "Commercial",
-    sector: "Commerce et services",
-    mode: "Présentiel",
-    summary:
-      "Développer un portefeuille B2B, identifier de nouveaux relais de croissance et piloter la relation commerciale avec les comptes clés.",
-    missions: [
-      "Prospecter et qualifier de nouveaux clients B2B basés à Madagascar.",
-      "Construire des propositions commerciales adaptées au besoin du client.",
-      "Assurer le suivi du pipe commercial et la négociation jusqu'à la signature.",
-    ],
-    profile: [
-      "Expérience confirmée en développement commercial B2B.",
-      "Bonne capacité de négociation et sens du résultat.",
-      "Excellente communication en français, aisance relationnelle.",
-    ],
-    benefits: [
-      "Package motivant selon profil.",
-      "Environnement dynamique et orienté performance.",
-      "Possibilités d'évolution au sein de projets à fort impact.",
-    ],
-    closingDate: "2026-05-20",
-    applyEmail: DEFAULT_APPLY_EMAIL,
-    published: true,
-    featured: true,
-    createdAt: "2026-04-19T08:00:00.000Z",
-  },
-  {
-    id: "MJ-2994",
-    title: "AGENT DE SECURITE",
-    contract: "CDI",
-    location: "Antananarivo",
-    department: "Opérations",
-    sector: "Textiles / Vêtements / Accessoires",
-    mode: "Présentiel",
-    summary:
-      "Assurer la surveillance des sites, contrôler les accès et veiller au respect des consignes de sécurité.",
-    missions: [
-      "Sécuriser l'enceinte de l'entreprise et effectuer les rondes.",
-      "Contrôler les entrées et sorties des personnes et des véhicules.",
-      "Rédiger les rapports d'incident et alerter en cas d'anomalie.",
-    ],
-    profile: [
-      "Première expérience en sécurité ou gardiennage souhaitée.",
-      "Rigueur, vigilance et ponctualité.",
-      "Bonne présentation et sens des responsabilités.",
-    ],
-    benefits: [
-      "Mission stable en environnement structuré.",
-      "Encadrement opérationnel de proximité.",
-    ],
-    closingDate: "2026-05-05",
-    applyEmail: DEFAULT_APPLY_EMAIL,
-    published: true,
-    featured: false,
-    createdAt: "2026-04-18T10:15:00.000Z",
-  },
-  {
-    id: "MJ-2993",
-    title: "RESPONSABLE ADMINISTRATIF & FINANCIER",
-    contract: "CDI",
-    location: "Toamasina",
-    department: "Finance & Administration",
-    sector: "Finance & Administration",
-    mode: "Présentiel",
-    summary:
-      "Piloter les volets administratifs, comptables et financiers de l'entreprise avec un rôle central dans la structuration des opérations.",
-    missions: [
-      "Superviser la gestion administrative, la paie et le suivi social.",
-      "Assurer le pilotage budgétaire et le contrôle des dépenses.",
-      "Sécuriser les relations avec les partenaires financiers et fournisseurs.",
-    ],
-    profile: [
-      "Expérience confirmée en RAF ou poste similaire.",
-      "Très bonne maîtrise des états financiers et de la gestion budgétaire.",
-      "Leadership, rigueur et sens de l'organisation.",
-    ],
-    benefits: [
-      "Poste clé avec forte autonomie.",
-      "Responsabilités transverses et impact direct sur la performance.",
-    ],
-    closingDate: "2026-05-12",
-    applyEmail: DEFAULT_APPLY_EMAIL,
-    published: true,
-    featured: true,
-    createdAt: "2026-04-17T09:40:00.000Z",
-  },
-  {
-    id: "MJ-2984",
-    title: "ASSISTANT(E) ADMINISTRATIF(VE)",
-    contract: "CDI",
-    location: "Antananarivo",
-    department: "Support",
-    sector: "Finance & Administration",
-    mode: "Présentiel",
-    summary:
-      "Assurer la gestion documentaire, le suivi administratif et le support aux équipes dans un environnement exigeant.",
-    missions: [
-      "Collecter, vérifier et classer les documents administratifs.",
-      "Préparer les courriers, tableaux de suivi et synthèses utiles.",
-      "Appuyer les équipes RH et finance dans les tâches de coordination.",
-    ],
-    profile: [
-      "Bonne maîtrise des outils bureautiques.",
-      "Sens du détail, discrétion et fiabilité.",
-      "Capacité à suivre plusieurs dossiers en parallèle.",
-    ],
-    benefits: [
-      "Poste polyvalent dans une structure organisée.",
-      "Accompagnement à la prise de poste.",
-    ],
-    closingDate: "2026-05-08",
-    applyEmail: DEFAULT_APPLY_EMAIL,
-    published: true,
-    featured: false,
-    createdAt: "2026-04-16T11:25:00.000Z",
-  },
-  {
-    id: "MJ-2982",
-    title: "LEGAL OFFICER",
-    contract: "CDD",
-    location: "Antananarivo",
-    department: "Juridique",
-    sector: "Produits chimiques",
-    mode: "Présentiel",
-    summary:
-      "Veiller à la conformité juridique des opérations, identifier les écarts et proposer les actions correctives adaptées.",
-    missions: [
-      "Analyser la conformité légale des procédures internes.",
-      "Rédiger ou relire les contrats, notes et documents juridiques.",
-      "Accompagner les départements sur les sujets réglementaires.",
-    ],
-    profile: [
-      "Formation en droit avec première expérience significative.",
-      "Capacité d'analyse et qualité rédactionnelle.",
-      "Aisance dans le travail transverse avec plusieurs départements.",
-    ],
-    benefits: [
-      "Missions variées à forte valeur ajoutée.",
-      "Exposition à des dossiers stratégiques.",
-    ],
-    closingDate: "2026-05-18",
-    applyEmail: DEFAULT_APPLY_EMAIL,
-    published: true,
-    featured: false,
-    createdAt: "2026-04-15T07:55:00.000Z",
-  },
-  {
-    id: "MJ-2981",
-    title: "COMMERCIAL VENTE INDIRECT B to B",
-    contract: "CDI",
-    location: "Antananarivo",
-    department: "Commercial",
-    sector: "Commerce de détail et de gros",
-    mode: "Présentiel",
-    summary:
-      "Développer un portefeuille de clients professionnels et renforcer la présence commerciale auprès des grands comptes.",
-    missions: [
-      "Prospecter, négocier et fidéliser les clients B2B.",
-      "Suivre les indicateurs de vente et sécuriser les objectifs fixés.",
-      "Coordonner avec les équipes internes pour garantir la satisfaction client.",
-    ],
-    profile: [
-      "Expérience réussie en vente indirecte ou gestion de portefeuille.",
-      "Très bonne capacité de négociation.",
-      "Orientation résultats et sens du service client.",
-    ],
-    benefits: [
-      "Objectifs stimulants et environnement commercial ambitieux.",
-      "Déplacements terrain et forte autonomie.",
-    ],
-    closingDate: "2026-05-25",
-    applyEmail: DEFAULT_APPLY_EMAIL,
-    published: true,
-    featured: true,
-    createdAt: "2026-04-14T14:10:00.000Z",
-  },
-  {
-    id: "MJ-2944",
-    title: "CONSEILLER CLIENT",
-    contract: "CDI",
-    location: "Antananarivo",
-    department: "Relation client",
-    sector: "Services",
-    mode: "Présentiel",
-    summary:
-      "Prendre en charge les demandes clients, assurer un suivi de qualité et contribuer à l'amélioration continue de l'expérience client.",
-    missions: [
-      "Répondre aux sollicitations des clients et traiter les demandes.",
-      "Orienter les dossiers vers les bons interlocuteurs internes.",
-      "Suivre la satisfaction et contribuer à l'amélioration du service.",
-    ],
-    profile: [
-      "Excellent relationnel et écoute active.",
-      "Expression orale et écrite soignée.",
-      "Capacité à gérer plusieurs demandes simultanément.",
-    ],
-    benefits: [
-      "Parcours encadré et montée en compétence rapide.",
-      "Equipe dynamique orientée qualité de service.",
-    ],
-    closingDate: "2026-05-14",
-    applyEmail: DEFAULT_APPLY_EMAIL,
-    published: true,
-    featured: false,
-    createdAt: "2026-04-13T09:05:00.000Z",
-  },
-  {
-    id: "MJ-2931",
-    title: "RESPONSABLE RH",
-    contract: "CDI",
-    location: "Antananarivo",
-    department: "Ressources humaines",
-    sector: "RH",
-    mode: "Présentiel",
-    summary:
-      "Piloter la stratégie RH, accompagner les managers et superviser les processus liés au développement des équipes.",
-    missions: [
-      "Coordonner le recrutement, l'onboarding et la gestion administrative RH.",
-      "Accompagner les managers sur les sujets organisationnels et humains.",
-      "Structurer les outils RH et les pratiques de développement des talents.",
-    ],
-    profile: [
-      "Expérience solide en management RH.",
-      "Bonne maîtrise du droit social et des pratiques RH.",
-      "Leadership, diplomatie et sens de la confidentialité.",
-    ],
-    benefits: [
-      "Poste stratégique avec forte visibilité.",
-      "Collaboration directe avec les directions opérationnelles.",
-    ],
-    closingDate: "2026-05-30",
-    applyEmail: DEFAULT_APPLY_EMAIL,
-    published: true,
-    featured: true,
-    createdAt: "2026-04-12T08:45:00.000Z",
-  },
-];
+const APPLICATION_STATUSES = ["Nouvelle", "En revue", "Short-list", "Retenue", "Rejetée"];
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -254,78 +9,26 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
-function normalizeList(value) {
-  if (Array.isArray(value)) {
-    return value.map((item) => String(item).trim()).filter(Boolean);
-  }
-
-  return String(value || "")
-    .split(/\n+/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function normalizeJob(job, index = 0) {
-  return {
-    id: job.id || `MJ-${Date.now()}-${index}`,
-    title: String(job.title || "").trim(),
-    contract: String(job.contract || "CDI").trim(),
-    location: String(job.location || "Antananarivo").trim(),
-    department: String(job.department || "Recrutement").trim(),
-    sector: String(job.sector || "Général").trim(),
-    mode: String(job.mode || "Présentiel").trim(),
-    summary: String(job.summary || "").trim(),
-    missions: normalizeList(job.missions),
-    profile: normalizeList(job.profile),
-    benefits: normalizeList(job.benefits),
-    closingDate: String(job.closingDate || "").trim(),
-    applyEmail: String(job.applyEmail || DEFAULT_APPLY_EMAIL).trim(),
-    applyUrl: String(job.applyUrl || "").trim(),
-    featured: Boolean(job.featured),
-    published: job.published !== false,
-    createdAt: job.createdAt || new Date().toISOString(),
-  };
-}
-
-function readJobs() {
-  try {
-    const raw = window.localStorage.getItem(CAREERS_STORAGE_KEY);
-    if (!raw) {
-      return [];
-    }
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.map(normalizeJob) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveJobs(jobs) {
-  const normalized = jobs.map(normalizeJob);
-  window.localStorage.setItem(CAREERS_STORAGE_KEY, JSON.stringify(normalized));
-}
-
-function ensureJobs() {
-  let jobs = readJobs();
-  if (!jobs.length) {
-    jobs = seedJobs.map(normalizeJob);
-    saveJobs(jobs);
-  }
-  return jobs;
-}
-
-function sortJobs(jobs) {
-  return [...jobs].sort((left, right) => {
-    if (left.featured !== right.featured) {
-      return Number(right.featured) - Number(left.featured);
-    }
-
-    if (left.published !== right.published) {
-      return Number(right.published) - Number(left.published);
-    }
-
-    return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
+async function request(url, options = {}) {
+  const response = await fetch(url, {
+    credentials: "same-origin",
+    ...options
   });
+
+  let payload = null;
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("application/json")) {
+    payload = await response.json();
+  } else {
+    const text = await response.text();
+    payload = text ? { message: text } : null;
+  }
+
+  if (!response.ok) {
+    throw new Error(payload?.error || payload?.message || "Une erreur est survenue.");
+  }
+
+  return payload;
 }
 
 function formatDate(dateValue) {
@@ -336,26 +39,11 @@ function formatDate(dateValue) {
   return new Intl.DateTimeFormat("fr-FR", {
     day: "numeric",
     month: "long",
-    year: "numeric",
+    year: "numeric"
   }).format(new Date(dateValue));
 }
 
-function buildApplyHref(job) {
-  if (job.applyUrl) {
-    return job.applyUrl;
-  }
-
-  const subject = encodeURIComponent(`Candidature - ${job.title}`);
-  return `mailto:${encodeURIComponent(job.applyEmail || DEFAULT_APPLY_EMAIL)}?subject=${subject}`;
-}
-
-function uniqueValues(jobs, key) {
-  return [...new Set(jobs.map((job) => job[key]).filter(Boolean))].sort((a, b) =>
-    a.localeCompare(b, "fr")
-  );
-}
-
-function renderJobTags(job) {
+function renderTags(job) {
   return `
     <span class="tag tag--accent">${escapeHtml(job.contract)}</span>
     <span class="tag">${escapeHtml(job.location)}</span>
@@ -364,70 +52,32 @@ function renderJobTags(job) {
   `;
 }
 
-function renderList(items) {
-  return items
-    .map(
-      (job) => `
-        <article class="job-card" data-job-id="${escapeHtml(job.id)}">
-          <div class="job-meta">${renderJobTags(job)}</div>
-          <h3>${escapeHtml(job.title)}</h3>
-          <p>${escapeHtml(job.summary)}</p>
-          <div class="job-card-footer">
-            <p>${escapeHtml(job.sector)} · Clôture ${escapeHtml(formatDate(job.closingDate))}</p>
-            <button class="btn btn-secondary" type="button" data-job-id="${escapeHtml(job.id)}">Voir le détail</button>
-          </div>
-        </article>
-      `
-    )
-    .join("");
-}
-
-function renderDetail(job) {
-  if (!job) {
-    return `
-      <div class="empty-state">
-        <h3>Aucune annonce sélectionnée</h3>
-        <p>Choisissez une offre pour voir le détail complet et postuler.</p>
-      </div>
-    `;
+function buildPublicApplyLink(job) {
+  if (job.applyUrl) {
+    return job.applyUrl;
   }
 
-  return `
-    <div class="detail-tags">${renderJobTags(job)}</div>
-    <h2>${escapeHtml(job.title)}</h2>
-    <p>${escapeHtml(job.summary)}</p>
-    <div class="detail-section">
-      <h3>Informations clés</h3>
-      <div class="detail-tags">
-        <span class="tag">Secteur : ${escapeHtml(job.sector)}</span>
-        <span class="tag">Clôture : ${escapeHtml(formatDate(job.closingDate))}</span>
-      </div>
-    </div>
-    <div class="detail-section">
-      <h3>Missions</h3>
-      <ul class="detail-list">${job.missions
-        .map((item) => `<li>${escapeHtml(item)}</li>`)
-        .join("")}</ul>
-    </div>
-    <div class="detail-section">
-      <h3>Profil recherché</h3>
-      <ul class="detail-list">${job.profile
-        .map((item) => `<li>${escapeHtml(item)}</li>`)
-        .join("")}</ul>
-    </div>
-    <div class="detail-section">
-      <h3>Ce que nous proposons</h3>
-      <ul class="detail-list">${job.benefits
-        .map((item) => `<li>${escapeHtml(item)}</li>`)
-        .join("")}</ul>
-    </div>
-    <div class="hero-actions">
-      <a class="btn btn-primary" href="${escapeHtml(buildApplyHref(job))}" ${
-        job.applyUrl ? 'target="_blank" rel="noreferrer"' : ""
-      }>Postuler</a>
-      <a class="btn btn-ghost" href="mailto:${escapeHtml(job.applyEmail || DEFAULT_APPLY_EMAIL)}">Contacter Madajob</a>
-    </div>
-  `;
+  const subject = encodeURIComponent(`Candidature - ${job.title}`);
+  return `mailto:${encodeURIComponent(job.applyEmail)}?subject=${subject}`;
+}
+
+function populateSelect(node, values, defaultLabel) {
+  if (!node) {
+    return;
+  }
+
+  node.innerHTML = "";
+  const firstOption = document.createElement("option");
+  firstOption.value = "";
+  firstOption.textContent = defaultLabel;
+  node.append(firstOption);
+
+  values.forEach((value) => {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = value;
+    node.append(option);
+  });
 }
 
 function initCareersListPage() {
@@ -449,118 +99,179 @@ function initCareersListPage() {
   const topCountNode = document.querySelector("#career-top-count");
 
   const state = {
-    jobs: ensureJobs(),
+    jobs: [],
     selectedId: "",
+    filters: {
+      search: "",
+      location: "",
+      contract: "",
+      sector: ""
+    }
   };
 
-  function getPublishedJobs() {
-    return sortJobs(state.jobs).filter((job) => job.published);
-  }
-
-  function populateSelect(node, values) {
-    if (!node) {
-      return;
-    }
-
-    const firstOption = node.querySelector("option");
-    node.innerHTML = "";
-    if (firstOption) {
-      node.append(firstOption);
-    } else {
-      const option = document.createElement("option");
-      option.value = "";
-      option.textContent = "Tous";
-      node.append(option);
-    }
-
-    values.forEach((value) => {
-      const option = document.createElement("option");
-      option.value = value;
-      option.textContent = value;
-      node.append(option);
-    });
-  }
-
-  function getFilteredJobs() {
-    const query = (searchNode?.value || "").trim().toLowerCase();
-    const location = locationNode?.value || "";
-    const contract = contractNode?.value || "";
-    const sector = sectorNode?.value || "";
-
-    return getPublishedJobs().filter((job) => {
-      const haystack = [job.title, job.summary, job.department, job.sector, job.location]
-        .join(" ")
-        .toLowerCase();
-
+  function filteredJobs() {
+    const query = state.filters.search.toLowerCase();
+    return state.jobs.filter((job) => {
+      const haystack = [job.title, job.summary, job.department, job.sector, job.location].join(" ").toLowerCase();
       return (
         (!query || haystack.includes(query)) &&
-        (!location || job.location === location) &&
-        (!contract || job.contract === contract) &&
-        (!sector || job.sector === sector)
+        (!state.filters.location || job.location === state.filters.location) &&
+        (!state.filters.contract || job.contract === state.filters.contract) &&
+        (!state.filters.sector || job.sector === state.filters.sector)
       );
     });
   }
 
-  function syncStats() {
-    const publishedJobs = getPublishedJobs();
-    if (totalJobsNode) {
-      totalJobsNode.textContent = String(publishedJobs.length);
-    }
-    if (citiesNode) {
-      citiesNode.textContent = String(uniqueValues(publishedJobs, "location").length);
-    }
-    if (featuredNode) {
-      featuredNode.textContent = String(publishedJobs.filter((job) => job.featured).length);
-    }
-    if (topCountNode) {
-      topCountNode.textContent = String(publishedJobs.length);
-    }
-
-    populateSelect(locationNode, uniqueValues(publishedJobs, "location"));
-    populateSelect(contractNode, uniqueValues(publishedJobs, "contract"));
-    populateSelect(sectorNode, uniqueValues(publishedJobs, "sector"));
-  }
-
-  function syncSelectedJob(items) {
-    if (!items.length) {
+  function syncSelected(jobs) {
+    if (!jobs.length) {
       state.selectedId = "";
       return;
     }
 
-    const selectedStillExists = items.some((job) => job.id === state.selectedId);
-    if (!selectedStillExists) {
-      state.selectedId = items[0].id;
+    if (!jobs.some((job) => job.id === state.selectedId)) {
+      state.selectedId = jobs[0].id;
     }
   }
 
-  function render() {
-    const filteredJobs = getFilteredJobs();
-    syncSelectedJob(filteredJobs);
-
-    if (resultsNode) {
-      resultsNode.textContent = `${filteredJobs.length} offre${filteredJobs.length > 1 ? "s" : ""} disponible${filteredJobs.length > 1 ? "s" : ""}`;
-    }
-
-    if (!filteredJobs.length) {
+  function renderJobsList(jobs) {
+    if (!jobs.length) {
       jobsListNode.innerHTML = `
         <div class="empty-state">
-          <h3>Aucune offre ne correspond à votre recherche</h3>
-          <p>Modifiez vos filtres ou envoyez une candidature spontanée à ${DEFAULT_APPLY_EMAIL}.</p>
+          <h3>Aucune offre trouvée</h3>
+          <p>Essayez un autre mot-clé ou envoyez une candidature spontanée à recrutement@madajob.mg.</p>
         </div>
       `;
-      detailNode.innerHTML = renderDetail(null);
       return;
     }
 
-    jobsListNode.innerHTML = renderList(filteredJobs);
-    jobsListNode.querySelectorAll(".job-card").forEach((card) => {
-      if (card.dataset.jobId === state.selectedId) {
-        card.classList.add("is-active");
+    jobsListNode.innerHTML = jobs
+      .map(
+        (job) => `
+          <article class="job-card ${job.id === state.selectedId ? "is-active" : ""}" data-job-id="${escapeHtml(job.id)}">
+            <div class="job-meta">${renderTags(job)}</div>
+            <h3>${escapeHtml(job.title)}</h3>
+            <p>${escapeHtml(job.summary)}</p>
+            <div class="job-card-footer">
+              <p>${escapeHtml(job.sector)} · Clôture ${escapeHtml(formatDate(job.closingDate))}</p>
+              <button class="btn btn-secondary" type="button" data-job-id="${escapeHtml(job.id)}">Voir le détail</button>
+            </div>
+          </article>
+        `
+      )
+      .join("");
+  }
+
+  function renderDetail(job) {
+    if (!job) {
+      detailNode.innerHTML = `
+        <div class="empty-state">
+          <h3>Aucune offre sélectionnée</h3>
+          <p>Sélectionnez une offre dans la liste pour voir le détail du poste et postuler.</p>
+        </div>
+      `;
+      return;
+    }
+
+    detailNode.innerHTML = `
+      <div class="detail-tags">${renderTags(job)}</div>
+      <h2>${escapeHtml(job.title)}</h2>
+      <p>${escapeHtml(job.summary)}</p>
+      <div class="detail-section">
+        <h3>Informations clés</h3>
+        <div class="detail-tags">
+          <span class="tag">Secteur : ${escapeHtml(job.sector)}</span>
+          <span class="tag">Clôture : ${escapeHtml(formatDate(job.closingDate))}</span>
+        </div>
+      </div>
+      <div class="detail-section">
+        <h3>Missions</h3>
+        <ul class="detail-list">${job.missions.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+      </div>
+      <div class="detail-section">
+        <h3>Profil recherché</h3>
+        <ul class="detail-list">${job.profile.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+      </div>
+      <div class="detail-section">
+        <h3>Ce que nous proposons</h3>
+        <ul class="detail-list">${job.benefits.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+      </div>
+      <div class="hero-actions">
+        <a class="btn btn-secondary" href="${escapeHtml(buildPublicApplyLink(job))}" ${
+          job.applyUrl ? 'target="_blank" rel="noreferrer"' : ""
+        }>Candidater par lien direct</a>
+      </div>
+      <div class="detail-section">
+        <h3>Postuler depuis le site carrière</h3>
+        <form class="career-application-form" id="career-application-form" enctype="multipart/form-data">
+          <input type="hidden" name="jobId" value="${escapeHtml(job.id)}" />
+          <div class="admin-form-grid">
+            <div class="field">
+              <label for="apply-full-name">Nom complet</label>
+              <input id="apply-full-name" name="fullName" type="text" placeholder="Votre nom et prénom" required />
+            </div>
+            <div class="field">
+              <label for="apply-email">Email</label>
+              <input id="apply-email" name="email" type="email" placeholder="vous@email.com" required />
+            </div>
+            <div class="field">
+              <label for="apply-phone">Téléphone</label>
+              <input id="apply-phone" name="phone" type="text" placeholder="+261..." />
+            </div>
+            <div class="field">
+              <label for="apply-city">Ville</label>
+              <input id="apply-city" name="city" type="text" placeholder="Antananarivo" />
+            </div>
+            <div class="field field--full">
+              <label for="apply-cover-letter">Message / motivation</label>
+              <textarea id="apply-cover-letter" name="coverLetter" placeholder="Présentez brièvement votre intérêt pour ce poste."></textarea>
+            </div>
+            <div class="field field--full">
+              <label for="apply-cv">CV (PDF, Word, image)</label>
+              <input id="apply-cv" name="cv" type="file" />
+            </div>
+          </div>
+          <div class="status-row">
+            <p class="status-message" id="career-application-status"></p>
+            <div class="hero-actions admin-actions">
+              <button class="btn btn-primary" type="submit">Envoyer ma candidature</button>
+            </div>
+          </div>
+        </form>
+      </div>
+    `;
+
+    const form = detailNode.querySelector("#career-application-form");
+    const status = detailNode.querySelector("#career-application-status");
+    form?.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      status.textContent = "Envoi en cours...";
+      try {
+        const formData = new FormData(form);
+        const response = await fetch("/api/public/applications", {
+          method: "POST",
+          body: formData
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload.error || "Impossible d'envoyer la candidature.");
+        }
+        status.textContent = payload.message;
+        form.reset();
+      } catch (error) {
+        status.textContent = error.message;
       }
     });
+  }
 
-    const selectedJob = filteredJobs.find((job) => job.id === state.selectedId);
-    detailNode.innerHTML = renderDetail(selectedJob);
+  function render() {
+    const jobs = filteredJobs();
+    syncSelected(jobs);
+    renderJobsList(jobs);
+    const selected = jobs.find((job) => job.id === state.selectedId) || null;
+    renderDetail(selected);
+    if (resultsNode) {
+      resultsNode.textContent = `${jobs.length} offre${jobs.length > 1 ? "s" : ""} disponible${jobs.length > 1 ? "s" : ""}`;
+    }
   }
 
   jobsListNode.addEventListener("click", (event) => {
@@ -568,21 +279,29 @@ function initCareersListPage() {
     if (!target) {
       return;
     }
-
     state.selectedId = target.dataset.jobId || "";
     render();
   });
 
-  [searchNode, locationNode, contractNode, sectorNode].forEach((node) => {
-    if (!node) {
-      return;
-    }
-
-    const eventName = node.tagName === "INPUT" ? "input" : "change";
-    node.addEventListener(eventName, render);
+  searchNode?.addEventListener("input", (event) => {
+    state.filters.search = event.target.value.trim();
+    render();
+  });
+  locationNode?.addEventListener("change", (event) => {
+    state.filters.location = event.target.value;
+    render();
+  });
+  contractNode?.addEventListener("change", (event) => {
+    state.filters.contract = event.target.value;
+    render();
+  });
+  sectorNode?.addEventListener("change", (event) => {
+    state.filters.sector = event.target.value;
+    render();
   });
 
   clearNode?.addEventListener("click", () => {
+    state.filters = { search: "", location: "", contract: "", sector: "" };
     if (searchNode) searchNode.value = "";
     if (locationNode) locationNode.value = "";
     if (contractNode) contractNode.value = "";
@@ -590,44 +309,89 @@ function initCareersListPage() {
     render();
   });
 
-  window.addEventListener("storage", () => {
-    state.jobs = ensureJobs();
-    syncStats();
-    render();
-  });
+  request("/api/public/jobs")
+    .then((payload) => {
+      state.jobs = payload.jobs || [];
+      populateSelect(locationNode, payload.filters?.locations || [], "Toutes les villes");
+      populateSelect(contractNode, payload.filters?.contracts || [], "Tous les contrats");
+      populateSelect(sectorNode, payload.filters?.sectors || [], "Tous les secteurs");
 
-  syncStats();
-  render();
+      if (totalJobsNode) totalJobsNode.textContent = String(payload.stats?.total || state.jobs.length);
+      if (citiesNode) citiesNode.textContent = String(payload.stats?.locations || 0);
+      if (featuredNode) featuredNode.textContent = String(payload.stats?.featured || 0);
+      if (topCountNode) topCountNode.textContent = String(payload.stats?.total || state.jobs.length);
+      render();
+    })
+    .catch((error) => {
+      jobsListNode.innerHTML = `
+        <div class="empty-state">
+          <h3>Impossible de charger les annonces</h3>
+          <p>${escapeHtml(error.message)}</p>
+        </div>
+      `;
+      detailNode.innerHTML = `
+        <div class="empty-state">
+          <h3>Erreur de chargement</h3>
+          <p>Le portail carrière n'a pas pu récupérer les annonces pour le moment.</p>
+        </div>
+      `;
+    });
 }
 
 function initAdminPage() {
-  const form = document.querySelector("#job-form");
+  const loginPanel = document.querySelector("#admin-login-panel");
+  const dashboard = document.querySelector("#admin-dashboard");
+  const loginForm = document.querySelector("#admin-login-form");
+  const loginStatus = document.querySelector("#admin-login-status");
+  const logoutButton = document.querySelector("#admin-logout");
+  const greetingNode = document.querySelector("#admin-greeting");
   const jobsListNode = document.querySelector("#admin-jobs-list");
-  if (!form || !jobsListNode) {
-    return;
-  }
-
+  const applicationsListNode = document.querySelector("#admin-applications-list");
   const statusNode = document.querySelector("#admin-status");
   const totalNode = document.querySelector("#admin-total");
   const publishedNode = document.querySelector("#admin-published");
   const featuredNode = document.querySelector("#admin-featured");
+  const applicationTotalNode = document.querySelector("#admin-applications-total");
+  const form = document.querySelector("#job-form");
   const resetButton = document.querySelector("#job-form-reset");
   const exportButton = document.querySelector("#admin-export");
   const importInput = document.querySelector("#admin-import");
   const restoreButton = document.querySelector("#admin-restore");
 
-  let jobs = ensureJobs();
+  if (!loginPanel || !dashboard || !loginForm || !form || !jobsListNode || !applicationsListNode) {
+    return;
+  }
 
-  function setStatus(message) {
-    if (statusNode) {
-      statusNode.textContent = message;
+  const state = {
+    admin: null,
+    jobs: [],
+    applications: []
+  };
+
+  function setMessage(node, message) {
+    if (node) {
+      node.textContent = message;
     }
   }
 
-  function updateStats() {
-    if (totalNode) totalNode.textContent = String(jobs.length);
-    if (publishedNode) publishedNode.textContent = String(jobs.filter((job) => job.published).length);
-    if (featuredNode) featuredNode.textContent = String(jobs.filter((job) => job.featured).length);
+  function showLogin() {
+    loginPanel.classList.remove("is-hidden");
+    dashboard.classList.add("is-hidden");
+  }
+
+  function showDashboard() {
+    loginPanel.classList.add("is-hidden");
+    dashboard.classList.remove("is-hidden");
+  }
+
+  function resetForm() {
+    form.reset();
+    form.elements.jobId.value = "";
+    form.elements.contract.value = "CDI";
+    form.elements.mode.value = "Présentiel";
+    form.elements.applyEmail.value = "recrutement@madajob.mg";
+    form.elements.published.checked = true;
+    form.elements.featured.checked = false;
   }
 
   function fillForm(job) {
@@ -638,55 +402,45 @@ function initAdminPage() {
     form.elements.department.value = job.department;
     form.elements.sector.value = job.sector;
     form.elements.mode.value = job.mode;
-    form.elements.closingDate.value = job.closingDate;
+    form.elements.closingDate.value = job.closingDate || "";
     form.elements.applyEmail.value = job.applyEmail;
-    form.elements.applyUrl.value = job.applyUrl;
+    form.elements.applyUrl.value = job.applyUrl || "";
     form.elements.summary.value = job.summary;
     form.elements.missions.value = job.missions.join("\n");
     form.elements.profile.value = job.profile.join("\n");
     form.elements.benefits.value = job.benefits.join("\n");
-    form.elements.featured.checked = job.featured;
-    form.elements.published.checked = job.published;
+    form.elements.featured.checked = Boolean(job.featured);
+    form.elements.published.checked = Boolean(job.published);
     form.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  function resetForm() {
-    form.reset();
-    form.elements.jobId.value = "";
-    form.elements.contract.value = "CDI";
-    form.elements.mode.value = "Présentiel";
-    form.elements.applyEmail.value = DEFAULT_APPLY_EMAIL;
-    form.elements.published.checked = true;
-    form.elements.featured.checked = false;
+  function renderStats() {
+    if (greetingNode && state.admin) {
+      greetingNode.textContent = `${state.admin.name} · ${state.admin.email}`;
+    }
+    if (totalNode) totalNode.textContent = String(state.jobs.length);
+    if (publishedNode) publishedNode.textContent = String(state.jobs.filter((job) => job.published).length);
+    if (featuredNode) featuredNode.textContent = String(state.jobs.filter((job) => job.featured).length);
+    if (applicationTotalNode) applicationTotalNode.textContent = String(state.applications.length);
   }
 
-  function saveAndRender(message) {
-    jobs = sortJobs(jobs);
-    saveJobs(jobs);
-    updateStats();
-    renderAdminJobs();
-    setStatus(message);
-  }
-
-  function renderAdminJobs() {
-    if (!jobs.length) {
+  function renderJobs() {
+    if (!state.jobs.length) {
       jobsListNode.innerHTML = `
         <div class="empty-state">
           <h3>Aucune annonce</h3>
-          <p>Créez votre première annonce pour l'afficher immédiatement sur le site carrière.</p>
+          <p>Créez votre première annonce puis publiez-la sur le site carrière.</p>
         </div>
       `;
       return;
     }
 
-    jobsListNode.innerHTML = sortJobs(jobs)
+    jobsListNode.innerHTML = state.jobs
       .map(
         (job) => `
           <article class="admin-job-card">
             <div class="admin-tags">
-              <span class="status-pill ${job.published ? "status-pill--published" : "status-pill--draft"}">
-                ${job.published ? "Publiée" : "Brouillon"}
-              </span>
+              <span class="status-pill ${job.published ? "status-pill--published" : "status-pill--draft"}">${job.published ? "Publiée" : "Brouillon"}</span>
               ${job.featured ? '<span class="status-pill status-pill--published">Mise en avant</span>' : ""}
             </div>
             <h3>${escapeHtml(job.title)}</h3>
@@ -696,9 +450,7 @@ function initAdminPage() {
               <div class="admin-job-actions">
                 <button class="btn btn-secondary" type="button" data-action="edit" data-job-id="${escapeHtml(job.id)}">Modifier</button>
                 <button class="btn btn-secondary" type="button" data-action="duplicate" data-job-id="${escapeHtml(job.id)}">Dupliquer</button>
-                <button class="btn btn-secondary" type="button" data-action="toggle" data-job-id="${escapeHtml(job.id)}">
-                  ${job.published ? "Passer en brouillon" : "Publier"}
-                </button>
+                <button class="btn btn-secondary" type="button" data-action="toggle" data-job-id="${escapeHtml(job.id)}">${job.published ? "Passer en brouillon" : "Publier"}</button>
                 <button class="btn btn-ghost" type="button" data-action="delete" data-job-id="${escapeHtml(job.id)}">Supprimer</button>
               </div>
             </div>
@@ -708,64 +460,165 @@ function initAdminPage() {
       .join("");
   }
 
-  form.addEventListener("submit", (event) => {
-    event.preventDefault();
-    const data = new FormData(form);
-    const rawId = String(data.get("jobId") || "").trim();
-    const job = normalizeJob({
-      id: rawId || `MJ-${Date.now()}`,
-      title: data.get("title"),
-      contract: data.get("contract"),
-      location: data.get("location"),
-      department: data.get("department"),
-      sector: data.get("sector"),
-      mode: data.get("mode"),
-      closingDate: data.get("closingDate"),
-      applyEmail: data.get("applyEmail"),
-      applyUrl: data.get("applyUrl"),
-      summary: data.get("summary"),
-      missions: data.get("missions"),
-      profile: data.get("profile"),
-      benefits: data.get("benefits"),
-      featured: data.get("featured") === "on",
-      published: data.get("published") === "on",
-      createdAt: new Date().toISOString(),
-    });
-
-    if (!job.title || !job.summary) {
-      setStatus("Le titre et le résumé sont obligatoires.");
+  function renderApplications() {
+    if (!state.applications.length) {
+      applicationsListNode.innerHTML = `
+        <div class="empty-state">
+          <h3>Aucune candidature pour le moment</h3>
+          <p>Les candidatures envoyées depuis le site carrière apparaîtront ici automatiquement.</p>
+        </div>
+      `;
       return;
     }
 
-    const existingIndex = jobs.findIndex((item) => item.id === rawId);
-    if (existingIndex >= 0) {
-      job.createdAt = jobs[existingIndex].createdAt;
-      jobs[existingIndex] = job;
-      saveAndRender("Annonce mise à jour.");
-    } else {
-      jobs.unshift(job);
-      saveAndRender("Annonce créée et enregistrée.");
-    }
+    applicationsListNode.innerHTML = state.applications
+      .map(
+        (application) => `
+          <article class="admin-job-card">
+            <div class="admin-tags">
+              <span class="status-pill status-pill--published">${escapeHtml(application.jobTitle)}</span>
+              <span class="status-pill">${escapeHtml(application.status)}</span>
+            </div>
+            <h3>${escapeHtml(application.fullName)}</h3>
+            <p>${escapeHtml(application.email)}${application.phone ? ` · ${escapeHtml(application.phone)}` : ""}${application.city ? ` · ${escapeHtml(application.city)}` : ""}</p>
+            <p>${escapeHtml(application.coverLetter || "Aucun message renseigné.")}</p>
+            <div class="admin-job-footer">
+              <p class="admin-helper">Reçue le ${escapeHtml(formatDate(application.createdAt))}</p>
+              <div class="admin-job-actions">
+                <select class="field admin-inline-select" data-application-status="${escapeHtml(application.id)}">
+                  ${APPLICATION_STATUSES.map(
+                    (status) =>
+                      `<option value="${escapeHtml(status)}" ${status === application.status ? "selected" : ""}>${escapeHtml(status)}</option>`
+                  ).join("")}
+                </select>
+                <button class="btn btn-secondary" type="button" data-action="save-application" data-application-id="${escapeHtml(application.id)}">Mettre à jour</button>
+                ${
+                  application.cvDownloadUrl
+                    ? `<a class="btn btn-secondary" href="${escapeHtml(application.cvDownloadUrl)}">Télécharger le CV</a>`
+                    : ""
+                }
+              </div>
+            </div>
+          </article>
+        `
+      )
+      .join("");
+  }
 
-    resetForm();
+  async function loadDashboard() {
+    const [jobsPayload, applicationsPayload] = await Promise.all([
+      request("/api/admin/jobs"),
+      request("/api/admin/applications")
+    ]);
+
+    state.jobs = jobsPayload.jobs || [];
+    state.applications = applicationsPayload.applications || [];
+    renderStats();
+    renderJobs();
+    renderApplications();
+  }
+
+  async function syncAuth() {
+    try {
+      const payload = await request("/api/admin/auth/me");
+      state.admin = payload.admin;
+      showDashboard();
+      await loadDashboard();
+    } catch {
+      state.admin = null;
+      showLogin();
+    }
+  }
+
+  loginForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    setMessage(loginStatus, "Connexion en cours...");
+    try {
+      const payload = await request("/api/admin/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: loginForm.elements.email.value,
+          password: loginForm.elements.password.value
+        })
+      });
+      state.admin = payload.admin;
+      setMessage(loginStatus, "");
+      loginForm.reset();
+      showDashboard();
+      await loadDashboard();
+    } catch (error) {
+      setMessage(loginStatus, error.message);
+    }
+  });
+
+  logoutButton?.addEventListener("click", async () => {
+    await request("/api/admin/auth/logout", { method: "POST" });
+    state.admin = null;
+    showLogin();
+    setMessage(statusNode, "");
+  });
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    setMessage(statusNode, "Enregistrement en cours...");
+    const payload = {
+      title: form.elements.title.value,
+      contract: form.elements.contract.value,
+      location: form.elements.location.value,
+      department: form.elements.department.value,
+      sector: form.elements.sector.value,
+      mode: form.elements.mode.value,
+      closingDate: form.elements.closingDate.value,
+      applyEmail: form.elements.applyEmail.value,
+      applyUrl: form.elements.applyUrl.value,
+      summary: form.elements.summary.value,
+      missions: form.elements.missions.value,
+      profile: form.elements.profile.value,
+      benefits: form.elements.benefits.value,
+      featured: form.elements.featured.checked,
+      published: form.elements.published.checked
+    };
+
+    try {
+      const jobId = form.elements.jobId.value.trim();
+      if (jobId) {
+        await request(`/api/admin/jobs/${encodeURIComponent(jobId)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...payload, id: jobId })
+        });
+        setMessage(statusNode, "Annonce mise à jour.");
+      } else {
+        await request("/api/admin/jobs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        setMessage(statusNode, "Annonce créée.");
+      }
+
+      resetForm();
+      await loadDashboard();
+    } catch (error) {
+      setMessage(statusNode, error.message);
+    }
   });
 
   resetButton?.addEventListener("click", () => {
     resetForm();
-    setStatus("Formulaire réinitialisé.");
+    setMessage(statusNode, "Formulaire réinitialisé.");
   });
 
   exportButton?.addEventListener("click", () => {
-    const blob = new Blob([JSON.stringify(sortJobs(jobs), null, 2)], {
-      type: "application/json",
-    });
+    const blob = new Blob([JSON.stringify(state.jobs, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
     link.download = "madajob-annonces.json";
     link.click();
     URL.revokeObjectURL(url);
-    setStatus("Export JSON généré.");
+    setMessage(statusNode, "Export JSON généré.");
   });
 
   importInput?.addEventListener("change", async (event) => {
@@ -776,75 +629,122 @@ function initAdminPage() {
 
     try {
       const text = await file.text();
-      const parsed = JSON.parse(text);
-      if (!Array.isArray(parsed)) {
-        throw new Error("Format invalide");
+      const jobs = JSON.parse(text);
+      if (!Array.isArray(jobs)) {
+        throw new Error("Le fichier importé doit contenir un tableau JSON d'annonces.");
       }
-      jobs = parsed.map(normalizeJob);
-      saveAndRender("Annonces importées avec succès.");
-      resetForm();
-    } catch {
-      setStatus("Impossible d'importer ce fichier JSON.");
+
+      for (const job of jobs) {
+        const existing = state.jobs.find((item) => item.id === job.id);
+        await request(existing ? `/api/admin/jobs/${encodeURIComponent(job.id)}` : "/api/admin/jobs", {
+          method: existing ? "PUT" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(job)
+        });
+      }
+
+      await loadDashboard();
+      setMessage(statusNode, "Import terminé.");
+    } catch (error) {
+      setMessage(statusNode, error.message || "Impossible d'importer ce fichier.");
     } finally {
       event.target.value = "";
     }
   });
 
-  restoreButton?.addEventListener("click", () => {
-    jobs = seedJobs.map(normalizeJob);
-    saveAndRender("Les annonces de démonstration ont été restaurées.");
-    resetForm();
+  restoreButton?.addEventListener("click", async () => {
+    try {
+      await request("/api/admin/jobs/restore-seed", { method: "POST" });
+      await loadDashboard();
+      resetForm();
+      setMessage(statusNode, "Les annonces de démonstration ont été restaurées.");
+    } catch (error) {
+      setMessage(statusNode, error.message);
+    }
   });
 
-  jobsListNode.addEventListener("click", (event) => {
-    const button = event.target.closest("[data-action]");
-    if (!button) {
+  jobsListNode.addEventListener("click", async (event) => {
+    const actionNode = event.target.closest("[data-action]");
+    if (!actionNode) {
       return;
     }
 
-    const jobId = button.dataset.jobId;
-    const action = button.dataset.action;
-    const index = jobs.findIndex((job) => job.id === jobId);
-    if (index < 0) {
+    const action = actionNode.dataset.action;
+    const jobId = actionNode.dataset.jobId;
+    const job = state.jobs.find((item) => item.id === jobId);
+    if (!job) {
       return;
     }
 
-    if (action === "edit") {
-      fillForm(jobs[index]);
-      setStatus(`Modification de ${jobs[index].title}.`);
+    try {
+      if (action === "edit") {
+        fillForm(job);
+        setMessage(statusNode, `Modification de ${job.title}.`);
+        return;
+      }
+
+      if (action === "duplicate") {
+        const copy = { ...job, id: undefined, title: `${job.title} (copie)` };
+        await request("/api/admin/jobs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(copy)
+        });
+        await loadDashboard();
+        setMessage(statusNode, "Annonce dupliquée.");
+        return;
+      }
+
+      if (action === "toggle") {
+        await request(`/api/admin/jobs/${encodeURIComponent(job.id)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...job, published: !job.published })
+        });
+        await loadDashboard();
+        setMessage(statusNode, job.published ? "Annonce passée en brouillon." : "Annonce publiée.");
+        return;
+      }
+
+      if (action === "delete") {
+        await request(`/api/admin/jobs/${encodeURIComponent(job.id)}`, { method: "DELETE" });
+        await loadDashboard();
+        setMessage(statusNode, "Annonce supprimée.");
+      }
+    } catch (error) {
+      setMessage(statusNode, error.message);
+    }
+  });
+
+  applicationsListNode.addEventListener("click", async (event) => {
+    const actionNode = event.target.closest("[data-action='save-application']");
+    if (!actionNode) {
       return;
     }
 
-    if (action === "duplicate") {
-      const source = jobs[index];
-      jobs.unshift(
-        normalizeJob({
-          ...source,
-          id: `MJ-${Date.now()}`,
-          title: `${source.title} (copie)`,
-          createdAt: new Date().toISOString(),
-        })
-      );
-      saveAndRender("Annonce dupliquée.");
+    const applicationId = actionNode.dataset.applicationId;
+    const select = [...applicationsListNode.querySelectorAll("[data-application-status]")].find(
+      (node) => node.dataset.applicationStatus === applicationId
+    );
+    if (!select) {
       return;
     }
 
-    if (action === "toggle") {
-      jobs[index].published = !jobs[index].published;
-      saveAndRender(jobs[index].published ? "Annonce publiée." : "Annonce passée en brouillon.");
-      return;
-    }
-
-    if (action === "delete") {
-      jobs.splice(index, 1);
-      saveAndRender("Annonce supprimée.");
-      resetForm();
+    try {
+      await request(`/api/admin/applications/${encodeURIComponent(applicationId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: select.value })
+      });
+      await loadDashboard();
+      setMessage(statusNode, "Statut de candidature mis à jour.");
+    } catch (error) {
+      setMessage(statusNode, error.message);
     }
   });
 
   resetForm();
-  updateStats();
-  renderAdminJobs();
+  syncAuth();
 }
 
 if (document.body.dataset.careersPage === "list") {

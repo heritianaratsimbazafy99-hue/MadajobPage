@@ -99,135 +99,186 @@
       </section>
 
       <section class="section">
-        <div class="container admin-shell">
-          <article class="admin-panel glass-panel" id="job-form-panel" data-reveal>
-            <span class="eyebrow">Créer / modifier</span>
-            <h2>Fiche annonce</h2>
+        <div class="container">
+          <article class="admin-panel glass-panel admin-login" id="admin-login-panel" data-reveal>
+            <span class="eyebrow">Connexion admin</span>
+            <h2>Accédez à l'administration carrière</h2>
             <p class="admin-helper">
-              Renseignez les informations essentielles de l'offre. Les listes “missions”, “profil” et “bénéfices” acceptent une ligne par item.
+              Connectez-vous pour créer des annonces, publier les offres et suivre les candidatures enregistrées depuis le site carrière.
             </p>
-
-            <form id="job-form">
-              <input type="hidden" name="jobId" />
+            <form id="admin-login-form" class="admin-login-form">
               <div class="admin-form-grid">
-                <div class="field field--full">
-                  <label for="job-title">Titre du poste</label>
-                  <input id="job-title" name="title" type="text" placeholder="Ex: RESPONSABLE ADMINISTRATIF & FINANCIER" required />
-                </div>
-
                 <div class="field">
-                  <label for="job-contract">Type de contrat</label>
-                  <select id="job-contract" name="contract">
-                    <option value="CDI">CDI</option>
-                    <option value="CDD">CDD</option>
-                    <option value="Interim">Interim</option>
-                    <option value="Indépendant">Indépendant</option>
-                    <option value="Stage">Stage</option>
-                  </select>
+                  <label for="admin-email">Email</label>
+                  <input id="admin-email" name="email" type="email" placeholder="admin@madajob.mg" required />
                 </div>
-
                 <div class="field">
-                  <label for="job-location">Ville</label>
-                  <input id="job-location" name="location" type="text" placeholder="Antananarivo" />
-                </div>
-
-                <div class="field">
-                  <label for="job-department">Département</label>
-                  <input id="job-department" name="department" type="text" placeholder="Commercial, RH, Finance..." />
-                </div>
-
-                <div class="field">
-                  <label for="job-sector">Secteur</label>
-                  <input id="job-sector" name="sector" type="text" placeholder="Commerce et services" />
-                </div>
-
-                <div class="field">
-                  <label for="job-mode">Mode de travail</label>
-                  <select id="job-mode" name="mode">
-                    <option value="Présentiel">Présentiel</option>
-                    <option value="Hybride">Hybride</option>
-                    <option value="À distance">À distance</option>
-                  </select>
-                </div>
-
-                <div class="field">
-                  <label for="job-closing-date">Date limite</label>
-                  <input id="job-closing-date" name="closingDate" type="date" />
-                </div>
-
-                <div class="field">
-                  <label for="job-apply-email">Email de réception</label>
-                  <input id="job-apply-email" name="applyEmail" type="email" value="recrutement@madajob.mg" />
-                </div>
-
-                <div class="field">
-                  <label for="job-apply-url">Lien de candidature externe (optionnel)</label>
-                  <input id="job-apply-url" name="applyUrl" type="url" placeholder="https://..." />
-                </div>
-
-                <div class="field field--full">
-                  <label for="job-summary">Résumé du poste</label>
-                  <textarea id="job-summary" name="summary" placeholder="Résumé clair et vendeur de l'opportunité." required></textarea>
-                </div>
-
-                <div class="field field--full">
-                  <label for="job-missions">Missions principales</label>
-                  <textarea id="job-missions" name="missions" placeholder="Une mission par ligne"></textarea>
-                </div>
-
-                <div class="field field--full">
-                  <label for="job-profile">Profil recherché</label>
-                  <textarea id="job-profile" name="profile" placeholder="Un critère par ligne"></textarea>
-                </div>
-
-                <div class="field field--full">
-                  <label for="job-benefits">Ce que nous proposons</label>
-                  <textarea id="job-benefits" name="benefits" placeholder="Un bénéfice par ligne"></textarea>
+                  <label for="admin-password">Mot de passe</label>
+                  <input id="admin-password" name="password" type="password" placeholder="Votre mot de passe" required />
                 </div>
               </div>
-
-              <fieldset class="checkbox-row">
-                <legend>Visibilité de l'annonce</legend>
-                <label class="checkbox-group">
-                  <input type="checkbox" name="published" checked />
-                  <span>Publier l'annonce</span>
-                </label>
-                <label class="checkbox-group">
-                  <input type="checkbox" name="featured" />
-                  <span>Mettre en avant</span>
-                </label>
-              </fieldset>
-
               <div class="status-row">
-                <p class="status-message" id="admin-status"></p>
+                <p class="status-message" id="admin-login-status"></p>
                 <div class="hero-actions admin-actions">
-                  <button class="btn btn-primary" type="submit">Enregistrer l'annonce</button>
-                  <button class="btn btn-secondary" type="button" id="job-form-reset">Réinitialiser</button>
+                  <button class="btn btn-primary" type="submit">Se connecter</button>
                 </div>
               </div>
             </form>
           </article>
 
-          <article class="admin-panel glass-panel" data-reveal>
-            <span class="eyebrow">Pilotage</span>
-            <h2>Liste des annonces</h2>
-            <p class="admin-helper">
-              Modifiez une annonce, dupliquez-la pour gagner du temps, passez-la en brouillon ou exportez tout votre catalogue.
-            </p>
-
-            <div class="admin-toolbar">
-              <button class="btn btn-secondary" type="button" id="admin-export">Exporter JSON</button>
-              <label class="btn btn-secondary" for="admin-import">Importer JSON</label>
-              <input id="admin-import" type="file" accept="application/json" />
-              <button class="btn btn-ghost" type="button" id="admin-restore">Restaurer les annonces de démonstration</button>
+          <div id="admin-dashboard" class="is-hidden">
+            <div class="admin-toolbar admin-toolbar--top" data-reveal>
+              <p class="admin-helper" id="admin-greeting"></p>
+              <div class="admin-job-actions">
+                <a class="btn btn-secondary" href="carrieres.html">Voir le site carrière</a>
+                <button class="btn btn-ghost" type="button" id="admin-logout">Se déconnecter</button>
+              </div>
             </div>
 
-            <p class="admin-disclaimer">
-              Utilisation conseillée : créez vos annonces, vérifiez le rendu sur le site carrière, puis exportez le JSON si vous souhaitez conserver ou transférer votre base d'annonces.
-            </p>
+            <div class="admin-shell">
+              <article class="admin-panel glass-panel" id="job-form-panel" data-reveal>
+                <span class="eyebrow">Créer / modifier</span>
+                <h2>Fiche annonce</h2>
+                <p class="admin-helper">
+                  Renseignez les informations essentielles de l'offre. Les listes “missions”, “profil” et “bénéfices” acceptent une ligne par item.
+                </p>
 
-            <div class="admin-jobs-list" id="admin-jobs-list"></div>
-          </article>
+                <form id="job-form">
+                  <input type="hidden" name="jobId" />
+                  <div class="admin-form-grid">
+                    <div class="field field--full">
+                      <label for="job-title">Titre du poste</label>
+                      <input id="job-title" name="title" type="text" placeholder="Ex: RESPONSABLE ADMINISTRATIF & FINANCIER" required />
+                    </div>
+
+                    <div class="field">
+                      <label for="job-contract">Type de contrat</label>
+                      <select id="job-contract" name="contract">
+                        <option value="CDI">CDI</option>
+                        <option value="CDD">CDD</option>
+                        <option value="Interim">Interim</option>
+                        <option value="Indépendant">Indépendant</option>
+                        <option value="Stage">Stage</option>
+                      </select>
+                    </div>
+
+                    <div class="field">
+                      <label for="job-location">Ville</label>
+                      <input id="job-location" name="location" type="text" placeholder="Antananarivo" />
+                    </div>
+
+                    <div class="field">
+                      <label for="job-department">Département</label>
+                      <input id="job-department" name="department" type="text" placeholder="Commercial, RH, Finance..." />
+                    </div>
+
+                    <div class="field">
+                      <label for="job-sector">Secteur</label>
+                      <input id="job-sector" name="sector" type="text" placeholder="Commerce et services" />
+                    </div>
+
+                    <div class="field">
+                      <label for="job-mode">Mode de travail</label>
+                      <select id="job-mode" name="mode">
+                        <option value="Présentiel">Présentiel</option>
+                        <option value="Hybride">Hybride</option>
+                        <option value="À distance">À distance</option>
+                      </select>
+                    </div>
+
+                    <div class="field">
+                      <label for="job-closing-date">Date limite</label>
+                      <input id="job-closing-date" name="closingDate" type="date" />
+                    </div>
+
+                    <div class="field">
+                      <label for="job-apply-email">Email de réception</label>
+                      <input id="job-apply-email" name="applyEmail" type="email" value="recrutement@madajob.mg" />
+                    </div>
+
+                    <div class="field">
+                      <label for="job-apply-url">Lien de candidature externe (optionnel)</label>
+                      <input id="job-apply-url" name="applyUrl" type="url" placeholder="https://..." />
+                    </div>
+
+                    <div class="field field--full">
+                      <label for="job-summary">Résumé du poste</label>
+                      <textarea id="job-summary" name="summary" placeholder="Résumé clair et vendeur de l'opportunité." required></textarea>
+                    </div>
+
+                    <div class="field field--full">
+                      <label for="job-missions">Missions principales</label>
+                      <textarea id="job-missions" name="missions" placeholder="Une mission par ligne"></textarea>
+                    </div>
+
+                    <div class="field field--full">
+                      <label for="job-profile">Profil recherché</label>
+                      <textarea id="job-profile" name="profile" placeholder="Un critère par ligne"></textarea>
+                    </div>
+
+                    <div class="field field--full">
+                      <label for="job-benefits">Ce que nous proposons</label>
+                      <textarea id="job-benefits" name="benefits" placeholder="Un bénéfice par ligne"></textarea>
+                    </div>
+                  </div>
+
+                  <fieldset class="checkbox-row">
+                    <legend>Visibilité de l'annonce</legend>
+                    <label class="checkbox-group">
+                      <input type="checkbox" name="published" checked />
+                      <span>Publier l'annonce</span>
+                    </label>
+                    <label class="checkbox-group">
+                      <input type="checkbox" name="featured" />
+                      <span>Mettre en avant</span>
+                    </label>
+                  </fieldset>
+
+                  <div class="status-row">
+                    <p class="status-message" id="admin-status"></p>
+                    <div class="hero-actions admin-actions">
+                      <button class="btn btn-primary" type="submit">Enregistrer l'annonce</button>
+                      <button class="btn btn-secondary" type="button" id="job-form-reset">Réinitialiser</button>
+                    </div>
+                  </div>
+                </form>
+              </article>
+
+              <article class="admin-panel glass-panel" data-reveal>
+                <span class="eyebrow">Pilotage</span>
+                <h2>Liste des annonces</h2>
+                <p class="admin-helper">
+                  Modifiez une annonce, dupliquez-la pour gagner du temps, passez-la en brouillon ou exportez votre catalogue.
+                </p>
+
+                <div class="admin-toolbar">
+                  <button class="btn btn-secondary" type="button" id="admin-export">Exporter JSON</button>
+                  <label class="btn btn-secondary" for="admin-import">Importer JSON</label>
+                  <input id="admin-import" type="file" accept="application/json" />
+                  <button class="btn btn-ghost" type="button" id="admin-restore">Restaurer les annonces de démonstration</button>
+                </div>
+
+                <p class="admin-disclaimer">
+                  Les annonces sont stockées dans la base de données locale du portail. L'export JSON vous permet de sauvegarder ou de déplacer facilement votre catalogue.
+                </p>
+
+                <div class="admin-jobs-list" id="admin-jobs-list"></div>
+              </article>
+            </div>
+
+            <section class="section section-admin-applications">
+              <article class="admin-panel glass-panel" data-reveal>
+                <div class="section-head">
+                  <div>
+                    <span class="eyebrow">Candidatures</span>
+                    <h2>Suivi des candidatures reçues</h2>
+                  </div>
+                  <p><strong id="admin-applications-total">0</strong> candidature(s) enregistrée(s) depuis le site carrière.</p>
+                </div>
+                <div class="admin-jobs-list" id="admin-applications-list"></div>
+              </article>
+            </section>
+          </div>
         </div>
       </section>
     </main>
