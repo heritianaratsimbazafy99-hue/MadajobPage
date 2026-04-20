@@ -3,11 +3,16 @@
 import Link from "next/link";
 import { useDeferredValue, useMemo, useState } from "react";
 
+import {
+  getApplicationStatusMeta,
+  isFinalApplicationStatus
+} from "@/lib/application-status";
 import { formatDisplayDate } from "@/lib/format";
-import type { Job } from "@/lib/types";
+import type { CandidateApplicationSummary, Job } from "@/lib/types";
 
 type CandidateJobsBoardProps = {
   jobs: Job[];
+  applications: CandidateApplicationSummary[];
 };
 
 type Filters = {
@@ -16,6 +21,7 @@ type Filters = {
   contractType: string;
   workMode: string;
   sector: string;
+  applicationState: "" | "available" | "applied" | "active_applied";
   featuredOnly: boolean;
   sort: "recent" | "oldest" | "featured";
 };
@@ -26,6 +32,7 @@ const initialFilters: Filters = {
   contractType: "",
   workMode: "",
   sector: "",
+  applicationState: "",
   featuredOnly: false,
   sort: "recent"
 };
@@ -40,9 +47,16 @@ function getUniqueValues(values: Array<string | undefined>) {
   ).sort((a, b) => a.localeCompare(b, "fr"));
 }
 
-export function CandidateJobsBoard({ jobs }: CandidateJobsBoardProps) {
+export function CandidateJobsBoard({
+  jobs,
+  applications
+}: CandidateJobsBoardProps) {
   const [filters, setFilters] = useState<Filters>(initialFilters);
   const deferredQuery = useDeferredValue(filters.query);
+  const applicationByJobId = useMemo(
+    () => new Map(applications.map((application) => [application.job_id, application])),
+    [applications]
+  );
 
   const options = useMemo(
     () => ({
@@ -58,6 +72,7 @@ export function CandidateJobsBoard({ jobs }: CandidateJobsBoardProps) {
     const query = deferredQuery.trim().toLowerCase();
 
     const matchingJobs = jobs.filter((job) => {
+      const application = applicationByJobId.get(job.id) ?? null;
       const matchesQuery =
         !query ||
         [
@@ -76,6 +91,13 @@ export function CandidateJobsBoard({ jobs }: CandidateJobsBoardProps) {
         !filters.contractType || job.contract_type === filters.contractType;
       const matchesWorkMode = !filters.workMode || job.work_mode === filters.workMode;
       const matchesSector = !filters.sector || job.sector === filters.sector;
+      const matchesApplicationState =
+        !filters.applicationState ||
+        (filters.applicationState === "available" && !application) ||
+        (filters.applicationState === "applied" && Boolean(application)) ||
+        (filters.applicationState === "active_applied" &&
+          application !== null &&
+          !isFinalApplicationStatus(application.status));
       const matchesFeatured = !filters.featuredOnly || job.is_featured;
 
       return (
@@ -84,6 +106,7 @@ export function CandidateJobsBoard({ jobs }: CandidateJobsBoardProps) {
         matchesContract &&
         matchesWorkMode &&
         matchesSector &&
+        matchesApplicationState &&
         matchesFeatured
       );
     });
@@ -104,7 +127,18 @@ export function CandidateJobsBoard({ jobs }: CandidateJobsBoardProps) {
 
       return rightDate - leftDate;
     });
-  }, [deferredQuery, filters.contractType, filters.featuredOnly, filters.location, filters.sector, filters.sort, filters.workMode, jobs]);
+  }, [
+    applicationByJobId,
+    deferredQuery,
+    filters.applicationState,
+    filters.contractType,
+    filters.featuredOnly,
+    filters.location,
+    filters.sector,
+    filters.sort,
+    filters.workMode,
+    jobs
+  ]);
 
   const activeFilterCount = [
     filters.query,
@@ -112,6 +146,7 @@ export function CandidateJobsBoard({ jobs }: CandidateJobsBoardProps) {
     filters.contractType,
     filters.workMode,
     filters.sector,
+    filters.applicationState,
     filters.featuredOnly ? "featured" : "",
     filters.sort !== "recent" ? filters.sort : ""
   ].filter(Boolean).length;
@@ -223,6 +258,24 @@ export function CandidateJobsBoard({ jobs }: CandidateJobsBoardProps) {
           </label>
 
           <label className="field">
+            <span>Etat de candidature</span>
+            <select
+              value={filters.applicationState}
+              onChange={(event) =>
+                setFilters((previous) => ({
+                  ...previous,
+                  applicationState: event.target.value as Filters["applicationState"]
+                }))
+              }
+            >
+              <option value="">Toutes les offres</option>
+              <option value="available">Non encore postulees</option>
+              <option value="applied">Deja postulees</option>
+              <option value="active_applied">Deja postulees et encore actives</option>
+            </select>
+          </label>
+
+          <label className="field">
             <span>Tri</span>
             <select
               value={filters.sort}
@@ -269,29 +322,54 @@ export function CandidateJobsBoard({ jobs }: CandidateJobsBoardProps) {
 
       <section className="jobs-results">
         {filteredJobs.length > 0 ? (
-          filteredJobs.map((job) => (
-            <article key={job.id} className="panel job-card jobs-result-card">
-              <div className="jobs-result-card__head">
-                {job.is_featured ? <span className="tag">Mise en avant</span> : <span className="tag">Disponible</span>}
-                <small>Publie le {formatDisplayDate(job.published_at)}</small>
-              </div>
+          filteredJobs.map((job) => {
+            const application = applicationByJobId.get(job.id) ?? null;
+            const applicationStatus = application
+              ? getApplicationStatusMeta(application.status)
+              : null;
 
-              <h2>{job.title}</h2>
-              <p>{job.summary}</p>
+            return (
+              <article key={job.id} className="panel job-card jobs-result-card">
+                <div className="jobs-result-card__head">
+                  <span className="tag">
+                    {applicationStatus
+                      ? applicationStatus.label
+                      : job.is_featured
+                        ? "Mise en avant"
+                        : "Disponible"}
+                  </span>
+                  <small>Publie le {formatDisplayDate(job.published_at)}</small>
+                </div>
 
-              <div className="job-card__meta">
-                <span>{job.location}</span>
-                <span>{job.contract_type}</span>
-                <span>{job.work_mode}</span>
-                <span>{job.sector}</span>
-              </div>
+                <h2>{job.title}</h2>
+                <p>{applicationStatus ? applicationStatus.description : job.summary}</p>
 
-              <div className="job-card__footer">
-                <small>{job.organization_name || "Madajob"}</small>
-                <Link href={`/app/candidat/offres/${job.slug}`}>Voir l'offre</Link>
-              </div>
-            </article>
-          ))
+                <div className="job-card__meta">
+                  <span>{job.location}</span>
+                  <span>{job.contract_type}</span>
+                  <span>{job.work_mode}</span>
+                  <span>{job.sector}</span>
+                </div>
+
+                <div className="job-card__footer">
+                  <small>
+                    {application
+                      ? `Candidature envoyee le ${formatDisplayDate(application.created_at)}`
+                      : job.organization_name || "Madajob"}
+                  </small>
+                  <Link
+                    href={
+                      application
+                        ? `/app/candidat/candidatures/${application.id}`
+                        : `/app/candidat/offres/${job.slug}`
+                    }
+                  >
+                    {application ? "Suivre ma candidature" : "Voir l'offre"}
+                  </Link>
+                </div>
+              </article>
+            );
+          })
         ) : (
           <article className="panel jobs-empty">
             <h2>Aucune offre ne correspond a ces filtres</h2>
