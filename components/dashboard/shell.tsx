@@ -34,6 +34,7 @@ const navByRole: Record<AppRole, NavItem[]> = {
     { href: "/app/recruteur/offres", label: "Mes offres", hint: "Editer, publier et fermer vos annonces" },
     { href: "/app/recruteur/candidatures", label: "Candidatures", hint: "Traiter les dossiers recus" },
     { href: "/app/recruteur/candidats", label: "Candidats", hint: "Explorer votre base profils" },
+    { href: "/app/recruteur/reporting", label: "Reporting", hint: "Exporter et suivre vos volumes" },
     { href: "/carrieres", label: "Site carriere", hint: "Voir les annonces publiques" }
   ],
   admin: [
@@ -42,6 +43,7 @@ const navByRole: Record<AppRole, NavItem[]> = {
     { href: "/app/admin/candidatures", label: "Candidatures", hint: "Suivre les dossiers candidats" },
     { href: "/app/admin/candidats", label: "Candidats", hint: "Centraliser la base profils" },
     { href: "/app/admin/utilisateurs", label: "Utilisateurs", hint: "Gerer les droits et les acces" },
+    { href: "/app/admin/reporting", label: "Reporting", hint: "Exporter et lire les volumes plateforme" },
     { href: "/carrieres", label: "Site carriere", hint: "Controler la vitrine publique" }
   ]
 };

@@ -4,6 +4,13 @@ import { useActionState } from "react";
 
 import { updateJobAction, type JobActionState } from "@/app/actions/job-actions";
 import { SubmitButton } from "@/components/jobs/submit-button";
+import {
+  JOB_CONTRACT_TYPE_OPTIONS,
+  JOB_DEPARTMENT_OPTIONS,
+  JOB_LOCATION_OPTIONS,
+  JOB_SECTOR_OPTIONS,
+  JOB_WORK_MODE_OPTIONS
+} from "@/lib/job-options";
 import type { ManagedJob } from "@/lib/types";
 
 const initialState: JobActionState = {
@@ -38,27 +45,62 @@ export function JobEditForm({ job }: JobEditFormProps) {
 
         <label className="field">
           <span>Departement</span>
-          <input name="department" defaultValue={job.department ?? ""} placeholder="Ex. Vente, RH, Finance" />
+          <select name="department" defaultValue={job.department ?? ""}>
+            <option value="">Selectionner un departement</option>
+            {JOB_DEPARTMENT_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
         </label>
 
         <label className="field">
           <span>Lieu</span>
-          <input name="location" defaultValue={job.location} placeholder="Antananarivo" />
+          <select name="location" defaultValue={job.location ?? ""}>
+            <option value="">Selectionner un lieu</option>
+            {JOB_LOCATION_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
         </label>
 
         <label className="field">
           <span>Type de contrat</span>
-          <input name="contract_type" defaultValue={job.contract_type} placeholder="CDI" />
+          <select name="contract_type" defaultValue={job.contract_type ?? ""}>
+            <option value="">Selectionner un contrat</option>
+            {JOB_CONTRACT_TYPE_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
         </label>
 
         <label className="field">
           <span>Mode de travail</span>
-          <input name="work_mode" defaultValue={job.work_mode} placeholder="Presentiel / Hybride / Remote" />
+          <select name="work_mode" defaultValue={job.work_mode ?? ""}>
+            <option value="">Selectionner un mode</option>
+            {JOB_WORK_MODE_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
         </label>
 
         <label className="field">
           <span>Secteur</span>
-          <input name="sector" defaultValue={job.sector} placeholder="Commercial, RH, Finance..." />
+          <select name="sector" defaultValue={job.sector ?? ""}>
+            <option value="">Selectionner un secteur</option>
+            {JOB_SECTOR_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
         </label>
 
         <label className="field field--full">

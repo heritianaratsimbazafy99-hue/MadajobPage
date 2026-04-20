@@ -129,6 +129,7 @@ export async function createJobAction(
 
   const title = getTrimmedValue(formData, "title");
   const summary = getTrimmedValue(formData, "summary");
+  const department = getTrimmedValue(formData, "department");
   const location = getTrimmedValue(formData, "location");
   const contractType = getTrimmedValue(formData, "contract_type");
   const workMode = getTrimmedValue(formData, "work_mode");
@@ -155,6 +156,7 @@ export async function createJobAction(
     created_by: profile.id,
     title,
     slug,
+    department: department || null,
     location,
     contract_type: contractType,
     work_mode: workMode,

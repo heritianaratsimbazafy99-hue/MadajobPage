@@ -1,3 +1,5 @@
+import { unstable_noStore as noStore } from "next/cache";
+
 import { isSupabaseConfigured } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -213,6 +215,7 @@ type PublicJobsOptions = {
 };
 
 export async function getPublicJobs(options: PublicJobsOptions = {}) {
+  noStore();
   const { limit, sort = "featured" } = options;
 
   if (!isSupabaseConfigured) {
@@ -229,10 +232,10 @@ export async function getPublicJobs(options: PublicJobsOptions = {}) {
     return typeof limit === "number" ? jobs.slice(0, limit) : jobs;
   }
 
-  const supabase = await createClient();
+  const supabase = createAdminClient() ?? (await createClient());
   let query = supabase
     .from("job_posts")
-    .select("id, title, slug, location, contract_type, work_mode, sector, summary, status, is_featured, published_at")
+    .select("id, title, slug, location, contract_type, work_mode, sector, summary, status, is_featured, published_at, created_at")
     .eq("status", "published");
 
   if (sort === "recent") {
@@ -260,14 +263,15 @@ export async function getPublicJobs(options: PublicJobsOptions = {}) {
 }
 
 export async function getPublicJobBySlug(slug: string) {
+  noStore();
   if (!isSupabaseConfigured) {
     return fallbackJobs.find((job) => job.slug === slug) ?? null;
   }
 
-  const supabase = await createClient();
+  const supabase = createAdminClient() ?? (await createClient());
   const { data, error } = await supabase
     .from("job_posts")
-    .select("id, title, slug, location, contract_type, work_mode, sector, summary, status, is_featured, published_at")
+    .select("id, title, slug, location, contract_type, work_mode, sector, summary, status, is_featured, published_at, created_at")
     .eq("slug", slug)
     .eq("status", "published")
     .maybeSingle();
@@ -280,18 +284,20 @@ export async function getPublicJobBySlug(slug: string) {
 }
 
 export async function getRecentPublicJobs(limit = 10) {
+  noStore();
   return getPublicJobs({ limit, sort: "recent" });
 }
 
 export async function getPublishedJobById(jobId: string) {
+  noStore();
   if (!isSupabaseConfigured) {
     return fallbackJobs.find((job) => job.id === jobId && job.status === "published") ?? null;
   }
 
-  const supabase = await createClient();
+  const supabase = createAdminClient() ?? (await createClient());
   const { data, error } = await supabase
     .from("job_posts")
-    .select("id, title, slug, location, contract_type, work_mode, sector, summary, status, is_featured, published_at")
+    .select("id, title, slug, location, contract_type, work_mode, sector, summary, status, is_featured, published_at, created_at")
     .eq("id", jobId)
     .eq("status", "published")
     .maybeSingle();
@@ -519,7 +525,8 @@ export async function getRecruiterSnapshot(profile: Profile) {
   };
 }
 
-export async function getManagedJobs(profile: Profile) {
+export async function getManagedJobs(profile: Profile, options: { limit?: number } = {}) {
+  const { limit = 50 } = options;
   if (!isSupabaseConfigured) {
     return fallbackJobs.map((job, index) =>
       mapManagedJobRecord({
@@ -552,7 +559,8 @@ export async function getManagedJobs(profile: Profile) {
     query = query.eq("organization_id", profile.organization_id);
   }
 
-  const { data, error } = await query.limit(50);
+  const finalQuery = typeof limit === "number" ? query.limit(limit) : query;
+  const { data, error } = await finalQuery;
 
   if (error || !data) {
     return [];
@@ -1074,7 +1082,11 @@ async function getAccessibleApplicationRows(profile: Profile) {
   return data as ApplicationAccessRow[];
 }
 
-export async function getManagedCandidates(profile: Profile) {
+export async function getManagedCandidates(
+  profile: Profile,
+  options: { limit?: number } = {}
+) {
+  const { limit = 120 } = options;
   if (!isSupabaseConfigured) {
     return fallbackRecruiterApplications.map((application, index) => ({
       id: `candidate-${index + 1}`,
@@ -1112,7 +1124,7 @@ export async function getManagedCandidates(profile: Profile) {
       .select("id")
       .eq("role", "candidat")
       .order("updated_at", { ascending: false })
-      .limit(120);
+      .limit(limit);
 
     candidateIds = (data ?? []).map((item) => String(item.id));
   } else {
@@ -1364,13 +1376,17 @@ export async function getManagedCandidateDetail(profile: Profile, candidateId: s
   } satisfies CandidateDetail;
 }
 
-export async function getRecruiterApplications(profile: Profile) {
+export async function getRecruiterApplications(
+  profile: Profile,
+  options: { limit?: number } = {}
+) {
+  const { limit = 8 } = options;
   if (!isSupabaseConfigured || !profile.organization_id) {
     return fallbackRecruiterApplications;
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("applications")
     .select(
       `
@@ -1384,8 +1400,13 @@ export async function getRecruiterApplications(profile: Profile) {
     `
     )
     .eq("job_posts.organization_id", profile.organization_id)
-    .order("created_at", { ascending: false })
-    .limit(8);
+    .order("created_at", { ascending: false });
+
+  if (typeof limit === "number") {
+    query = query.limit(limit);
+  }
+
+  const { data, error } = await query;
 
   if (error || !data) {
     return fallbackRecruiterApplications;
@@ -1409,13 +1430,14 @@ export async function getRecruiterApplications(profile: Profile) {
   });
 }
 
-export async function getAdminApplications() {
+export async function getAdminApplications(options: { limit?: number } = {}) {
+  const { limit = 8 } = options;
   if (!isSupabaseConfigured) {
     return fallbackRecruiterApplications;
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("applications")
     .select(
       `
@@ -1428,8 +1450,13 @@ export async function getAdminApplications() {
       job_posts(title, location)
     `
     )
-    .order("created_at", { ascending: false })
-    .limit(8);
+    .order("created_at", { ascending: false });
+
+  if (typeof limit === "number") {
+    query = query.limit(limit);
+  }
+
+  const { data, error } = await query;
 
   if (error || !data) {
     return fallbackRecruiterApplications;
