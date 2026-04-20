@@ -19,6 +19,9 @@ export function ApplicationDetailWorkspace({
   currentPath,
   backHref
 }: ApplicationDetailWorkspaceProps) {
+  const candidatesBasePath =
+    profile.role === "admin" ? "/app/admin/candidats" : "/app/recruteur/candidats";
+
   return (
     <DashboardShell
       title={application.candidate.full_name}
@@ -170,6 +173,9 @@ export function ApplicationDetailWorkspace({
             <div className="dashboard-action-stack">
               <Link className="btn btn-secondary btn-block" href={backHref}>
                 Retour a la liste
+              </Link>
+              <Link className="btn btn-primary btn-block" href={`${candidatesBasePath}/${application.candidate.id}`}>
+                Ouvrir la fiche candidat
               </Link>
               <Link className="btn btn-ghost btn-block" href={`/carrieres/${application.job.slug}`}>
                 Voir l'offre publique

@@ -4,13 +4,16 @@ import { createClient } from "@/lib/supabase/server";
 import type {
   ApplicationDetail,
   ApplicationStatusHistoryEntry,
+  CandidateApplicationSummary,
   CandidateApplication,
+  CandidateDetail,
   CandidateDocumentData,
   CandidateProfileData,
   InternalApplicationNote,
   Job,
   JobAuditEvent,
   ManagedJob,
+  ManagedCandidateSummary,
   Profile,
   RecruiterApplication
 } from "@/lib/types";
@@ -184,6 +187,21 @@ function mapCandidateDocumentRecord(record: Record<string, unknown>): CandidateD
     is_primary: Boolean(record.is_primary),
     created_at: String(record.created_at ?? "")
   };
+}
+
+async function createSignedUrlForDocument(
+  adminClient: ReturnType<typeof createAdminClient>,
+  document: CandidateDocumentData | null
+) {
+  if (!adminClient || !document?.storage_path || !document.bucket_id) {
+    return null;
+  }
+
+  const { data } = await adminClient.storage
+    .from(document.bucket_id)
+    .createSignedUrl(document.storage_path, 60 * 20);
+
+  return data?.signedUrl ?? null;
 }
 
 type PublicJobsOptions = {
@@ -878,15 +896,10 @@ export async function getApplicationDetail(profile: Profile, applicationId: stri
       : Promise.resolve({ data: null })
   ]);
 
-  let cvDownloadUrl: string | null = null;
-
-  if (cvDocumentRow?.storage_path && cvDocumentRow?.bucket_id) {
-    const { data } = await adminClient.storage
-      .from(String(cvDocumentRow.bucket_id))
-      .createSignedUrl(String(cvDocumentRow.storage_path), 60 * 20);
-
-    cvDownloadUrl = data?.signedUrl ?? null;
-  }
+  const cvDownloadUrl = await createSignedUrlForDocument(
+    adminClient,
+    cvDocumentRow ? mapCandidateDocumentRecord(cvDocumentRow) : null
+  );
 
   const notes = (noteRows ?? []).map((item: Record<string, unknown>) => {
     const author =
@@ -963,6 +976,389 @@ export async function getApplicationDetail(profile: Profile, applicationId: stri
     notes,
     status_history: statusHistory
   } satisfies ApplicationDetail;
+}
+
+type ApplicationAccessRow = {
+  id: string;
+  candidate_id: string | null;
+  status: string | null;
+  created_at: string | null;
+  updated_at?: string | null;
+  cover_letter?: string | null;
+  cv_document_id?: string | null;
+  job_posts:
+    | {
+        id?: string | null;
+        slug?: string | null;
+        title?: string | null;
+        location?: string | null;
+        contract_type?: string | null;
+        work_mode?: string | null;
+        sector?: string | null;
+        summary?: string | null;
+        organization_id?: string | null;
+      }
+    | Array<{
+        id?: string | null;
+        slug?: string | null;
+        title?: string | null;
+        location?: string | null;
+        contract_type?: string | null;
+        work_mode?: string | null;
+        sector?: string | null;
+        summary?: string | null;
+        organization_id?: string | null;
+      }>
+    | null;
+};
+
+function normalizeJobRelation(
+  relation: ApplicationAccessRow["job_posts"]
+): Record<string, unknown> | null {
+  if (!relation) {
+    return null;
+  }
+
+  return (Array.isArray(relation) ? relation[0] : relation) as Record<string, unknown> | null;
+}
+
+async function getAccessibleApplicationRows(profile: Profile) {
+  if (!isSupabaseConfigured) {
+    return [] as ApplicationAccessRow[];
+  }
+
+  const supabase = await createClient();
+  let query = supabase
+    .from("applications")
+    .select(
+      `
+      id,
+      candidate_id,
+      status,
+      created_at,
+      updated_at,
+      cover_letter,
+      cv_document_id,
+      job_posts!inner(
+        id,
+        slug,
+        title,
+        location,
+        contract_type,
+        work_mode,
+        sector,
+        summary,
+        organization_id
+      )
+    `
+    )
+    .order("created_at", { ascending: false });
+
+  if (profile.role === "recruteur") {
+    if (!profile.organization_id) {
+      return [] as ApplicationAccessRow[];
+    }
+
+    query = query.eq("job_posts.organization_id", profile.organization_id);
+  }
+
+  const { data, error } = await query.limit(300);
+
+  if (error || !data) {
+    return [] as ApplicationAccessRow[];
+  }
+
+  return data as ApplicationAccessRow[];
+}
+
+export async function getManagedCandidates(profile: Profile) {
+  if (!isSupabaseConfigured) {
+    return fallbackRecruiterApplications.map((application, index) => ({
+      id: `candidate-${index + 1}`,
+      full_name: application.candidate_name,
+      email: application.candidate_email,
+      phone: null,
+      headline: "",
+      city: "Antananarivo",
+      country: "Madagascar",
+      current_position: "",
+      desired_position: "",
+      profile_completion: 70,
+      applications_count: 1,
+      latest_application_at: application.created_at,
+      latest_status: application.status,
+      latest_job_title: application.job_title,
+      latest_job_location: application.job_location,
+      has_primary_cv: application.has_cv,
+      primary_cv: null
+    } satisfies ManagedCandidateSummary));
+  }
+
+  const applicationRows = await getAccessibleApplicationRows(profile);
+  const adminClient = createAdminClient();
+
+  if (!adminClient) {
+    return [] as ManagedCandidateSummary[];
+  }
+
+  let candidateIds: string[] = [];
+
+  if (profile.role === "admin") {
+    const { data } = await adminClient
+      .from("profiles")
+      .select("id")
+      .eq("role", "candidat")
+      .order("updated_at", { ascending: false })
+      .limit(120);
+
+    candidateIds = (data ?? []).map((item) => String(item.id));
+  } else {
+    candidateIds = Array.from(
+      new Set(
+        applicationRows
+          .map((row) => String(row.candidate_id ?? ""))
+          .filter(Boolean)
+      )
+    );
+  }
+
+  if (!candidateIds.length) {
+    return [] as ManagedCandidateSummary[];
+  }
+
+  const [{ data: profileRows }, { data: candidateRows }, { data: documentRows }] = await Promise.all([
+    adminClient
+      .from("profiles")
+      .select("id, full_name, email, phone")
+      .in("id", candidateIds),
+    adminClient
+      .from("candidate_profiles")
+      .select(
+        "user_id, headline, city, country, current_position, desired_position, profile_completion"
+      )
+      .in("user_id", candidateIds),
+    adminClient
+      .from("candidate_documents")
+      .select("id, candidate_id, bucket_id, storage_path, file_name, mime_type, file_size, is_primary, created_at")
+      .in("candidate_id", candidateIds)
+      .eq("is_primary", true)
+  ]);
+
+  const profileMap = new Map(
+    (profileRows ?? []).map((row) => [String(row.id), row])
+  );
+  const candidateMap = new Map(
+    (candidateRows ?? []).map((row) => [String(row.user_id), row])
+  );
+  const documentMap = new Map<string, CandidateDocumentData>();
+
+  for (const row of documentRows ?? []) {
+    const candidateId = String((row as Record<string, unknown>).candidate_id ?? "");
+
+    if (!candidateId || documentMap.has(candidateId)) {
+      continue;
+    }
+
+    documentMap.set(candidateId, mapCandidateDocumentRecord(row as Record<string, unknown>));
+  }
+
+  const applicationMap = new Map<string, ApplicationAccessRow[]>();
+
+  for (const row of applicationRows) {
+    const candidateId = String(row.candidate_id ?? "");
+
+    if (!candidateId) {
+      continue;
+    }
+
+    const existing = applicationMap.get(candidateId) ?? [];
+    existing.push(row);
+    applicationMap.set(candidateId, existing);
+  }
+
+  const summaries = candidateIds.map((candidateId) => {
+    const profileRow = profileMap.get(candidateId);
+    const candidateRow = candidateMap.get(candidateId);
+    const primaryCv = documentMap.get(candidateId) ?? null;
+    const candidateApplications = applicationMap.get(candidateId) ?? [];
+    const latestApplication = candidateApplications[0];
+    const latestJob = latestApplication ? normalizeJobRelation(latestApplication.job_posts) : null;
+
+    return {
+      id: candidateId,
+      full_name: String(profileRow?.full_name ?? profileRow?.email ?? "Candidat Madajob"),
+      email: profileRow?.email ?? null,
+      phone: profileRow?.phone ?? null,
+      headline: String(candidateRow?.headline ?? ""),
+      city: String(candidateRow?.city ?? ""),
+      country: String(candidateRow?.country ?? "Madagascar"),
+      current_position: String(candidateRow?.current_position ?? ""),
+      desired_position: String(candidateRow?.desired_position ?? ""),
+      profile_completion:
+        typeof candidateRow?.profile_completion === "number"
+          ? candidateRow.profile_completion
+          : 0,
+      applications_count: candidateApplications.length,
+      latest_application_at: latestApplication?.created_at ?? null,
+      latest_status: latestApplication?.status ?? null,
+      latest_job_title: latestJob ? String(latestJob.title ?? "") : null,
+      latest_job_location: latestJob ? String(latestJob.location ?? "") : null,
+      has_primary_cv: Boolean(primaryCv),
+      primary_cv: primaryCv
+    } satisfies ManagedCandidateSummary;
+  });
+
+  summaries.sort((left, right) => {
+    const leftDate = left.latest_application_at ? new Date(left.latest_application_at).getTime() : 0;
+    const rightDate = right.latest_application_at ? new Date(right.latest_application_at).getTime() : 0;
+    return rightDate - leftDate;
+  });
+
+  return summaries;
+}
+
+export async function getManagedCandidateDetail(profile: Profile, candidateId: string) {
+  const summaries = await getManagedCandidates(profile);
+  const summary = summaries.find((item) => item.id === candidateId);
+
+  if (!summary) {
+    return null;
+  }
+
+  if (!isSupabaseConfigured) {
+    return {
+      ...summary,
+      bio: "",
+      experience_years: null,
+      skills_text: "",
+      cv_text: "",
+      primary_cv_download_url: null,
+      applications: [],
+      recent_notes: []
+    } satisfies CandidateDetail;
+  }
+
+  const adminClient = createAdminClient();
+
+  if (!adminClient) {
+    return null;
+  }
+
+  const [{ data: candidateRow }, applicationRows] = await Promise.all([
+    adminClient
+      .from("candidate_profiles")
+      .select(
+        "bio, experience_years, skills_text, cv_text, headline, city, country, current_position, desired_position, profile_completion"
+      )
+      .eq("user_id", candidateId)
+      .maybeSingle(),
+    getAccessibleApplicationRows(profile)
+  ]);
+
+  const candidateApplications = applicationRows.filter(
+    (row) => String(row.candidate_id ?? "") === candidateId
+  );
+
+  const organizationIds = Array.from(
+    new Set(
+      candidateApplications
+        .map((row) => String(normalizeJobRelation(row.job_posts)?.organization_id ?? ""))
+        .filter(Boolean)
+    )
+  );
+
+  const applicationIds = candidateApplications.map((row) => String(row.id));
+
+  const [{ data: organizations }, { data: noteRows }] = await Promise.all([
+    organizationIds.length
+      ? adminClient
+          .from("organizations")
+          .select("id, name")
+          .in("id", organizationIds)
+      : Promise.resolve({ data: [] }),
+    applicationIds.length
+      ? adminClient
+          .from("internal_notes")
+          .select("id, application_id, body, created_at, author:profiles(full_name, email)")
+          .in("application_id", applicationIds)
+          .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] })
+  ]);
+
+  const organizationMap = new Map(
+    (organizations ?? []).map((row) => [String(row.id), String(row.name ?? "Madajob")])
+  );
+
+  const notes = (noteRows ?? []).map((item: Record<string, unknown>) => {
+    const author =
+      (item.author as { full_name?: string | null; email?: string | null } | null) ?? null;
+
+    return {
+      id: String(item.id),
+      application_id: String(item.application_id),
+      body: String(item.body ?? ""),
+      created_at: String(item.created_at ?? ""),
+      author_name: author?.full_name || author?.email || "Equipe Madajob",
+      author_email: author?.email ?? null
+    } satisfies InternalApplicationNote;
+  });
+
+  const notesCountMap = new Map<string, number>();
+  for (const note of notes) {
+    notesCountMap.set(note.application_id, (notesCountMap.get(note.application_id) ?? 0) + 1);
+  }
+
+  const primaryCvDownloadUrl = await createSignedUrlForDocument(adminClient, summary.primary_cv);
+
+  const applications = candidateApplications.map((row) => {
+    const job = normalizeJobRelation(row.job_posts);
+    const organizationId = String(job?.organization_id ?? "");
+
+    return {
+      id: String(row.id),
+      status: String(row.status ?? "submitted"),
+      created_at: String(row.created_at ?? ""),
+      updated_at: String(row.updated_at ?? row.created_at ?? ""),
+      cover_letter: typeof row.cover_letter === "string" ? row.cover_letter : null,
+      has_cv: Boolean(row.cv_document_id),
+      job_id: String(job?.id ?? ""),
+      job_title: String(job?.title ?? "Offre Madajob"),
+      job_slug: String(job?.slug ?? ""),
+      job_location: String(job?.location ?? ""),
+      contract_type: String(job?.contract_type ?? ""),
+      work_mode: String(job?.work_mode ?? ""),
+      sector: String(job?.sector ?? ""),
+      organization_name: organizationMap.get(organizationId) ?? "Madajob",
+      notes_count: notesCountMap.get(String(row.id)) ?? 0
+    } satisfies CandidateApplicationSummary;
+  });
+
+  return {
+    id: summary.id,
+    full_name: summary.full_name,
+    email: summary.email,
+    phone: summary.phone,
+    headline: String(candidateRow?.headline ?? summary.headline),
+    city: String(candidateRow?.city ?? summary.city),
+    country: String(candidateRow?.country ?? summary.country),
+    bio: String(candidateRow?.bio ?? ""),
+    experience_years:
+      typeof candidateRow?.experience_years === "number"
+        ? candidateRow.experience_years
+        : null,
+    current_position: String(candidateRow?.current_position ?? summary.current_position),
+    desired_position: String(candidateRow?.desired_position ?? summary.desired_position),
+    skills_text: String(candidateRow?.skills_text ?? ""),
+    cv_text: String(candidateRow?.cv_text ?? ""),
+    profile_completion:
+      typeof candidateRow?.profile_completion === "number"
+        ? candidateRow.profile_completion
+        : summary.profile_completion,
+    primary_cv: summary.primary_cv,
+    primary_cv_download_url: primaryCvDownloadUrl,
+    applications,
+    recent_notes: notes.slice(0, 8)
+  } satisfies CandidateDetail;
 }
 
 export async function getRecruiterApplications(profile: Profile) {
