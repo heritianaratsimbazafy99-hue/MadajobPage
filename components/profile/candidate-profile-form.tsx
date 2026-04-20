@@ -7,6 +7,7 @@ import {
   type ProfileActionState
 } from "@/app/actions/profile-actions";
 import { SubmitButton } from "@/components/jobs/submit-button";
+import { getCandidateProfileInsights } from "@/lib/candidate-profile";
 import type { CandidateProfileData } from "@/lib/types";
 
 const initialState: ProfileActionState = {
@@ -20,6 +21,7 @@ type CandidateProfileFormProps = {
 
 export function CandidateProfileForm({ profile }: CandidateProfileFormProps) {
   const [state, formAction] = useActionState(updateCandidateProfileAction, initialState);
+  const profileInsights = getCandidateProfileInsights(profile);
 
   return (
     <form action={formAction} className="dashboard-form">
@@ -28,7 +30,33 @@ export function CandidateProfileForm({ profile }: CandidateProfileFormProps) {
           <p className="eyebrow">Profil candidat</p>
           <h2>Completer votre dossier</h2>
         </div>
-        <span className="tag">{profile.profile_completion}% complet</span>
+        <span className="tag">{profileInsights.completion}% complet</span>
+      </div>
+
+      <div className="form-grid">
+        <div className="document-card">
+          <strong>{profileInsights.readinessLabel}</strong>
+          <p>{profileInsights.readinessDescription}</p>
+        </div>
+        <div className="document-card">
+          <strong>
+            {profileInsights.completedCount}/{profileInsights.totalCount} rubriques completees
+          </strong>
+          <p>
+            {profileInsights.missingItems.length > 0
+              ? `${profileInsights.missingItems.length} rubrique(s) restent prioritaires dans votre dossier.`
+              : "Toutes les rubriques prioritaires sont deja renseignees."}
+          </p>
+        </div>
+      </div>
+
+      <div className="document-card">
+        <strong>Priorites recommandees</strong>
+        <ul className="dashboard-mini-list dashboard-mini-list--compact">
+          {profileInsights.nextActions.map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
       </div>
 
       <div className="form-grid">

@@ -845,6 +845,10 @@ code {
   line-height: 1.7;
 }
 
+.dashboard-mini-list--compact {
+  gap: 8px;
+}
+
 .dashboard-sidebar__actions {
   display: grid;
   gap: 12px;

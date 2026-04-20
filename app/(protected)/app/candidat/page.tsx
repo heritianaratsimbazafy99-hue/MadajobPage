@@ -7,6 +7,7 @@ import {
   getApplicationStatusMeta,
   isFinalApplicationStatus
 } from "@/lib/application-status";
+import { getCandidateProfileInsights } from "@/lib/candidate-profile";
 import { requireRole } from "@/lib/auth";
 import { formatDisplayDate } from "@/lib/format";
 import {
@@ -14,16 +15,11 @@ import {
   getCandidateWorkspace
 } from "@/lib/jobs";
 
-const candidateChecklist = [
-  "Completer le profil pour etre plus facilement identifie par les recruteurs.",
-  "Centraliser votre CV principal et vos prochaines candidatures.",
-  "Suivre les retours sans repasser par la vitrine institutionnelle."
-];
-
 export default async function CandidateDashboardPage() {
   const profile = await requireRole(["candidat"]);
   const applications = await getCandidateApplications(profile.id);
   const candidateProfile = await getCandidateWorkspace(profile);
+  const profileInsights = getCandidateProfileInsights(candidateProfile);
   const latestApplication = applications[0];
   const activeApplicationsCount = applications.filter(
     (application) => !isFinalApplicationStatus(application.status)
@@ -51,8 +47,10 @@ export default async function CandidateDashboardPage() {
         </article>
         <article className="panel metric-panel">
           <span>Profil</span>
-          <strong>{candidateProfile.profile_completion}%</strong>
-          <small>{candidateProfile.profile_completion > 0 ? "taux de completion actuel" : "completez votre dossier"}</small>
+          <strong>{profileInsights.completion}%</strong>
+          <small>
+            {profileInsights.completedCount}/{profileInsights.totalCount} rubriques prioritaires
+          </small>
         </article>
         <article className="panel metric-panel">
           <span>CV principal</span>
@@ -129,10 +127,11 @@ export default async function CandidateDashboardPage() {
           <CandidateProfileForm profile={candidateProfile} />
 
           <div className="panel dashboard-sidecard">
-            <p className="eyebrow">Prochaines etapes</p>
-            <h2>Gardez votre dossier actif.</h2>
+            <p className="eyebrow">Etat du dossier</p>
+            <h2>{profileInsights.readinessLabel}</h2>
+            <p className="form-caption">{profileInsights.readinessDescription}</p>
             <ul className="dashboard-mini-list">
-              {candidateChecklist.map((item) => (
+              {profileInsights.nextActions.map((item) => (
                 <li key={item}>{item}</li>
               ))}
             </ul>

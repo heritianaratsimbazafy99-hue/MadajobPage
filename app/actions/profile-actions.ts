@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { getCandidateProfileInsights } from "@/lib/candidate-profile";
 import { requireRole } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 
@@ -30,31 +31,6 @@ function getNullableNumber(formData: FormData, key: string) {
   return Number.isFinite(value) ? value : null;
 }
 
-function computeProfileCompletion(values: Record<string, string | number | null>) {
-  const trackedKeys = [
-    "full_name",
-    "phone",
-    "headline",
-    "city",
-    "bio",
-    "current_position",
-    "desired_position",
-    "skills_text"
-  ] as const;
-
-  const completed = trackedKeys.filter((key) => {
-    const value = values[key];
-
-    if (typeof value === "number") {
-      return value > 0;
-    }
-
-    return Boolean(value);
-  }).length;
-
-  return Math.round((completed / trackedKeys.length) * 100);
-}
-
 export async function updateCandidateProfileAction(
   _previousState: ProfileActionState = defaultState,
   formData: FormData
@@ -73,18 +49,28 @@ export async function updateCandidateProfileAction(
   const skillsText = getTrimmedValue(formData, "skills_text");
   const cvText = getTrimmedValue(formData, "cv_text");
 
-  const completion = computeProfileCompletion({
+  const supabase = await createClient();
+  const { data: primaryCv } = await supabase
+    .from("candidate_documents")
+    .select("id")
+    .eq("candidate_id", profile.id)
+    .eq("is_primary", true)
+    .limit(1)
+    .maybeSingle();
+
+  const profileInsights = getCandidateProfileInsights({
     full_name: fullName,
     phone,
     headline,
     city,
     bio,
+    experience_years: experienceYears,
     current_position: currentPosition,
     desired_position: desiredPosition,
-    skills_text: skillsText
+    skills_text: skillsText,
+    cv_text: cvText,
+    primary_cv: primaryCv ? { id: String(primaryCv.id ?? "primary-cv") } : null
   });
-
-  const supabase = await createClient();
 
   const { error: profileError } = await supabase
     .from("profiles")
@@ -113,7 +99,7 @@ export async function updateCandidateProfileAction(
       desired_position: desiredPosition || null,
       skills_text: skillsText || null,
       cv_text: cvText || null,
-      profile_completion: completion
+      profile_completion: profileInsights.completion
     })
     .eq("user_id", profile.id);
 
@@ -128,6 +114,9 @@ export async function updateCandidateProfileAction(
 
   return {
     status: "success",
-    message: `Profil mis a jour. Taux de completion actuel : ${completion}%.`
+    message:
+      profileInsights.missingItems.length > 0
+        ? `Profil mis a jour. Taux de completion actuel : ${profileInsights.completion}%. Il reste ${profileInsights.missingItems.length} point(s) prioritaire(s) a completer.`
+        : `Profil mis a jour. Taux de completion actuel : ${profileInsights.completion}%. Votre dossier couvre toutes les rubriques prioritaires.`
   };
 }

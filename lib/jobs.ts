@@ -1,5 +1,6 @@
 import { unstable_noStore as noStore } from "next/cache";
 
+import { getCandidateProfileInsights } from "@/lib/candidate-profile";
 import { isSupabaseConfigured } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -706,6 +707,23 @@ export async function getCandidateWorkspace(profile: Profile): Promise<Candidate
     getCandidatePrimaryDocument(profile.id)
   ]);
 
+  const profileInsights = getCandidateProfileInsights({
+    full_name: String(profileData?.full_name ?? profile.full_name ?? ""),
+    phone: String(profileData?.phone ?? profile.phone ?? ""),
+    headline: String(candidateData?.headline ?? ""),
+    city: String(candidateData?.city ?? ""),
+    bio: String(candidateData?.bio ?? ""),
+    experience_years:
+      typeof candidateData?.experience_years === "number"
+        ? candidateData.experience_years
+        : null,
+    current_position: String(candidateData?.current_position ?? ""),
+    desired_position: String(candidateData?.desired_position ?? ""),
+    skills_text: String(candidateData?.skills_text ?? ""),
+    cv_text: String(candidateData?.cv_text ?? ""),
+    primary_cv: primaryCv ? { id: primaryCv.id } : null
+  });
+
   return {
     full_name: String(profileData?.full_name ?? profile.full_name ?? ""),
     email: String(profileData?.email ?? profile.email ?? ""),
@@ -722,10 +740,7 @@ export async function getCandidateWorkspace(profile: Profile): Promise<Candidate
     desired_position: String(candidateData?.desired_position ?? ""),
     skills_text: String(candidateData?.skills_text ?? ""),
     cv_text: String(candidateData?.cv_text ?? ""),
-    profile_completion:
-      typeof candidateData?.profile_completion === "number"
-        ? candidateData.profile_completion
-        : 0,
+    profile_completion: profileInsights.completion,
     primary_cv: primaryCv
   };
 }
