@@ -7,6 +7,7 @@ import { requireRole } from "@/lib/auth";
 import { formatDisplayDate } from "@/lib/format";
 import {
   getCandidateApplicationForJob,
+  getCandidatePrimaryDocument,
   getPublicJobBySlug
 } from "@/lib/jobs";
 
@@ -28,6 +29,7 @@ export default async function CandidateJobDetailPage({
   }
 
   const application = await getCandidateApplicationForJob(profile.id, job.id);
+  const primaryCv = await getCandidatePrimaryDocument(profile.id);
 
   return (
     <DashboardShell
@@ -74,7 +76,11 @@ export default async function CandidateJobDetailPage({
               </div>
             </div>
           ) : (
-            <JobApplyForm jobId={job.id} jobSlug={job.slug} />
+            <JobApplyForm
+              jobId={job.id}
+              jobSlug={job.slug}
+              primaryCvName={primaryCv?.file_name ?? null}
+            />
           )}
         </aside>
       </section>

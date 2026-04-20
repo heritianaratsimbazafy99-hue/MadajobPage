@@ -13,9 +13,10 @@ const initialState: JobActionState = {
 type JobApplyFormProps = {
   jobId: string;
   jobSlug: string;
+  primaryCvName?: string | null;
 };
 
-export function JobApplyForm({ jobId, jobSlug }: JobApplyFormProps) {
+export function JobApplyForm({ jobId, jobSlug, primaryCvName = null }: JobApplyFormProps) {
   const formRef = useRef<HTMLFormElement>(null);
   const [state, formAction] = useActionState(applyToJobAction, initialState);
 
@@ -36,6 +37,12 @@ export function JobApplyForm({ jobId, jobSlug }: JobApplyFormProps) {
           <h2>Postuler depuis la plateforme</h2>
         </div>
       </div>
+
+      <p className="form-caption">
+        {primaryCvName
+          ? `Votre CV principal actuel (${primaryCvName}) sera rattache automatiquement a cette candidature.`
+          : "Vous pouvez candidater maintenant, puis ajouter votre CV principal depuis votre espace candidat pour les prochains envois."}
+      </p>
 
       <label className="field">
         <span>Message de candidature</span>

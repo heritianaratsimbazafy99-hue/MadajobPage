@@ -103,6 +103,7 @@ export default async function AdminDashboardPage() {
                   <small>{application.candidate_email}</small>
                   {application.cover_letter ? <p>{application.cover_letter}</p> : null}
                   <div className="job-card__meta">
+                    <span>{application.has_cv ? "CV joint" : "CV non joint"}</span>
                     <span>Soumis le {formatDisplayDate(application.created_at)}</span>
                   </div>
                   <ApplicationStatusForm

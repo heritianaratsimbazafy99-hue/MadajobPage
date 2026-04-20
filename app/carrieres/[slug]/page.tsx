@@ -6,6 +6,7 @@ import { getCurrentProfile } from "@/lib/auth";
 import { formatDisplayDate } from "@/lib/format";
 import {
   getCandidateApplicationForJob,
+  getCandidatePrimaryDocument,
   getPublicJobBySlug
 } from "@/lib/jobs";
 
@@ -27,6 +28,10 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
   const application =
     profile?.role === "candidat"
       ? await getCandidateApplicationForJob(profile.id, job.id)
+      : null;
+  const primaryCv =
+    profile?.role === "candidat"
+      ? await getCandidatePrimaryDocument(profile.id)
       : null;
 
   return (
@@ -68,7 +73,11 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
                   </div>
                 </div>
               ) : (
-                <JobApplyForm jobId={job.id} jobSlug={job.slug} />
+                <JobApplyForm
+                  jobId={job.id}
+                  jobSlug={job.slug}
+                  primaryCvName={primaryCv?.file_name ?? null}
+                />
               )
             ) : (
               <>

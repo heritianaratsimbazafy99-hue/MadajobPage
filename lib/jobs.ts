@@ -2,6 +2,7 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
 import type {
   CandidateApplication,
+  CandidateDocumentData,
   CandidateProfileData,
   Job,
   Profile,
@@ -94,6 +95,7 @@ const fallbackRecruiterApplications: RecruiterApplication[] = [
     status: "screening",
     created_at: "2026-04-18T12:30:00.000Z",
     cover_letter: "Disponible rapidement pour un entretien et motive par un environnement B2B exigeant.",
+    has_cv: true,
     candidate_name: "Miora Randriam",
     candidate_email: "miora@example.com",
     job_title: "Commercial B2B grands comptes",
@@ -104,6 +106,7 @@ const fallbackRecruiterApplications: RecruiterApplication[] = [
     status: "submitted",
     created_at: "2026-04-17T10:15:00.000Z",
     cover_letter: "Experience confirmee en relation candidat et gestion de dossier.",
+    has_cv: false,
     candidate_name: "Hery Ranaivo",
     candidate_email: "hery@example.com",
     job_title: "Charge(e) relation candidat",
@@ -124,7 +127,8 @@ const fallbackCandidateProfile: CandidateProfileData = {
   desired_position: "",
   skills_text: "",
   cv_text: "",
-  profile_completion: 0
+  profile_completion: 0,
+  primary_cv: null
 };
 
 function mapJobRecord(record: Record<string, unknown>): Job {
@@ -147,29 +151,93 @@ function mapJobRecord(record: Record<string, unknown>): Job {
   };
 }
 
-export async function getPublicJobs() {
+function mapCandidateDocumentRecord(record: Record<string, unknown>): CandidateDocumentData {
+  return {
+    id: String(record.id),
+    bucket_id: String(record.bucket_id ?? "candidate-cv"),
+    storage_path: String(record.storage_path ?? ""),
+    file_name: String(record.file_name ?? "cv"),
+    mime_type: typeof record.mime_type === "string" ? record.mime_type : null,
+    file_size: typeof record.file_size === "number" ? record.file_size : null,
+    is_primary: Boolean(record.is_primary),
+    created_at: String(record.created_at ?? "")
+  };
+}
+
+type PublicJobsOptions = {
+  limit?: number;
+  sort?: "featured" | "recent";
+};
+
+export async function getPublicJobs(options: PublicJobsOptions = {}) {
+  const { limit, sort = "featured" } = options;
+
   if (!isSupabaseConfigured) {
-    return fallbackJobs;
+    const jobs = [...fallbackJobs];
+
+    if (sort === "recent") {
+      jobs.sort((left, right) => {
+        const leftDate = left.published_at ? new Date(left.published_at).getTime() : 0;
+        const rightDate = right.published_at ? new Date(right.published_at).getTime() : 0;
+        return rightDate - leftDate;
+      });
+    }
+
+    return typeof limit === "number" ? jobs.slice(0, limit) : jobs;
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("job_posts")
     .select("id, title, slug, location, contract_type, work_mode, sector, summary, status, is_featured, published_at")
-    .eq("status", "published")
-    .order("is_featured", { ascending: false })
-    .order("published_at", { ascending: false });
+    .eq("status", "published");
 
-  if (error || !data?.length) {
-    return fallbackJobs;
+  if (sort === "recent") {
+    query = query
+      .order("published_at", { ascending: false })
+      .order("created_at", { ascending: false });
+  } else {
+    query = query
+      .order("is_featured", { ascending: false })
+      .order("published_at", { ascending: false })
+      .order("created_at", { ascending: false });
+  }
+
+  if (typeof limit === "number") {
+    query = query.limit(limit);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    return [];
   }
 
   return data.map((item) => mapJobRecord(item));
 }
 
 export async function getPublicJobBySlug(slug: string) {
-  const jobs = await getPublicJobs();
-  return jobs.find((job) => job.slug === slug) ?? null;
+  if (!isSupabaseConfigured) {
+    return fallbackJobs.find((job) => job.slug === slug) ?? null;
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("job_posts")
+    .select("id, title, slug, location, contract_type, work_mode, sector, summary, status, is_featured, published_at")
+    .eq("slug", slug)
+    .eq("status", "published")
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return mapJobRecord(data);
+}
+
+export async function getRecentPublicJobs(limit = 10) {
+  return getPublicJobs({ limit, sort: "recent" });
 }
 
 export async function getPublishedJobById(jobId: string) {
@@ -249,6 +317,28 @@ export async function getCandidateApplications(_candidateId: string) {
   });
 }
 
+export async function getCandidatePrimaryDocument(candidateId: string) {
+  if (!isSupabaseConfigured) {
+    return null;
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("candidate_documents")
+    .select("id, bucket_id, storage_path, file_name, mime_type, file_size, is_primary, created_at")
+    .eq("candidate_id", candidateId)
+    .order("is_primary", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return mapCandidateDocumentRecord(data);
+}
+
 export async function getCandidateWorkspace(profile: Profile): Promise<CandidateProfileData> {
   if (!isSupabaseConfigured) {
     return {
@@ -260,19 +350,21 @@ export async function getCandidateWorkspace(profile: Profile): Promise<Candidate
   }
 
   const supabase = await createClient();
-  const { data: profileData } = await supabase
-    .from("profiles")
-    .select("full_name, email, phone")
-    .eq("id", profile.id)
-    .maybeSingle();
-
-  const { data: candidateData } = await supabase
-    .from("candidate_profiles")
-    .select(
-      "headline, city, country, bio, experience_years, current_position, desired_position, skills_text, cv_text, profile_completion"
-    )
-    .eq("user_id", profile.id)
-    .maybeSingle();
+  const [{ data: profileData }, { data: candidateData }, primaryCv] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("full_name, email, phone")
+      .eq("id", profile.id)
+      .maybeSingle(),
+    supabase
+      .from("candidate_profiles")
+      .select(
+        "headline, city, country, bio, experience_years, current_position, desired_position, skills_text, cv_text, profile_completion"
+      )
+      .eq("user_id", profile.id)
+      .maybeSingle(),
+    getCandidatePrimaryDocument(profile.id)
+  ]);
 
   return {
     full_name: String(profileData?.full_name ?? profile.full_name ?? ""),
@@ -293,7 +385,8 @@ export async function getCandidateWorkspace(profile: Profile): Promise<Candidate
     profile_completion:
       typeof candidateData?.profile_completion === "number"
         ? candidateData.profile_completion
-        : 0
+        : 0,
+    primary_cv: primaryCv
   };
 }
 
@@ -354,6 +447,7 @@ export async function getRecruiterApplications(profile: Profile) {
       id,
       status,
       created_at,
+      cv_document_id,
       cover_letter,
       candidate:profiles!applications_candidate_id_fkey(full_name, email),
       job_posts!inner(title, location, organization_id)
@@ -376,6 +470,7 @@ export async function getRecruiterApplications(profile: Profile) {
       status: String(item.status ?? "submitted"),
       created_at: String(item.created_at ?? ""),
       cover_letter: typeof item.cover_letter === "string" ? item.cover_letter : null,
+      has_cv: Boolean(item.cv_document_id),
       candidate_name: candidate?.full_name || candidate?.email || "Candidat Madajob",
       candidate_email: candidate?.email || "email non renseigne",
       job_title: job?.title || "Offre Madajob",
@@ -397,6 +492,7 @@ export async function getAdminApplications() {
       id,
       status,
       created_at,
+      cv_document_id,
       cover_letter,
       candidate:profiles!applications_candidate_id_fkey(full_name, email),
       job_posts(title, location)
@@ -418,6 +514,7 @@ export async function getAdminApplications() {
       status: String(item.status ?? "submitted"),
       created_at: String(item.created_at ?? ""),
       cover_letter: typeof item.cover_letter === "string" ? item.cover_letter : null,
+      has_cv: Boolean(item.cv_document_id),
       candidate_name: candidate?.full_name || candidate?.email || "Candidat Madajob",
       candidate_email: candidate?.email || "email non renseigne",
       job_title: job?.title || "Offre Madajob",

@@ -25,6 +25,18 @@ export type CandidateProfileData = {
   skills_text: string;
   cv_text: string;
   profile_completion: number;
+  primary_cv: CandidateDocumentData | null;
+};
+
+export type CandidateDocumentData = {
+  id: string;
+  bucket_id: string;
+  storage_path: string;
+  file_name: string;
+  mime_type: string | null;
+  file_size: number | null;
+  is_primary: boolean;
+  created_at: string;
 };
 
 export type Job = {
@@ -55,6 +67,7 @@ export type RecruiterApplication = {
   status: string;
   created_at: string;
   cover_letter: string | null;
+  has_cv: boolean;
   candidate_name: string;
   candidate_email: string;
   job_title: string;

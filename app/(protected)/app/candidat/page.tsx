@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { DashboardShell } from "@/components/dashboard/shell";
+import { CandidateCvUpload } from "@/components/profile/candidate-cv-upload";
 import { CandidateProfileForm } from "@/components/profile/candidate-profile-form";
 import { requireRole } from "@/lib/auth";
 import { formatDisplayDate } from "@/lib/format";
@@ -28,7 +29,7 @@ export default async function CandidateDashboardPage() {
       profile={profile}
       currentPath="/app/candidat"
     >
-      <section className="dashboard-grid dashboard-grid--three">
+      <section className="dashboard-grid dashboard-grid--four">
         <article className="panel metric-panel">
           <span>Candidatures actives</span>
           <strong>{applications.length}</strong>
@@ -38,6 +39,15 @@ export default async function CandidateDashboardPage() {
           <span>Profil</span>
           <strong>{candidateProfile.profile_completion}%</strong>
           <small>{candidateProfile.profile_completion > 0 ? "taux de completion actuel" : "completez votre dossier"}</small>
+        </article>
+        <article className="panel metric-panel">
+          <span>CV principal</span>
+          <strong>{candidateProfile.primary_cv ? "Actif" : "Absent"}</strong>
+          <small>
+            {candidateProfile.primary_cv
+              ? candidateProfile.primary_cv.file_name
+              : "televersez votre CV pour l'attacher a vos prochaines candidatures"}
+          </small>
         </article>
         <article className="panel metric-panel">
           <span>Derniere action</span>
@@ -84,6 +94,11 @@ export default async function CandidateDashboardPage() {
         </div>
 
         <aside className="dashboard-column dashboard-column--aside">
+          <CandidateCvUpload
+            candidateId={profile.id}
+            currentDocument={candidateProfile.primary_cv}
+          />
+
           <CandidateProfileForm profile={candidateProfile} />
 
           <div className="panel dashboard-sidecard">

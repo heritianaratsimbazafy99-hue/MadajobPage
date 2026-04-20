@@ -1,9 +1,16 @@
 import Link from "next/link";
 
 import { SetupNotice } from "@/components/site/setup-notice";
+import { getCurrentProfile } from "@/lib/auth";
 import { isSupabaseConfigured } from "@/lib/env";
 
-export default function CandidatePlatformPage() {
+export default async function CandidatePlatformPage() {
+  const profile = await getCurrentProfile();
+  const isCandidate = profile?.role === "candidat";
+  const primaryHref = isCandidate ? "/app/candidat" : "/inscription";
+  const primaryLabel = isCandidate ? "Ouvrir mon espace candidat" : "Creer mon compte";
+  const offersHref = isCandidate ? "/app/candidat/offres" : "/carrieres";
+
   return (
     <main className="page-shell">
       <section className="section">
@@ -16,10 +23,10 @@ export default function CandidatePlatformPage() {
               centralisez vos opportunites sans friction.
             </p>
             <div className="hero__actions">
-              <Link className="btn btn-primary" href="/inscription">
-                Creer mon compte
+              <Link className="btn btn-primary" href={primaryHref}>
+                {primaryLabel}
               </Link>
-              <Link className="btn btn-secondary" href="/carrieres">
+              <Link className="btn btn-secondary" href={offersHref}>
                 Voir les offres
               </Link>
             </div>

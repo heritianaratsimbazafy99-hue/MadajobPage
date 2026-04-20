@@ -114,13 +114,19 @@ export async function createJobAction(
 
   revalidatePath("/app/recruteur");
   revalidatePath("/app/admin");
+  revalidatePath("/app/candidat");
+  revalidatePath("/app/candidat/offres");
   revalidatePath("/carrieres");
+  if (status === "published") {
+    revalidatePath(`/app/candidat/offres/${slug}`);
+    revalidatePath(`/carrieres/${slug}`);
+  }
 
   return {
     status: "success",
     message:
       status === "published"
-        ? "Offre publiee. Elle apparaitra desormais dans le site carriere."
+        ? "Offre publiee. Elle apparaitra desormais sur le site carriere et dans l'espace candidat."
         : "Offre enregistree en brouillon dans la plateforme."
   };
 }
@@ -152,6 +158,15 @@ export async function applyToJobAction(
   }
 
   const supabase = await createClient();
+  const { data: primaryCv } = await supabase
+    .from("candidate_documents")
+    .select("id, file_name")
+    .eq("candidate_id", profile.id)
+    .eq("is_primary", true)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   const { data: existingApplication } = await supabase
     .from("applications")
     .select("id")
@@ -169,6 +184,7 @@ export async function applyToJobAction(
   const { error } = await supabase.from("applications").insert({
     job_post_id: jobId,
     candidate_id: profile.id,
+    cv_document_id: primaryCv?.id ?? null,
     cover_letter: coverLetter || null
   });
 
@@ -180,13 +196,19 @@ export async function applyToJobAction(
   }
 
   revalidatePath("/app/candidat");
+  revalidatePath("/app/candidat/offres");
+  revalidatePath("/app/recruteur");
+  revalidatePath("/app/admin");
   revalidatePath("/carrieres");
   if (jobSlug) {
     revalidatePath(`/carrieres/${jobSlug}`);
+    revalidatePath(`/app/candidat/offres/${jobSlug}`);
   }
 
   return {
     status: "success",
-    message: "Votre candidature a bien ete envoyee depuis la plateforme Madajob."
+    message: primaryCv?.file_name
+      ? `Votre candidature a bien ete envoyee avec votre CV principal (${primaryCv.file_name}).`
+      : "Votre candidature a bien ete envoyee. Pensez a televerser votre CV principal pour renforcer vos prochains envois."
   };
 }

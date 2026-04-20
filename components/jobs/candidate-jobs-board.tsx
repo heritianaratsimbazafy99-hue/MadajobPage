@@ -17,6 +17,7 @@ type Filters = {
   workMode: string;
   sector: string;
   featuredOnly: boolean;
+  sort: "recent" | "oldest" | "featured";
 };
 
 const initialFilters: Filters = {
@@ -25,7 +26,8 @@ const initialFilters: Filters = {
   contractType: "",
   workMode: "",
   sector: "",
-  featuredOnly: false
+  featuredOnly: false,
+  sort: "recent"
 };
 
 function getUniqueValues(values: Array<string | undefined>) {
@@ -55,7 +57,7 @@ export function CandidateJobsBoard({ jobs }: CandidateJobsBoardProps) {
   const filteredJobs = useMemo(() => {
     const query = deferredQuery.trim().toLowerCase();
 
-    return jobs.filter((job) => {
+    const matchingJobs = jobs.filter((job) => {
       const matchesQuery =
         !query ||
         [
@@ -85,7 +87,24 @@ export function CandidateJobsBoard({ jobs }: CandidateJobsBoardProps) {
         matchesFeatured
       );
     });
-  }, [deferredQuery, filters.contractType, filters.featuredOnly, filters.location, filters.sector, filters.workMode, jobs]);
+
+    return matchingJobs.sort((left, right) => {
+      const leftDate = left.published_at ? new Date(left.published_at).getTime() : 0;
+      const rightDate = right.published_at ? new Date(right.published_at).getTime() : 0;
+
+      if (filters.sort === "oldest") {
+        return leftDate - rightDate;
+      }
+
+      if (filters.sort === "featured") {
+        if (left.is_featured !== right.is_featured) {
+          return left.is_featured ? -1 : 1;
+        }
+      }
+
+      return rightDate - leftDate;
+    });
+  }, [deferredQuery, filters.contractType, filters.featuredOnly, filters.location, filters.sector, filters.sort, filters.workMode, jobs]);
 
   const activeFilterCount = [
     filters.query,
@@ -93,7 +112,8 @@ export function CandidateJobsBoard({ jobs }: CandidateJobsBoardProps) {
     filters.contractType,
     filters.workMode,
     filters.sector,
-    filters.featuredOnly ? "featured" : ""
+    filters.featuredOnly ? "featured" : "",
+    filters.sort !== "recent" ? filters.sort : ""
   ].filter(Boolean).length;
 
   return (
@@ -199,6 +219,23 @@ export function CandidateJobsBoard({ jobs }: CandidateJobsBoardProps) {
                   {option}
                 </option>
               ))}
+            </select>
+          </label>
+
+          <label className="field">
+            <span>Tri</span>
+            <select
+              value={filters.sort}
+              onChange={(event) =>
+                setFilters((previous) => ({
+                  ...previous,
+                  sort: event.target.value as Filters["sort"]
+                }))
+              }
+            >
+              <option value="recent">Plus recentes</option>
+              <option value="featured">Mises en avant d'abord</option>
+              <option value="oldest">Plus anciennes</option>
             </select>
           </label>
         </div>
