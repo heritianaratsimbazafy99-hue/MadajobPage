@@ -1,4 +1,5 @@
 import { DashboardShell } from "@/components/dashboard/shell";
+import { InviteUserForm } from "@/components/admin/invite-user-form";
 import { AdminUsersBoard } from "@/components/admin/users-board";
 import { requireRole } from "@/lib/auth";
 import { getAdminOrganizations, getAdminUsers } from "@/lib/jobs";
@@ -17,7 +18,15 @@ export default async function AdminUsersPage() {
       profile={profile}
       currentPath="/app/admin/utilisateurs"
     >
-      <AdminUsersBoard users={users} organizations={organizations} />
+      <section className="dashboard-workspace">
+        <div className="dashboard-column">
+          <AdminUsersBoard users={users} organizations={organizations} />
+        </div>
+
+        <aside className="dashboard-column dashboard-column--aside">
+          <InviteUserForm organizations={organizations} />
+        </aside>
+      </section>
     </DashboardShell>
   );
 }

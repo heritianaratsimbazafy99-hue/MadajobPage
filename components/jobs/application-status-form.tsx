@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 
 import {
   updateApplicationStatusAction,
@@ -31,7 +32,22 @@ export function ApplicationStatusForm({
   applicationId,
   currentStatus
 }: ApplicationStatusFormProps) {
+  const router = useRouter();
   const [state, formAction] = useActionState(updateApplicationStatusAction, initialState);
+  const [selectedStatus, setSelectedStatus] = useState(currentStatus);
+  const [, startTransition] = useTransition();
+
+  useEffect(() => {
+    setSelectedStatus(currentStatus);
+  }, [currentStatus]);
+
+  useEffect(() => {
+    if (state.status === "success") {
+      startTransition(() => {
+        router.refresh();
+      });
+    }
+  }, [router, startTransition, state.status]);
 
   return (
     <form action={formAction} className="status-form">
@@ -39,7 +55,11 @@ export function ApplicationStatusForm({
 
       <label className="field">
         <span>Statut</span>
-        <select name="status" defaultValue={currentStatus}>
+        <select
+          name="status"
+          value={selectedStatus}
+          onChange={(event) => setSelectedStatus(event.target.value)}
+        >
           {statusOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
