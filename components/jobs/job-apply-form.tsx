@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect, useRef, useTransition } from "react";
+import { useRouter } from "next/navigation";
 
 import { applyToJobAction, type JobActionState } from "@/app/actions/job-actions";
 import { SubmitButton } from "@/components/jobs/submit-button";
@@ -18,13 +19,18 @@ type JobApplyFormProps = {
 
 export function JobApplyForm({ jobId, jobSlug, primaryCvName = null }: JobApplyFormProps) {
   const formRef = useRef<HTMLFormElement>(null);
+  const router = useRouter();
   const [state, formAction] = useActionState(applyToJobAction, initialState);
+  const [, startTransition] = useTransition();
 
   useEffect(() => {
     if (state.status === "success") {
       formRef.current?.reset();
+      startTransition(() => {
+        router.refresh();
+      });
     }
-  }, [state.status]);
+  }, [router, startTransition, state.status]);
 
   return (
     <form ref={formRef} action={formAction} className="dashboard-form">

@@ -8,20 +8,12 @@ import {
   type ApplicationActionState
 } from "@/app/actions/application-actions";
 import { SubmitButton } from "@/components/jobs/submit-button";
+import { applicationStatusOptions } from "@/lib/application-status";
 
 const initialState: ApplicationActionState = {
   status: "idle",
   message: ""
 };
-
-const statusOptions = [
-  { value: "submitted", label: "Soumise" },
-  { value: "screening", label: "Screening" },
-  { value: "interview", label: "Entretien" },
-  { value: "shortlist", label: "Shortlist" },
-  { value: "hired", label: "Recrute" },
-  { value: "rejected", label: "Refuse" }
-];
 
 type ApplicationStatusFormProps = {
   applicationId: string;
@@ -60,7 +52,7 @@ export function ApplicationStatusForm({
           value={selectedStatus}
           onChange={(event) => setSelectedStatus(event.target.value)}
         >
-          {statusOptions.map((option) => (
+          {applicationStatusOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>

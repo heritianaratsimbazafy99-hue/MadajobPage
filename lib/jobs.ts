@@ -6,6 +6,8 @@ import { createClient } from "@/lib/supabase/server";
 import type {
   ApplicationDetail,
   ApplicationStatusHistoryEntry,
+  CandidateApplicationDetail,
+  CandidateApplicationHistoryEntry,
   CandidateApplicationSummary,
   CandidateApplication,
   CandidateDetail,
@@ -364,6 +366,150 @@ export async function getCandidateApplications(_candidateId: string) {
       organization_name: "Madajob"
     };
   });
+}
+
+export async function getCandidateApplicationDetail(
+  profile: Profile,
+  applicationId: string
+) {
+  noStore();
+
+  if (!isSupabaseConfigured) {
+    const fallbackApplication =
+      fallbackApplications.find((item) => item.id === applicationId) ?? fallbackApplications[0] ?? null;
+    const fallbackJob =
+      fallbackJobs.find((job) => job.title === fallbackApplication?.job_title) ??
+      fallbackJobs[0] ??
+      null;
+
+    if (!fallbackApplication || !fallbackJob) {
+      return null;
+    }
+
+    return {
+      id: fallbackApplication.id,
+      status: fallbackApplication.status,
+      created_at: fallbackApplication.created_at,
+      updated_at: fallbackApplication.created_at,
+      cover_letter: null,
+      has_cv: false,
+      job: {
+        id: fallbackJob.id,
+        title: fallbackJob.title,
+        slug: fallbackJob.slug,
+        location: fallbackJob.location,
+        contract_type: fallbackJob.contract_type,
+        work_mode: fallbackJob.work_mode,
+        sector: fallbackJob.sector,
+        summary: fallbackJob.summary,
+        organization_name: fallbackApplication.organization_name ?? "Madajob"
+      },
+      cv_document: null,
+      cv_download_url: null,
+      status_history: []
+    } satisfies CandidateApplicationDetail;
+  }
+
+  const adminClient = createAdminClient();
+  const supabase = adminClient ?? (await createClient());
+  const { data: applicationRow, error: applicationError } = await supabase
+    .from("applications")
+    .select(
+      `
+      id,
+      status,
+      created_at,
+      updated_at,
+      cover_letter,
+      cv_document_id,
+      job_posts!inner(
+        id,
+        slug,
+        title,
+        location,
+        contract_type,
+        work_mode,
+        sector,
+        summary,
+        organization_id
+      )
+    `
+    )
+    .eq("id", applicationId)
+    .eq("candidate_id", profile.id)
+    .maybeSingle();
+
+  if (applicationError || !applicationRow) {
+    return null;
+  }
+
+  const job = normalizeJobRelation(
+    applicationRow.job_posts as ApplicationAccessRow["job_posts"]
+  );
+
+  if (!job) {
+    return null;
+  }
+
+  const cvDocumentId =
+    typeof applicationRow.cv_document_id === "string" ? applicationRow.cv_document_id : null;
+
+  const [{ data: organizationData }, { data: historyRows }, { data: cvDocumentRow }] =
+    await Promise.all([
+      adminClient
+        ? adminClient
+            .from("organizations")
+            .select("name")
+            .eq("id", String(job.organization_id ?? ""))
+            .maybeSingle()
+        : Promise.resolve({ data: null }),
+      supabase
+        .from("application_status_history")
+        .select("id, from_status, to_status, note, created_at")
+        .eq("application_id", applicationId)
+        .order("created_at", { ascending: false }),
+      cvDocumentId
+        ? supabase
+            .from("candidate_documents")
+            .select("id, bucket_id, storage_path, file_name, mime_type, file_size, is_primary, created_at")
+            .eq("id", cvDocumentId)
+            .maybeSingle()
+        : Promise.resolve({ data: null })
+    ]);
+
+  const cvDocument = cvDocumentRow ? mapCandidateDocumentRecord(cvDocumentRow) : null;
+  const cvDownloadUrl = await createSignedUrlForDocument(adminClient, cvDocument);
+  const statusHistory = (historyRows ?? []).map((item: Record<string, unknown>) => ({
+    id: String(item.id),
+    from_status: typeof item.from_status === "string" ? item.from_status : null,
+    to_status: String(item.to_status ?? "submitted"),
+    note: typeof item.note === "string" ? item.note : null,
+    created_at: String(item.created_at ?? "")
+  })) satisfies CandidateApplicationHistoryEntry[];
+
+  return {
+    id: String(applicationRow.id),
+    status: String(applicationRow.status ?? "submitted"),
+    created_at: String(applicationRow.created_at ?? ""),
+    updated_at: String(applicationRow.updated_at ?? applicationRow.created_at ?? ""),
+    cover_letter:
+      typeof applicationRow.cover_letter === "string" ? applicationRow.cover_letter : null,
+    has_cv: Boolean(cvDocument),
+    job: {
+      id: String(job.id ?? ""),
+      title: String(job.title ?? "Offre Madajob"),
+      slug: String(job.slug ?? ""),
+      location: String(job.location ?? ""),
+      contract_type: String(job.contract_type ?? ""),
+      work_mode: String(job.work_mode ?? ""),
+      sector: String(job.sector ?? ""),
+      summary: String(job.summary ?? ""),
+      organization_name: String(organizationData?.name ?? "Madajob")
+    },
+    cv_document: cvDocument,
+    cv_download_url: cvDownloadUrl,
+    status_history: statusHistory
+  } satisfies CandidateApplicationDetail;
 }
 
 export async function getCandidatePrimaryDocument(candidateId: string) {

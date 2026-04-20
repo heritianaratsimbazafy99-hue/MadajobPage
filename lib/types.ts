@@ -84,6 +84,14 @@ export type CandidateApplication = {
   organization_name: string | null;
 };
 
+export type CandidateApplicationHistoryEntry = {
+  id: string;
+  from_status: string | null;
+  to_status: string;
+  note: string | null;
+  created_at: string;
+};
+
 export type RecruiterApplication = {
   id: string;
   status: string;
@@ -153,6 +161,29 @@ export type ApplicationDetail = {
   cv_download_url: string | null;
   notes: InternalApplicationNote[];
   status_history: ApplicationStatusHistoryEntry[];
+};
+
+export type CandidateApplicationDetail = {
+  id: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  cover_letter: string | null;
+  has_cv: boolean;
+  job: {
+    id: string;
+    title: string;
+    slug: string;
+    location: string;
+    contract_type: string;
+    work_mode: string;
+    sector: string;
+    summary: string;
+    organization_name: string;
+  };
+  cv_document: CandidateDocumentData | null;
+  cv_download_url: string | null;
+  status_history: CandidateApplicationHistoryEntry[];
 };
 
 export type ManagedCandidateSummary = {

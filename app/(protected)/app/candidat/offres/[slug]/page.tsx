@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { DashboardShell } from "@/components/dashboard/shell";
 import { JobApplyForm } from "@/components/jobs/job-apply-form";
+import { getApplicationStatusMeta } from "@/lib/application-status";
 import { requireRole } from "@/lib/auth";
 import { formatDisplayDate } from "@/lib/format";
 import {
@@ -30,6 +31,7 @@ export default async function CandidateJobDetailPage({
 
   const application = await getCandidateApplicationForJob(profile.id, job.id);
   const primaryCv = await getCandidatePrimaryDocument(profile.id);
+  const applicationStatus = application ? getApplicationStatusMeta(application.status) : null;
 
   return (
     <DashboardShell
@@ -67,9 +69,16 @@ export default async function CandidateJobDetailPage({
             <div className="panel dashboard-sidecard detail-side-card__stack">
               <p className="eyebrow">Candidature envoyee</p>
               <h2>Vous avez deja postule a cette offre.</h2>
-              <p>Statut actuel : {application.status}</p>
+              <p>Statut actuel : {applicationStatus?.label ?? application.status}</p>
+              {applicationStatus ? <p>{applicationStatus.description}</p> : null}
               <p>Soumis le {formatDisplayDate(application.created_at)}</p>
               <div className="dashboard-action-stack">
+                <Link
+                  className="btn btn-primary btn-block"
+                  href={`/app/candidat/candidatures/${application.id}`}
+                >
+                  Ouvrir mon dossier
+                </Link>
                 <Link className="btn btn-secondary btn-block" href="/app/candidat">
                   Voir mon suivi candidat
                 </Link>

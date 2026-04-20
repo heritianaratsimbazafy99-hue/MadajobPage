@@ -3,6 +3,10 @@ import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard/shell";
 import { CandidateCvUpload } from "@/components/profile/candidate-cv-upload";
 import { CandidateProfileForm } from "@/components/profile/candidate-profile-form";
+import {
+  getApplicationStatusMeta,
+  isFinalApplicationStatus
+} from "@/lib/application-status";
 import { requireRole } from "@/lib/auth";
 import { formatDisplayDate } from "@/lib/format";
 import {
@@ -21,6 +25,12 @@ export default async function CandidateDashboardPage() {
   const applications = await getCandidateApplications(profile.id);
   const candidateProfile = await getCandidateWorkspace(profile);
   const latestApplication = applications[0];
+  const activeApplicationsCount = applications.filter(
+    (application) => !isFinalApplicationStatus(application.status)
+  ).length;
+  const latestApplicationStatus = latestApplication
+    ? getApplicationStatusMeta(latestApplication.status)
+    : null;
 
   return (
     <DashboardShell
@@ -32,8 +42,12 @@ export default async function CandidateDashboardPage() {
       <section className="dashboard-grid dashboard-grid--four">
         <article className="panel metric-panel">
           <span>Candidatures actives</span>
-          <strong>{applications.length}</strong>
-          <small>{applications.length > 0 ? "dossiers visibles dans votre suivi" : "aucune candidature en cours"}</small>
+          <strong>{activeApplicationsCount}</strong>
+          <small>
+            {applications.length > 0
+              ? `${applications.length} dossier(s) visible(s) dans votre suivi`
+              : "aucune candidature en cours"}
+          </small>
         </article>
         <article className="panel metric-panel">
           <span>Profil</span>
@@ -51,7 +65,7 @@ export default async function CandidateDashboardPage() {
         </article>
         <article className="panel metric-panel">
           <span>Derniere action</span>
-          <strong>{latestApplication ? latestApplication.status : "Aucune"}</strong>
+          <strong>{latestApplicationStatus ? latestApplicationStatus.label : "Aucune"}</strong>
           <small>{latestApplication ? formatDisplayDate(latestApplication.created_at) : "postulez a une offre pour demarrer"}</small>
         </article>
       </section>
@@ -71,18 +85,31 @@ export default async function CandidateDashboardPage() {
 
             <div className="dashboard-list">
               {applications.length > 0 ? (
-                applications.map((application) => (
-                  <article key={application.id} className="panel list-card dashboard-card">
-                    <div className="dashboard-card__top">
-                      <h3>{application.job_title}</h3>
-                      <span className="tag">{application.status}</span>
-                    </div>
-                    <p>{application.organization_name || "Organisation"}</p>
-                    <div className="job-card__meta">
-                      <span>Soumis le {formatDisplayDate(application.created_at)}</span>
-                    </div>
-                  </article>
-                ))
+                applications.map((application) => {
+                  const status = getApplicationStatusMeta(application.status);
+
+                  return (
+                    <article key={application.id} className="panel list-card dashboard-card">
+                      <div className="dashboard-card__top">
+                        <div>
+                          <h3>{application.job_title}</h3>
+                          <p>{application.organization_name || "Organisation"}</p>
+                        </div>
+                        <span className="tag">{status.label}</span>
+                      </div>
+                      <p>{status.description}</p>
+                      <div className="job-card__meta">
+                        <span>Soumis le {formatDisplayDate(application.created_at)}</span>
+                      </div>
+                      <div className="job-card__footer">
+                        <small>{status.candidateHint}</small>
+                        <Link href={`/app/candidat/candidatures/${application.id}`}>
+                          Ouvrir le dossier
+                        </Link>
+                      </div>
+                    </article>
+                  );
+                })
               ) : (
                 <article className="panel list-card dashboard-card dashboard-card--empty">
                   <h3>Aucune candidature pour le moment</h3>

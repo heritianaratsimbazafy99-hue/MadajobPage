@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 
+import { applicationStatusValues } from "@/lib/application-status";
 import { requireRole } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -16,14 +17,7 @@ const defaultState: ApplicationActionState = {
   message: ""
 };
 
-const allowedStatuses = new Set([
-  "submitted",
-  "screening",
-  "interview",
-  "shortlist",
-  "hired",
-  "rejected"
-]);
+const allowedStatuses = new Set<string>(applicationStatusValues);
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -43,7 +37,7 @@ async function getManageableApplicationForActor(
   const supabase = await getApplicationMutationClient();
   let query = supabase
     .from("applications")
-    .select("id, status, job_posts!inner(organization_id)")
+    .select("id, status, job_posts!inner(organization_id, slug)")
     .eq("id", applicationId);
 
   if (actorRole === "recruteur") {
@@ -89,6 +83,13 @@ export async function updateApplicationStatusAction(
   }
 
   const currentStatus = String(existingApplication.status ?? "submitted");
+  const rawJobRelation =
+    (existingApplication as { job_posts?: { slug?: string | null } | Array<{ slug?: string | null }> | null })
+      .job_posts ?? null;
+  const currentJob =
+    Array.isArray(rawJobRelation) ? rawJobRelation[0] ?? null : rawJobRelation;
+  const jobSlug =
+    currentJob && typeof currentJob.slug === "string" ? currentJob.slug : null;
 
   if (currentStatus === nextStatus) {
     return {
@@ -131,6 +132,10 @@ export async function updateApplicationStatusAction(
   revalidatePath(`/app/recruteur/candidatures/${applicationId}`);
   revalidatePath(`/app/admin/candidatures/${applicationId}`);
   revalidatePath("/app/candidat");
+  revalidatePath(`/app/candidat/candidatures/${applicationId}`);
+  if (jobSlug) {
+    revalidatePath(`/app/candidat/offres/${jobSlug}`);
+  }
 
   return {
     status: "success",
