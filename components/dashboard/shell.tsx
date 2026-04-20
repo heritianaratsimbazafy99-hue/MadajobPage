@@ -28,6 +28,7 @@ const navByRole: Record<AppRole, NavItem[]> = {
   candidat: [
     { href: "/app/candidat", label: "Tableau de bord", hint: "Profil, CV et candidatures" },
     { href: "/app/candidat/candidatures", label: "Mes candidatures", hint: "Filtrer et suivre vos dossiers" },
+    { href: "/app/candidat/documents", label: "Documents", hint: "Centraliser CV et pieces utiles" },
     { href: "/app/candidat/offres", label: "Offres", hint: "Explorer les postes ouverts" }
   ],
   recruteur: [

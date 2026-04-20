@@ -31,6 +31,7 @@ export type CandidateProfileData = {
 
 export type CandidateDocumentData = {
   id: string;
+  document_type: string;
   bucket_id: string;
   storage_path: string;
   file_name: string;

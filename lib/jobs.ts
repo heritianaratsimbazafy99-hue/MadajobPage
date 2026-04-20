@@ -188,6 +188,7 @@ function mapManagedJobRecord(record: Record<string, unknown>): ManagedJob {
 function mapCandidateDocumentRecord(record: Record<string, unknown>): CandidateDocumentData {
   return {
     id: String(record.id),
+    document_type: String(record.document_type ?? "cv"),
     bucket_id: String(record.bucket_id ?? "candidate-cv"),
     storage_path: String(record.storage_path ?? ""),
     file_name: String(record.file_name ?? "cv"),
@@ -625,7 +626,7 @@ export async function getCandidatePrimaryDocument(candidateId: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("candidate_documents")
-    .select("id, bucket_id, storage_path, file_name, mime_type, file_size, is_primary, created_at")
+    .select("id, document_type, bucket_id, storage_path, file_name, mime_type, file_size, is_primary, created_at")
     .eq("candidate_id", candidateId)
     .order("is_primary", { ascending: false })
     .order("created_at", { ascending: false })
@@ -641,22 +642,27 @@ export async function getCandidatePrimaryDocument(candidateId: string) {
 
 export async function getCandidateDocuments(
   candidateId: string,
-  options: { limit?: number } = {}
+  options: { limit?: number; documentType?: string } = {}
 ) {
-  const { limit = 6 } = options;
+  const { limit = 6, documentType } = options;
 
   if (!isSupabaseConfigured) {
     return [] as CandidateDocumentData[];
   }
 
   const supabase = await createClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("candidate_documents")
-    .select("id, bucket_id, storage_path, file_name, mime_type, file_size, is_primary, created_at")
+    .select("id, document_type, bucket_id, storage_path, file_name, mime_type, file_size, is_primary, created_at")
     .eq("candidate_id", candidateId)
     .order("is_primary", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(limit);
+    .order("created_at", { ascending: false });
+
+  if (documentType) {
+    query = query.eq("document_type", documentType);
+  }
+
+  const { data, error } = await query.limit(limit);
 
   if (error || !data) {
     return [] as CandidateDocumentData[];
@@ -732,7 +738,7 @@ export async function getCandidateWorkspace(profile: Profile): Promise<Candidate
       .eq("user_id", profile.id)
       .maybeSingle(),
     getCandidatePrimaryDocument(profile.id),
-    getCandidateDocuments(profile.id)
+    getCandidateDocuments(profile.id, { documentType: "cv" })
   ]);
 
   const profileInsights = getCandidateProfileInsights({
