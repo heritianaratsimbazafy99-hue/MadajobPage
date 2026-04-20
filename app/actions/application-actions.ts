@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 
 import { applicationStatusValues } from "@/lib/application-status";
 import { requireRole } from "@/lib/auth";
+import { getApplicationStatusMeta } from "@/lib/application-status";
+import { createNotifications } from "@/lib/notifications";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -37,7 +39,7 @@ async function getManageableApplicationForActor(
   const supabase = await getApplicationMutationClient();
   let query = supabase
     .from("applications")
-    .select("id, status, job_posts!inner(organization_id, slug)")
+    .select("id, status, candidate_id, job_posts!inner(organization_id, slug, title)")
     .eq("id", applicationId);
 
   if (actorRole === "recruteur") {
@@ -84,12 +86,24 @@ export async function updateApplicationStatusAction(
 
   const currentStatus = String(existingApplication.status ?? "submitted");
   const rawJobRelation =
-    (existingApplication as { job_posts?: { slug?: string | null } | Array<{ slug?: string | null }> | null })
+    (existingApplication as {
+      candidate_id?: string | null;
+      job_posts?:
+        | { slug?: string | null; title?: string | null }
+        | Array<{ slug?: string | null; title?: string | null }>
+        | null;
+    })
       .job_posts ?? null;
   const currentJob =
     Array.isArray(rawJobRelation) ? rawJobRelation[0] ?? null : rawJobRelation;
   const jobSlug =
     currentJob && typeof currentJob.slug === "string" ? currentJob.slug : null;
+  const jobTitle =
+    currentJob && typeof currentJob.title === "string" ? currentJob.title : "votre offre";
+  const candidateId =
+    typeof (existingApplication as { candidate_id?: string | null }).candidate_id === "string"
+      ? String((existingApplication as { candidate_id?: string | null }).candidate_id)
+      : null;
 
   if (currentStatus === nextStatus) {
     return {
@@ -125,6 +139,24 @@ export async function updateApplicationStatusAction(
     };
   }
 
+  const statusMeta = getApplicationStatusMeta(nextStatus);
+
+  if (candidateId) {
+    await createNotifications([
+      {
+        user_id: candidateId,
+        kind: "application_status_updated",
+        title: `Mise a jour de votre candidature`,
+        body: `Votre candidature pour ${jobTitle} est maintenant au statut ${statusMeta.label}.`,
+        link_href: `/app/candidat/candidatures/${applicationId}`,
+        metadata: {
+          application_id: applicationId,
+          status: nextStatus
+        }
+      }
+    ]);
+  }
+
   revalidatePath("/app/recruteur");
   revalidatePath("/app/admin");
   revalidatePath("/app/recruteur/candidatures");
@@ -134,6 +166,7 @@ export async function updateApplicationStatusAction(
   revalidatePath("/app/candidat");
   revalidatePath("/app/candidat/candidatures");
   revalidatePath(`/app/candidat/candidatures/${applicationId}`);
+  revalidatePath("/app/candidat/notifications");
   if (jobSlug) {
     revalidatePath(`/app/candidat/offres/${jobSlug}`);
   }

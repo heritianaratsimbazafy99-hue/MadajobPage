@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireRole } from "@/lib/auth";
+import { createNotifications } from "@/lib/notifications";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { AppRole } from "@/lib/types";
 
@@ -126,7 +127,33 @@ export async function inviteUserAction(
     organization_id: updates.organization_id
   });
 
+  await createNotifications([
+    {
+      user_id: profile.id,
+      kind: "user_invited",
+      title: `Invitation envoyee a ${email}`,
+      body: `Le compte ${email} a ete invite avec le role ${role}.`,
+      link_href: "/app/admin/utilisateurs",
+      metadata: {
+        invited_user_id: data.user.id,
+        invited_email: email,
+        invited_role: role
+      }
+    },
+    {
+      user_id: data.user.id,
+      kind: "account_invited",
+      title: "Votre acces Madajob est pret",
+      body: "Un compte a ete prepare pour vous. Connectez-vous apres activation pour acceder a votre espace.",
+      link_href: "/app",
+      metadata: {
+        invited_role: role
+      }
+    }
+  ]);
+
   revalidatePath("/app/admin");
+  revalidatePath("/app/admin/notifications");
   revalidatePath("/app/admin/utilisateurs");
 
   return {

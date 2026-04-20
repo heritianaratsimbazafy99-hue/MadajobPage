@@ -29,6 +29,7 @@ const navByRole: Record<AppRole, NavItem[]> = {
     { href: "/app/candidat", label: "Tableau de bord", hint: "Profil, CV et candidatures" },
     { href: "/app/candidat/candidatures", label: "Mes candidatures", hint: "Filtrer et suivre vos dossiers" },
     { href: "/app/candidat/documents", label: "Documents", hint: "Centraliser CV et pieces utiles" },
+    { href: "/app/candidat/notifications", label: "Notifications", hint: "Suivre les evolutions importantes" },
     { href: "/app/candidat/offres", label: "Offres", hint: "Explorer les postes ouverts" }
   ],
   recruteur: [
@@ -36,6 +37,7 @@ const navByRole: Record<AppRole, NavItem[]> = {
     { href: "/app/recruteur/offres", label: "Mes offres", hint: "Editer, publier et fermer vos annonces" },
     { href: "/app/recruteur/candidatures", label: "Candidatures", hint: "Traiter les dossiers recus" },
     { href: "/app/recruteur/candidats", label: "Candidats", hint: "Explorer votre base profils" },
+    { href: "/app/recruteur/notifications", label: "Notifications", hint: "Voir les alertes internes" },
     { href: "/app/recruteur/reporting", label: "Reporting", hint: "Exporter et suivre vos volumes" },
     { href: "/carrieres", label: "Site carriere", hint: "Voir les annonces publiques" }
   ],
@@ -45,6 +47,7 @@ const navByRole: Record<AppRole, NavItem[]> = {
     { href: "/app/admin/candidatures", label: "Candidatures", hint: "Suivre les dossiers candidats" },
     { href: "/app/admin/candidats", label: "Candidats", hint: "Centraliser la base profils" },
     { href: "/app/admin/utilisateurs", label: "Utilisateurs", hint: "Gerer les droits et les acces" },
+    { href: "/app/admin/notifications", label: "Notifications", hint: "Suivre les alertes plateforme" },
     { href: "/app/admin/reporting", label: "Reporting", hint: "Exporter et lire les volumes plateforme" },
     { href: "/carrieres", label: "Site carriere", hint: "Controler la vitrine publique" }
   ]

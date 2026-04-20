@@ -4,6 +4,10 @@ import { revalidatePath } from "next/cache";
 
 import { requireRole } from "@/lib/auth";
 import { getPublishedJobById } from "@/lib/jobs";
+import {
+  createNotifications,
+  getActiveProfileIdsByRole
+} from "@/lib/notifications";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -439,12 +443,16 @@ export async function applyToJobAction(
     };
   }
 
-  const { error } = await supabase.from("applications").insert({
-    job_post_id: jobId,
-    candidate_id: profile.id,
-    cv_document_id: primaryCv?.id ?? null,
-    cover_letter: coverLetter || null
-  });
+  const { data: insertedApplication, error } = await supabase
+    .from("applications")
+    .insert({
+      job_post_id: jobId,
+      candidate_id: profile.id,
+      cv_document_id: primaryCv?.id ?? null,
+      cover_letter: coverLetter || null
+    })
+    .select("id")
+    .single();
 
   if (error) {
     return {
@@ -453,11 +461,82 @@ export async function applyToJobAction(
     };
   }
 
+  const applicationId = String(insertedApplication?.id ?? "");
+  const candidateLabel = profile.full_name || profile.email || "Un candidat";
+
+  if (applicationId) {
+    await createNotifications([
+      {
+        user_id: profile.id,
+        kind: "application_submitted",
+        title: `Candidature envoyee pour ${job.title}`,
+        body: primaryCv?.file_name
+          ? `Votre dossier a bien ete envoye avec le CV ${primaryCv.file_name}.`
+          : "Votre dossier a bien ete envoye. Pensez a rattacher un CV principal pour vos prochaines candidatures.",
+        link_href: `/app/candidat/candidatures/${applicationId}`,
+        metadata: {
+          application_id: applicationId,
+          job_post_id: jobId,
+          job_slug: jobSlug
+        }
+      }
+    ]);
+
+    const adminClient = createAdminClient();
+
+    if (adminClient) {
+      const { data: jobRow } = await adminClient
+        .from("job_posts")
+        .select("organization_id")
+        .eq("id", jobId)
+        .maybeSingle();
+
+      const organizationId =
+        typeof jobRow?.organization_id === "string" ? jobRow.organization_id : null;
+
+      if (organizationId) {
+        const [recruiterIds, adminIds] = await Promise.all([
+          getActiveProfileIdsByRole("recruteur", { organizationId }),
+          getActiveProfileIdsByRole("admin")
+        ]);
+
+        const recruiterNotifications = recruiterIds.map((userId) => ({
+          user_id: userId,
+          kind: "new_application_received",
+          title: `Nouvelle candidature sur ${job.title}`,
+          body: `${candidateLabel} a postule a cette offre depuis l'espace candidat.`,
+          link_href: `/app/recruteur/candidatures/${applicationId}`,
+          metadata: {
+            application_id: applicationId,
+            job_post_id: jobId
+          }
+        }));
+
+        const adminNotifications = adminIds.map((userId) => ({
+          user_id: userId,
+          kind: "new_application_received",
+          title: `Nouvelle candidature sur ${job.title}`,
+          body: `${candidateLabel} a postule a cette offre. La plateforme a cree un nouveau dossier candidat.`,
+          link_href: `/app/admin/candidatures/${applicationId}`,
+          metadata: {
+            application_id: applicationId,
+            job_post_id: jobId
+          }
+        }));
+
+        await createNotifications([...recruiterNotifications, ...adminNotifications]);
+      }
+    }
+  }
+
   revalidatePath("/app/candidat");
   revalidatePath("/app/candidat/candidatures");
+  revalidatePath("/app/candidat/notifications");
   revalidatePath("/app/candidat/offres");
   revalidatePath("/app/recruteur");
+  revalidatePath("/app/recruteur/notifications");
   revalidatePath("/app/admin");
+  revalidatePath("/app/admin/notifications");
   revalidatePath("/carrieres");
   if (jobSlug) {
     revalidatePath(`/carrieres/${jobSlug}`);

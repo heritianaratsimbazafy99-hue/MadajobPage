@@ -1,5 +1,18 @@
 export type AppRole = "candidat" | "recruteur" | "admin";
 
+export type AppNotification = {
+  id: string;
+  user_id: string;
+  kind: string;
+  title: string;
+  body: string;
+  link_href: string | null;
+  is_read: boolean;
+  read_at: string | null;
+  created_at: string;
+  metadata: Record<string, unknown>;
+};
+
 export type Profile = {
   id: string;
   email: string | null;
