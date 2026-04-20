@@ -482,7 +482,7 @@ export async function getCandidateWorkspace(profile: Profile): Promise<Candidate
 }
 
 export async function getRecruiterSnapshot(profile: Profile) {
-  if (!isSupabaseConfigured || !profile.organization_id) {
+  if (!isSupabaseConfigured) {
     return {
       jobs: fallbackJobs.slice(0, 3),
       metrics: {
@@ -493,13 +493,35 @@ export async function getRecruiterSnapshot(profile: Profile) {
     };
   }
 
+  if (!profile.organization_id) {
+    return {
+      jobs: [],
+      metrics: {
+        activeJobs: 0,
+        applications: 0,
+        pipeline: 0
+      }
+    };
+  }
+
   const supabase = await createClient();
-  const { data: jobsData } = await supabase
+  const { data: jobsData, error: jobsError } = await supabase
     .from("job_posts")
     .select("id, title, slug, location, contract_type, work_mode, sector, summary, status, is_featured, published_at")
     .eq("organization_id", profile.organization_id)
     .order("created_at", { ascending: false })
     .limit(6);
+
+  if (jobsError) {
+    return {
+      jobs: [],
+      metrics: {
+        activeJobs: 0,
+        applications: 0,
+        pipeline: 0
+      }
+    };
+  }
 
   const jobs = (jobsData ?? []).map((item) => mapJobRecord(item));
   const jobIds = jobs.map((job) => job.id);
@@ -1381,8 +1403,12 @@ export async function getRecruiterApplications(
   options: { limit?: number } = {}
 ) {
   const { limit = 8 } = options;
-  if (!isSupabaseConfigured || !profile.organization_id) {
+  if (!isSupabaseConfigured) {
     return fallbackRecruiterApplications;
+  }
+
+  if (!profile.organization_id) {
+    return [] as RecruiterApplication[];
   }
 
   const supabase = await createClient();
@@ -1409,7 +1435,7 @@ export async function getRecruiterApplications(
   const { data, error } = await query;
 
   if (error || !data) {
-    return fallbackRecruiterApplications;
+    return [] as RecruiterApplication[];
   }
 
   return data.map((item: Record<string, unknown>) => {

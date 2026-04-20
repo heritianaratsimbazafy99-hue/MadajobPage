@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireRole } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 export type ApplicationActionState = {
@@ -23,9 +24,39 @@ const allowedStatuses = new Set([
   "hired",
   "rejected"
 ]);
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function getTrimmedValue(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
+}
+
+async function getApplicationMutationClient() {
+  return createAdminClient() ?? (await createClient());
+}
+
+async function getManageableApplicationForActor(
+  actorRole: "admin" | "recruteur",
+  organizationId: string | null,
+  applicationId: string
+) {
+  const supabase = await getApplicationMutationClient();
+  let query = supabase
+    .from("applications")
+    .select("id, status, job_posts!inner(organization_id)")
+    .eq("id", applicationId);
+
+  if (actorRole === "recruteur") {
+    query = query.eq("job_posts.organization_id", organizationId);
+  }
+
+  const { data, error } = await query.maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return data;
 }
 
 export async function updateApplicationStatusAction(
@@ -33,28 +64,27 @@ export async function updateApplicationStatusAction(
   formData: FormData
 ): Promise<ApplicationActionState> {
   const profile = await requireRole(["recruteur", "admin"]);
+  const actorRole = profile.role === "admin" ? "admin" : "recruteur";
   const applicationId = getTrimmedValue(formData, "application_id");
   const nextStatus = getTrimmedValue(formData, "status");
 
-  if (!applicationId || !allowedStatuses.has(nextStatus)) {
+  if (!applicationId || !uuidPattern.test(applicationId) || !allowedStatuses.has(nextStatus)) {
     return {
       status: "error",
       message: "Statut ou candidature invalide."
     };
   }
 
-  const supabase = await createClient();
+  const existingApplication = await getManageableApplicationForActor(
+    actorRole,
+    profile.organization_id,
+    applicationId
+  );
 
-  const { data: existingApplication, error: fetchError } = await supabase
-    .from("applications")
-    .select("id, status")
-    .eq("id", applicationId)
-    .single();
-
-  if (fetchError || !existingApplication) {
+  if (!existingApplication) {
     return {
       status: "error",
-      message: fetchError?.message || "Impossible de retrouver cette candidature."
+      message: "Impossible de retrouver cette candidature."
     };
   }
 
@@ -67,6 +97,7 @@ export async function updateApplicationStatusAction(
     };
   }
 
+  const supabase = await getApplicationMutationClient();
   const { error: updateError } = await supabase
     .from("applications")
     .update({ status: nextStatus })
@@ -112,17 +143,31 @@ export async function addInternalNoteAction(
   formData: FormData
 ): Promise<ApplicationActionState> {
   const profile = await requireRole(["recruteur", "admin"]);
+  const actorRole = profile.role === "admin" ? "admin" : "recruteur";
   const applicationId = getTrimmedValue(formData, "application_id");
   const body = getTrimmedValue(formData, "body");
 
-  if (!applicationId || !body) {
+  if (!applicationId || !uuidPattern.test(applicationId) || !body) {
     return {
       status: "error",
       message: "La note interne ne peut pas etre vide."
     };
   }
 
-  const supabase = await createClient();
+  const manageableApplication = await getManageableApplicationForActor(
+    actorRole,
+    profile.organization_id,
+    applicationId
+  );
+
+  if (!manageableApplication) {
+    return {
+      status: "error",
+      message: "Impossible de retrouver cette candidature."
+    };
+  }
+
+  const supabase = await getApplicationMutationClient();
   const { error } = await supabase.from("internal_notes").insert({
     application_id: applicationId,
     author_id: profile.id,

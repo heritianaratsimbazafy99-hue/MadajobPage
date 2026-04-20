@@ -18,9 +18,15 @@ const defaultState: JobActionState = {
 };
 
 const allowedJobStatuses = new Set(["draft", "published", "closed", "archived"]);
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function getTrimmedValue(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
+}
+
+async function getJobMutationClient() {
+  return createAdminClient() ?? (await createClient());
 }
 
 function slugify(value: string) {
@@ -34,7 +40,7 @@ function slugify(value: string) {
 }
 
 async function generateUniqueSlug(title: string) {
-  const supabase = await createClient();
+  const supabase = await getJobMutationClient();
   const base = slugify(title) || `offre-${Date.now()}`;
 
   for (let attempt = 0; attempt < 50; attempt += 1) {
@@ -60,7 +66,7 @@ async function getManageableJobForActor(
   organizationId: string | null,
   jobId: string
 ) {
-  const supabase = await createClient();
+  const supabase = await getJobMutationClient();
   let query = supabase
     .from("job_posts")
     .select("id, slug, title, status, published_at, closing_at, organization_id")
@@ -149,7 +155,7 @@ export async function createJobAction(
 
   const slug = await generateUniqueSlug(title);
   const publishedAt = status === "published" ? new Date().toISOString() : null;
-  const supabase = await createClient();
+  const supabase = await getJobMutationClient();
 
   const { error } = await supabase.from("job_posts").insert({
     organization_id: profile.organization_id,
@@ -218,10 +224,10 @@ export async function updateJobAction(
   const actorRole = profile.role === "admin" ? "admin" : "recruteur";
   const jobId = getTrimmedValue(formData, "job_id");
 
-  if (!jobId) {
+  if (!jobId || !uuidPattern.test(jobId)) {
     return {
       status: "error",
-      message: "Offre introuvable."
+      message: "Identifiant d'offre invalide."
     };
   }
 
@@ -258,7 +264,7 @@ export async function updateJobAction(
     };
   }
 
-  const supabase = await createClient();
+  const supabase = await getJobMutationClient();
   const { error } = await supabase
     .from("job_posts")
     .update({
@@ -306,7 +312,7 @@ export async function updateJobStatusAction(
   const jobId = getTrimmedValue(formData, "job_id");
   const nextStatus = getTrimmedValue(formData, "status");
 
-  if (!jobId || !allowedJobStatuses.has(nextStatus)) {
+  if (!jobId || !uuidPattern.test(jobId) || !allowedJobStatuses.has(nextStatus)) {
     return {
       status: "error",
       message: "Transition d'offre invalide."
@@ -350,7 +356,7 @@ export async function updateJobStatusAction(
     patch.closing_at = null;
   }
 
-  const supabase = await createClient();
+  const supabase = await getJobMutationClient();
   const { error } = await supabase
     .from("job_posts")
     .update(patch)
