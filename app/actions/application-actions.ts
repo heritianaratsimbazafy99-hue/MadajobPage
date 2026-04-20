@@ -102,3 +102,41 @@ export async function updateApplicationStatusAction(
     message: "Statut mis a jour avec succes."
   };
 }
+
+export async function addInternalNoteAction(
+  _previousState: ApplicationActionState = defaultState,
+  formData: FormData
+): Promise<ApplicationActionState> {
+  const profile = await requireRole(["recruteur", "admin"]);
+  const applicationId = getTrimmedValue(formData, "application_id");
+  const body = getTrimmedValue(formData, "body");
+
+  if (!applicationId || !body) {
+    return {
+      status: "error",
+      message: "La note interne ne peut pas etre vide."
+    };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.from("internal_notes").insert({
+    application_id: applicationId,
+    author_id: profile.id,
+    body
+  });
+
+  if (error) {
+    return {
+      status: "error",
+      message: error.message
+    };
+  }
+
+  revalidatePath("/app/recruteur");
+  revalidatePath("/app/admin");
+
+  return {
+    status: "success",
+    message: "Note interne ajoutee."
+  };
+}

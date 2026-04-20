@@ -1,10 +1,14 @@
 import { isSupabaseConfigured } from "@/lib/env";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type {
   CandidateApplication,
   CandidateDocumentData,
   CandidateProfileData,
+  InternalApplicationNote,
   Job,
+  JobAuditEvent,
+  ManagedJob,
   Profile,
   RecruiterApplication
 } from "@/lib/types";
@@ -148,6 +152,22 @@ function mapJobRecord(record: Record<string, unknown>): Job {
       typeof record.organization_name === "string"
         ? record.organization_name
         : "Madajob"
+  };
+}
+
+function mapManagedJobRecord(record: Record<string, unknown>): ManagedJob {
+  return {
+    ...mapJobRecord(record),
+    department: typeof record.department === "string" ? record.department : "",
+    responsibilities:
+      typeof record.responsibilities === "string" ? record.responsibilities : "",
+    requirements: typeof record.requirements === "string" ? record.requirements : "",
+    benefits: typeof record.benefits === "string" ? record.benefits : "",
+    created_at: String(record.created_at ?? ""),
+    updated_at: String(record.updated_at ?? ""),
+    closing_at: typeof record.closing_at === "string" ? record.closing_at : null,
+    applications_count:
+      typeof record.applications_count === "number" ? record.applications_count : 0
   };
 }
 
@@ -339,6 +359,48 @@ export async function getCandidatePrimaryDocument(candidateId: string) {
   return mapCandidateDocumentRecord(data);
 }
 
+async function getApplicationCountsByJobIds(jobIds: string[]) {
+  if (!jobIds.length) {
+    return new Map<string, number>();
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("applications")
+    .select("job_post_id")
+    .in("job_post_id", jobIds);
+
+  if (error || !data) {
+    return new Map<string, number>();
+  }
+
+  const counts = new Map<string, number>();
+
+  for (const item of data) {
+    const jobId = String(item.job_post_id ?? "");
+
+    if (!jobId) {
+      continue;
+    }
+
+    counts.set(jobId, (counts.get(jobId) ?? 0) + 1);
+  }
+
+  return counts;
+}
+
+function buildManagedJobs(
+  rows: Array<Record<string, unknown>>,
+  countsByJobId: Map<string, number>
+) {
+  return rows.map((row) =>
+    mapManagedJobRecord({
+      ...row,
+      applications_count: countsByJobId.get(String(row.id ?? "")) ?? 0
+    })
+  );
+}
+
 export async function getCandidateWorkspace(profile: Profile): Promise<CandidateProfileData> {
   if (!isSupabaseConfigured) {
     return {
@@ -432,6 +494,198 @@ export async function getRecruiterSnapshot(profile: Profile) {
       pipeline: Math.max(3, Math.floor((applicationsCount ?? 0) / 2))
     }
   };
+}
+
+export async function getManagedJobs(profile: Profile) {
+  if (!isSupabaseConfigured) {
+    return fallbackJobs.map((job, index) =>
+      mapManagedJobRecord({
+        ...job,
+        created_at: job.published_at ?? new Date(Date.now() - index * 86400000).toISOString(),
+        updated_at: job.published_at ?? new Date().toISOString(),
+        closing_at: null,
+        responsibilities: "",
+        requirements: "",
+        benefits: "",
+        department: "",
+        applications_count: index + 2
+      })
+    );
+  }
+
+  if (profile.role === "recruteur" && !profile.organization_id) {
+    return [];
+  }
+
+  const supabase = await createClient();
+  let query = supabase
+    .from("job_posts")
+    .select(
+      "id, title, slug, department, location, contract_type, work_mode, sector, summary, responsibilities, requirements, benefits, status, is_featured, published_at, closing_at, created_at, updated_at"
+    )
+    .order("created_at", { ascending: false });
+
+  if (profile.role === "recruteur") {
+    query = query.eq("organization_id", profile.organization_id);
+  }
+
+  const { data, error } = await query.limit(50);
+
+  if (error || !data) {
+    return [];
+  }
+
+  const countsByJobId = await getApplicationCountsByJobIds(
+    data.map((item) => String(item.id))
+  );
+
+  return buildManagedJobs(data, countsByJobId);
+}
+
+export async function getManagedJobById(profile: Profile, jobId: string) {
+  if (!isSupabaseConfigured) {
+    const fallback = fallbackJobs.find((job) => job.id === jobId) ?? fallbackJobs[0] ?? null;
+
+    if (!fallback) {
+      return null;
+    }
+
+    return mapManagedJobRecord({
+      ...fallback,
+      created_at: fallback.published_at ?? new Date().toISOString(),
+      updated_at: fallback.published_at ?? new Date().toISOString(),
+      closing_at: fallback.status === "closed" ? new Date().toISOString() : null,
+      responsibilities: "",
+      requirements: "",
+      benefits: "",
+      department: "",
+      applications_count: 4
+    });
+  }
+
+  if (profile.role === "recruteur" && !profile.organization_id) {
+    return null;
+  }
+
+  const supabase = await createClient();
+  let query = supabase
+    .from("job_posts")
+    .select(
+      "id, title, slug, department, location, contract_type, work_mode, sector, summary, responsibilities, requirements, benefits, status, is_featured, published_at, closing_at, created_at, updated_at"
+    )
+    .eq("id", jobId);
+
+  if (profile.role === "recruteur") {
+    query = query.eq("organization_id", profile.organization_id);
+  }
+
+  const { data, error } = await query.maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  const countsByJobId = await getApplicationCountsByJobIds([jobId]);
+
+  return mapManagedJobRecord({
+    ...data,
+    applications_count: countsByJobId.get(jobId) ?? 0
+  });
+}
+
+export async function getJobAuditEvents(profile: Profile, jobId: string) {
+  const job = await getManagedJobById(profile, jobId);
+
+  if (!job) {
+    return [];
+  }
+
+  const adminClient = createAdminClient();
+
+  if (!adminClient) {
+    return [];
+  }
+
+  const { data, error } = await adminClient
+    .from("audit_events")
+    .select(
+      "id, action, entity_type, entity_id, metadata, created_at, actor:profiles(full_name, email)"
+    )
+    .eq("entity_type", "job_post")
+    .eq("entity_id", jobId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  if (error || !data) {
+    return [];
+  }
+
+  return data.map((item: Record<string, unknown>) => {
+    const actor =
+      (item.actor as { full_name?: string | null; email?: string | null } | null) ?? null;
+
+    return {
+      id: String(item.id),
+      action: String(item.action ?? ""),
+      entity_type: String(item.entity_type ?? ""),
+      entity_id: String(item.entity_id ?? ""),
+      metadata:
+        typeof item.metadata === "object" && item.metadata !== null
+          ? (item.metadata as Record<string, unknown>)
+          : {},
+      created_at: String(item.created_at ?? ""),
+      actor_name: actor?.full_name || actor?.email || "Madajob",
+      actor_email: actor?.email ?? null
+    } satisfies JobAuditEvent;
+  });
+}
+
+export async function getInternalNotesByApplicationIds(
+  _profile: Profile,
+  applicationIds: string[]
+) {
+  if (!applicationIds.length) {
+    return new Map<string, InternalApplicationNote[]>();
+  }
+
+  if (!isSupabaseConfigured) {
+    return new Map<string, InternalApplicationNote[]>();
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("internal_notes")
+    .select(
+      "id, application_id, body, created_at, author:profiles(full_name, email)"
+    )
+    .in("application_id", applicationIds)
+    .order("created_at", { ascending: false });
+
+  if (error || !data) {
+    return new Map<string, InternalApplicationNote[]>();
+  }
+
+  const notesByApplicationId = new Map<string, InternalApplicationNote[]>();
+
+  for (const item of data) {
+    const author =
+      (item.author as { full_name?: string | null; email?: string | null } | null) ?? null;
+    const note = {
+      id: String(item.id),
+      application_id: String(item.application_id),
+      body: String(item.body ?? ""),
+      created_at: String(item.created_at ?? ""),
+      author_name: author?.full_name || author?.email || "Equipe Madajob",
+      author_email: author?.email ?? null
+    } satisfies InternalApplicationNote;
+
+    const applicationId = note.application_id;
+    const existing = notesByApplicationId.get(applicationId) ?? [];
+    existing.push(note);
+    notesByApplicationId.set(applicationId, existing);
+  }
+
+  return notesByApplicationId;
 }
 
 export async function getRecruiterApplications(profile: Profile) {

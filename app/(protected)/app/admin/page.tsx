@@ -1,12 +1,14 @@
 import Link from "next/link";
 
 import { DashboardShell } from "@/components/dashboard/shell";
+import { ApplicationNotes } from "@/components/jobs/application-notes";
 import { ApplicationStatusForm } from "@/components/jobs/application-status-form";
 import { JobCreateForm } from "@/components/jobs/job-create-form";
 import { requireRole } from "@/lib/auth";
 import { formatDisplayDate } from "@/lib/format";
 import {
   getAdminApplications,
+  getInternalNotesByApplicationIds,
   getAdminSnapshot
 } from "@/lib/jobs";
 
@@ -20,6 +22,10 @@ export default async function AdminDashboardPage() {
   const profile = await requireRole(["admin"]);
   const snapshot = await getAdminSnapshot();
   const applications = await getAdminApplications();
+  const notesByApplicationId = await getInternalNotesByApplicationIds(
+    profile,
+    applications.map((application) => application.id)
+  );
 
   return (
     <DashboardShell
@@ -77,6 +83,11 @@ export default async function AdminDashboardPage() {
                     <span>{job.work_mode}</span>
                   </div>
                   <small>Publication : {formatDisplayDate(job.published_at)}</small>
+                  <div className="dashboard-action-stack">
+                    <Link className="btn btn-ghost btn-block" href={`/app/admin/offres/${job.id}`}>
+                      Gerer cette offre
+                    </Link>
+                  </div>
                 </article>
               ))}
             </div>
@@ -110,6 +121,10 @@ export default async function AdminDashboardPage() {
                     applicationId={application.id}
                     currentStatus={application.status}
                   />
+                  <ApplicationNotes
+                    applicationId={application.id}
+                    notes={notesByApplicationId.get(application.id) ?? []}
+                  />
                 </article>
               ))}
             </div>
@@ -128,8 +143,8 @@ export default async function AdminDashboardPage() {
               ))}
             </ul>
             <div className="dashboard-action-stack">
-              <Link className="btn btn-primary btn-block" href="/carrieres">
-                Verifier le site carriere
+              <Link className="btn btn-primary btn-block" href="/app/admin/offres">
+                Piloter toutes les offres
               </Link>
               <Link className="btn btn-secondary btn-block" href="/">
                 Retour a la vitrine institutionnelle

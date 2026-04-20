@@ -31,18 +31,20 @@ const navByRole: Record<AppRole, NavItem[]> = {
   ],
   recruteur: [
     { href: "/app/recruteur", label: "Tableau de bord", hint: "Offres, pipeline et suivi" },
+    { href: "/app/recruteur/offres", label: "Mes offres", hint: "Editer, publier et fermer vos annonces" },
     { href: "/carrieres", label: "Site carriere", hint: "Voir les annonces publiques" }
   ],
   admin: [
     { href: "/app/admin", label: "Supervision", hint: "Piloter la plateforme" },
+    { href: "/app/admin/offres", label: "Offres", hint: "Controler les annonces et leur historique" },
     { href: "/carrieres", label: "Site carriere", hint: "Controler la vitrine publique" }
   ]
 };
 
 const actionByRole: Record<AppRole, { href: string; label: string }> = {
   candidat: { href: "/app/candidat/offres", label: "Explorer les offres" },
-  recruteur: { href: "/carrieres", label: "Voir le site carriere" },
-  admin: { href: "/carrieres", label: "Verifier les offres publiques" }
+  recruteur: { href: "/app/recruteur/offres", label: "Gerer mes offres" },
+  admin: { href: "/app/admin/offres", label: "Piloter les offres" }
 };
 
 const supportByRole: Record<AppRole, string[]> = {

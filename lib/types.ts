@@ -54,6 +54,28 @@ export type Job = {
   organization_name?: string;
 };
 
+export type ManagedJob = Job & {
+  department?: string;
+  responsibilities?: string;
+  requirements?: string;
+  benefits?: string;
+  created_at: string;
+  updated_at: string;
+  closing_at: string | null;
+  applications_count: number;
+};
+
+export type JobAuditEvent = {
+  id: string;
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  actor_name: string;
+  actor_email: string | null;
+};
+
 export type CandidateApplication = {
   id: string;
   status: string;
@@ -72,4 +94,13 @@ export type RecruiterApplication = {
   candidate_email: string;
   job_title: string;
   job_location: string;
+};
+
+export type InternalApplicationNote = {
+  id: string;
+  application_id: string;
+  body: string;
+  created_at: string;
+  author_name: string;
+  author_email: string | null;
 };

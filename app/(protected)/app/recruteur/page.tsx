@@ -1,11 +1,13 @@
 import Link from "next/link";
 
 import { DashboardShell } from "@/components/dashboard/shell";
+import { ApplicationNotes } from "@/components/jobs/application-notes";
 import { ApplicationStatusForm } from "@/components/jobs/application-status-form";
 import { JobCreateForm } from "@/components/jobs/job-create-form";
 import { requireRole } from "@/lib/auth";
 import { formatDisplayDate } from "@/lib/format";
 import {
+  getInternalNotesByApplicationIds,
   getRecruiterApplications,
   getRecruiterSnapshot
 } from "@/lib/jobs";
@@ -20,6 +22,10 @@ export default async function RecruiterDashboardPage() {
   const profile = await requireRole(["recruteur"]);
   const snapshot = await getRecruiterSnapshot(profile);
   const applications = await getRecruiterApplications(profile);
+  const notesByApplicationId = await getInternalNotesByApplicationIds(
+    profile,
+    applications.map((application) => application.id)
+  );
 
   return (
     <DashboardShell
@@ -78,12 +84,17 @@ export default async function RecruiterDashboardPage() {
                       <span>{job.work_mode}</span>
                     </div>
                     <small>Publication : {formatDisplayDate(job.published_at)}</small>
+                    <div className="dashboard-action-stack">
+                      <Link className="btn btn-ghost btn-block" href={`/app/recruteur/offres/${job.id}`}>
+                        Gerer cette offre
+                      </Link>
+                    </div>
                   </article>
                 ))
               ) : (
                 <article className="panel list-card dashboard-card dashboard-card--empty">
                   <h3>Aucune offre pour le moment</h3>
-                  <p>La structure recruteur est prete. La prochaine etape sera le vrai CRUD d&apos;offres relie a Supabase.</p>
+                  <p>Creez votre premiere offre depuis le panneau de droite, puis gerez-la dans le module dedie.</p>
                 </article>
               )}
             </div>
@@ -118,6 +129,10 @@ export default async function RecruiterDashboardPage() {
                       applicationId={application.id}
                       currentStatus={application.status}
                     />
+                    <ApplicationNotes
+                      applicationId={application.id}
+                      notes={notesByApplicationId.get(application.id) ?? []}
+                    />
                   </article>
                 ))
               ) : (
@@ -142,8 +157,8 @@ export default async function RecruiterDashboardPage() {
               ))}
             </ul>
             <div className="dashboard-action-stack">
-              <Link className="btn btn-primary btn-block" href="/carrieres">
-                Voir les offres publiques
+              <Link className="btn btn-primary btn-block" href="/app/recruteur/offres">
+                Gerer toutes mes offres
               </Link>
               <Link className="btn btn-secondary btn-block" href="/entreprise">
                 Retour a l&apos;offre entreprise
