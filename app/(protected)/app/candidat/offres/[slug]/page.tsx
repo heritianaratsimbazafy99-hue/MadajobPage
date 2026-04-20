@@ -79,8 +79,8 @@ export default async function CandidateJobDetailPage({
                 >
                   Ouvrir mon dossier
                 </Link>
-                <Link className="btn btn-secondary btn-block" href="/app/candidat">
-                  Voir mon suivi candidat
+                <Link className="btn btn-secondary btn-block" href="/app/candidat/candidatures">
+                  Voir toutes mes candidatures
                 </Link>
               </div>
             </div>

@@ -454,6 +454,7 @@ export async function applyToJobAction(
   }
 
   revalidatePath("/app/candidat");
+  revalidatePath("/app/candidat/candidatures");
   revalidatePath("/app/candidat/offres");
   revalidatePath("/app/recruteur");
   revalidatePath("/app/admin");

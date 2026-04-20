@@ -132,6 +132,7 @@ export async function updateApplicationStatusAction(
   revalidatePath(`/app/recruteur/candidatures/${applicationId}`);
   revalidatePath(`/app/admin/candidatures/${applicationId}`);
   revalidatePath("/app/candidat");
+  revalidatePath("/app/candidat/candidatures");
   revalidatePath(`/app/candidat/candidatures/${applicationId}`);
   if (jobSlug) {
     revalidatePath(`/app/candidat/offres/${jobSlug}`);

@@ -368,6 +368,109 @@ export async function getCandidateApplications(_candidateId: string) {
   });
 }
 
+export async function getCandidateApplicationSummaries(candidateId: string) {
+  noStore();
+
+  if (!isSupabaseConfigured) {
+    return fallbackApplications.map((application) => {
+      const fallbackJob =
+        fallbackJobs.find((job) => job.title === application.job_title) ?? fallbackJobs[0];
+
+      return {
+        id: application.id,
+        status: application.status,
+        created_at: application.created_at,
+        updated_at: application.created_at,
+        cover_letter: null,
+        has_cv: false,
+        job_id: fallbackJob?.id ?? "",
+        job_title: application.job_title,
+        job_slug: fallbackJob?.slug ?? "",
+        job_location: fallbackJob?.location ?? "",
+        contract_type: fallbackJob?.contract_type ?? "",
+        work_mode: fallbackJob?.work_mode ?? "",
+        sector: fallbackJob?.sector ?? "",
+        organization_name: application.organization_name ?? "Madajob",
+        notes_count: 0
+      } satisfies CandidateApplicationSummary;
+    });
+  }
+
+  const adminClient = createAdminClient();
+  const supabase = adminClient ?? (await createClient());
+  const { data, error } = await supabase
+    .from("applications")
+    .select(
+      `
+      id,
+      status,
+      created_at,
+      updated_at,
+      cover_letter,
+      cv_document_id,
+      job_posts!inner(
+        id,
+        slug,
+        title,
+        location,
+        contract_type,
+        work_mode,
+        sector,
+        organization_id
+      )
+    `
+    )
+    .eq("candidate_id", candidateId)
+    .order("created_at", { ascending: false });
+
+  if (error || !data) {
+    return [] as CandidateApplicationSummary[];
+  }
+
+  const organizationIds = Array.from(
+    new Set(
+      data
+        .map((row) => String(normalizeJobRelation(row.job_posts as ApplicationAccessRow["job_posts"])?.organization_id ?? ""))
+        .filter(Boolean)
+    )
+  );
+
+  const organizations =
+    adminClient && organizationIds.length
+      ? await adminClient
+          .from("organizations")
+          .select("id, name")
+          .in("id", organizationIds)
+      : { data: [] as Array<{ id?: string | null; name?: string | null }> };
+
+  const organizationMap = new Map(
+    (organizations.data ?? []).map((row) => [String(row.id ?? ""), String(row.name ?? "Madajob")])
+  );
+
+  return data.map((row: Record<string, unknown>) => {
+    const job = normalizeJobRelation(row.job_posts as ApplicationAccessRow["job_posts"]);
+    const organizationId = String(job?.organization_id ?? "");
+
+    return {
+      id: String(row.id),
+      status: String(row.status ?? "submitted"),
+      created_at: String(row.created_at ?? ""),
+      updated_at: String(row.updated_at ?? row.created_at ?? ""),
+      cover_letter: typeof row.cover_letter === "string" ? row.cover_letter : null,
+      has_cv: Boolean(row.cv_document_id),
+      job_id: String(job?.id ?? ""),
+      job_title: String(job?.title ?? "Offre Madajob"),
+      job_slug: String(job?.slug ?? ""),
+      job_location: String(job?.location ?? ""),
+      contract_type: String(job?.contract_type ?? ""),
+      work_mode: String(job?.work_mode ?? ""),
+      sector: String(job?.sector ?? ""),
+      organization_name: organizationMap.get(organizationId) ?? "Madajob",
+      notes_count: 0
+    } satisfies CandidateApplicationSummary;
+  });
+}
+
 export async function getCandidateApplicationDetail(
   profile: Profile,
   applicationId: string

@@ -50,7 +50,7 @@ export function CandidateApplicationDetailWorkspace({
       title={application.job.title}
       description="Suivez votre candidature, son historique et le CV rattache depuis votre espace candidat."
       profile={profile}
-      currentPath="/app/candidat"
+      currentPath="/app/candidat/candidatures"
     >
       <section className="dashboard-grid dashboard-grid--four">
         <article className="panel metric-panel">
@@ -182,14 +182,14 @@ export function CandidateApplicationDetailWorkspace({
             <p className="eyebrow">Navigation</p>
             <h2>Poursuivez votre suivi depuis la plateforme.</h2>
             <div className="dashboard-action-stack">
-              <Link className="btn btn-secondary btn-block" href="/app/candidat">
-                Retour au tableau de bord
+              <Link className="btn btn-secondary btn-block" href="/app/candidat/candidatures">
+                Retour a mes candidatures
               </Link>
               <Link className="btn btn-primary btn-block" href={`/app/candidat/offres/${application.job.slug}`}>
                 Revoir l'offre
               </Link>
-              <Link className="btn btn-ghost btn-block" href="/app/candidat/offres">
-                Explorer d'autres offres
+              <Link className="btn btn-ghost btn-block" href="/app/candidat">
+                Retour au tableau de bord
               </Link>
             </div>
           </div>

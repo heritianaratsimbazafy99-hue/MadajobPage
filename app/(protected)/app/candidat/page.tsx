@@ -78,8 +78,8 @@ export default async function CandidateDashboardPage() {
                 <p className="eyebrow">Candidatures</p>
                 <h2>Suivi recent</h2>
               </div>
-              <Link className="text-link" href="/app/candidat/offres">
-                Voir toutes les offres
+              <Link className="text-link" href="/app/candidat/candidatures">
+                Voir toutes mes candidatures
               </Link>
             </div>
 
@@ -139,6 +139,9 @@ export default async function CandidateDashboardPage() {
             <div className="dashboard-action-stack">
               <Link className="btn btn-primary btn-block" href="/app/candidat/offres">
                 Explorer les offres
+              </Link>
+              <Link className="btn btn-secondary btn-block" href="/app/candidat/candidatures">
+                Voir mes candidatures
               </Link>
               <Link className="btn btn-secondary btn-block" href="/espace/candidat">
                 Voir le parcours candidat
