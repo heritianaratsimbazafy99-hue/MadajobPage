@@ -41,6 +41,7 @@ const navByRole: Record<AppRole, NavItem[]> = {
     { href: "/app/admin/offres", label: "Offres", hint: "Controler les annonces et leur historique" },
     { href: "/app/admin/candidatures", label: "Candidatures", hint: "Suivre les dossiers candidats" },
     { href: "/app/admin/candidats", label: "Candidats", hint: "Centraliser la base profils" },
+    { href: "/app/admin/utilisateurs", label: "Utilisateurs", hint: "Gerer les droits et les acces" },
     { href: "/carrieres", label: "Site carriere", hint: "Controler la vitrine publique" }
   ]
 };

@@ -213,3 +213,39 @@ export type CandidateDetail = {
   applications: CandidateApplicationSummary[];
   recent_notes: InternalApplicationNote[];
 };
+
+export type OrganizationOption = {
+  id: string;
+  name: string;
+  slug: string;
+  kind: string;
+  is_active: boolean;
+};
+
+export type ManagedUserSummary = {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  role: AppRole;
+  organization_id: string | null;
+  organization_name: string | null;
+  phone: string | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  headline: string;
+  city: string;
+  current_position: string;
+  candidate_profile_completion: number | null;
+  applications_count: number;
+  jobs_count: number;
+};
+
+export type ManagedUserDetail = ManagedUserSummary & {
+  desired_position: string;
+  country: string;
+  bio: string;
+  skills_text: string;
+  recent_applications: CandidateApplicationSummary[];
+  recent_jobs: ManagedJob[];
+};

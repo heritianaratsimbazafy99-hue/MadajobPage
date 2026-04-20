@@ -14,6 +14,9 @@ import type {
   JobAuditEvent,
   ManagedJob,
   ManagedCandidateSummary,
+  ManagedUserDetail,
+  ManagedUserSummary,
+  OrganizationOption,
   Profile,
   RecruiterApplication
 } from "@/lib/types";
@@ -1448,6 +1451,275 @@ export async function getAdminApplications() {
       job_location: job?.location || "Lieu a definir"
     } satisfies RecruiterApplication;
   });
+}
+
+export async function getAdminOrganizations() {
+  if (!isSupabaseConfigured) {
+    return [
+      {
+        id: "org-madajob",
+        name: "Madajob",
+        slug: "madajob",
+        kind: "internal",
+        is_active: true
+      },
+      {
+        id: "org-nvidia",
+        name: "Nvidia",
+        slug: "nvidia",
+        kind: "client",
+        is_active: true
+      }
+    ] satisfies OrganizationOption[];
+  }
+
+  const adminClient = createAdminClient();
+
+  if (!adminClient) {
+    return [] as OrganizationOption[];
+  }
+
+  const { data } = await adminClient
+    .from("organizations")
+    .select("id, name, slug, kind, is_active")
+    .order("name", { ascending: true });
+
+  return (data ?? []).map((row) => ({
+    id: String(row.id),
+    name: String(row.name ?? "Organisation"),
+    slug: String(row.slug ?? ""),
+    kind: String(row.kind ?? "client"),
+    is_active: Boolean(row.is_active)
+  })) satisfies OrganizationOption[];
+}
+
+export async function getAdminUsers() {
+  if (!isSupabaseConfigured) {
+    return [
+      {
+        id: "user-admin",
+        email: "admin@madajob.mg",
+        full_name: "Admin Madajob",
+        role: "admin",
+        organization_id: "org-madajob",
+        organization_name: "Madajob",
+        phone: null,
+        is_active: true,
+        created_at: "2026-04-01T08:00:00.000Z",
+        updated_at: "2026-04-20T08:00:00.000Z",
+        headline: "",
+        city: "",
+        current_position: "",
+        candidate_profile_completion: null,
+        applications_count: 0,
+        jobs_count: 4
+      },
+      {
+        id: "user-recruiter",
+        email: "recruteur@madajob.mg",
+        full_name: "Recruteur Madajob",
+        role: "recruteur",
+        organization_id: "org-madajob",
+        organization_name: "Madajob",
+        phone: null,
+        is_active: true,
+        created_at: "2026-04-05T08:00:00.000Z",
+        updated_at: "2026-04-20T08:00:00.000Z",
+        headline: "",
+        city: "",
+        current_position: "",
+        candidate_profile_completion: null,
+        applications_count: 0,
+        jobs_count: 3
+      }
+    ] satisfies ManagedUserSummary[];
+  }
+
+  const adminClient = createAdminClient();
+
+  if (!adminClient) {
+    return [] as ManagedUserSummary[];
+  }
+
+  const [{ data: profileRows }, organizations, { data: candidateRows }, { data: applicationRows }, { data: jobRows }] =
+    await Promise.all([
+      adminClient
+        .from("profiles")
+        .select("id, email, full_name, role, organization_id, phone, is_active, created_at, updated_at")
+        .order("updated_at", { ascending: false })
+        .limit(250),
+      getAdminOrganizations(),
+      adminClient
+        .from("candidate_profiles")
+        .select("user_id, headline, city, current_position, profile_completion"),
+      adminClient.from("applications").select("id, candidate_id"),
+      adminClient.from("job_posts").select("id, created_by")
+    ]);
+
+  const organizationMap = new Map(organizations.map((item) => [item.id, item.name]));
+  const candidateMap = new Map(
+    (candidateRows ?? []).map((row) => [String(row.user_id), row])
+  );
+  const applicationCountMap = new Map<string, number>();
+  const jobsCountMap = new Map<string, number>();
+
+  for (const row of applicationRows ?? []) {
+    const candidateId = String(row.candidate_id ?? "");
+    if (!candidateId) continue;
+    applicationCountMap.set(candidateId, (applicationCountMap.get(candidateId) ?? 0) + 1);
+  }
+
+  for (const row of jobRows ?? []) {
+    const ownerId = String(row.created_by ?? "");
+    if (!ownerId) continue;
+    jobsCountMap.set(ownerId, (jobsCountMap.get(ownerId) ?? 0) + 1);
+  }
+
+  return (profileRows ?? []).map((row) => {
+    const candidate = candidateMap.get(String(row.id));
+
+    return {
+      id: String(row.id),
+      email: typeof row.email === "string" ? row.email : null,
+      full_name: typeof row.full_name === "string" ? row.full_name : null,
+      role: (row.role as Profile["role"]) ?? "candidat",
+      organization_id: typeof row.organization_id === "string" ? row.organization_id : null,
+      organization_name:
+        typeof row.organization_id === "string"
+          ? organizationMap.get(row.organization_id) ?? null
+          : null,
+      phone: typeof row.phone === "string" ? row.phone : null,
+      is_active: Boolean(row.is_active),
+      created_at: String(row.created_at ?? ""),
+      updated_at: String(row.updated_at ?? ""),
+      headline: String(candidate?.headline ?? ""),
+      city: String(candidate?.city ?? ""),
+      current_position: String(candidate?.current_position ?? ""),
+      candidate_profile_completion:
+        typeof candidate?.profile_completion === "number"
+          ? candidate.profile_completion
+          : null,
+      applications_count: applicationCountMap.get(String(row.id)) ?? 0,
+      jobs_count: jobsCountMap.get(String(row.id)) ?? 0
+    } satisfies ManagedUserSummary;
+  });
+}
+
+export async function getAdminUserDetail(userId: string) {
+  const users = await getAdminUsers();
+  const user = users.find((item) => item.id === userId);
+
+  if (!user) {
+    return null;
+  }
+
+  if (!isSupabaseConfigured) {
+    return {
+      ...user,
+      desired_position: "",
+      country: "Madagascar",
+      bio: "",
+      skills_text: "",
+      recent_applications: [],
+      recent_jobs: []
+    } satisfies ManagedUserDetail;
+  }
+
+  const adminClient = createAdminClient();
+
+  if (!adminClient) {
+    return null;
+  }
+
+  const [{ data: candidateRow }, { data: applicationRows }, { data: recentJobsRows }] = await Promise.all([
+    adminClient
+      .from("candidate_profiles")
+      .select(
+        "headline, city, country, bio, current_position, desired_position, skills_text, profile_completion"
+      )
+      .eq("user_id", userId)
+      .maybeSingle(),
+    adminClient
+      .from("applications")
+      .select(
+        `
+        id,
+        status,
+        created_at,
+        updated_at,
+        cover_letter,
+        cv_document_id,
+        job_posts(id, title, slug, location, contract_type, work_mode, sector, organization_id)
+      `
+      )
+      .eq("candidate_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(8),
+    adminClient
+      .from("job_posts")
+      .select(
+        "id, title, slug, location, contract_type, work_mode, sector, summary, status, is_featured, published_at, created_at, updated_at, closing_at"
+      )
+      .eq("created_by", userId)
+      .order("created_at", { ascending: false })
+      .limit(6)
+  ]);
+
+  const organizations = await getAdminOrganizations();
+  const organizationMap = new Map(organizations.map((item) => [item.id, item.name]));
+
+  const recentApplications = (applicationRows ?? []).map((row: Record<string, unknown>) => {
+    const job = normalizeJobRelation(
+      row.job_posts as ApplicationAccessRow["job_posts"]
+    );
+    const organizationId = String(job?.organization_id ?? "");
+
+    return {
+      id: String(row.id),
+      status: String(row.status ?? "submitted"),
+      created_at: String(row.created_at ?? ""),
+      updated_at: String(row.updated_at ?? row.created_at ?? ""),
+      cover_letter: typeof row.cover_letter === "string" ? row.cover_letter : null,
+      has_cv: Boolean(row.cv_document_id),
+      job_id: String(job?.id ?? ""),
+      job_title: String(job?.title ?? "Offre Madajob"),
+      job_slug: String(job?.slug ?? ""),
+      job_location: String(job?.location ?? ""),
+      contract_type: String(job?.contract_type ?? ""),
+      work_mode: String(job?.work_mode ?? ""),
+      sector: String(job?.sector ?? ""),
+      organization_name: organizationMap.get(organizationId) ?? "Madajob",
+      notes_count: 0
+    } satisfies CandidateApplicationSummary;
+  });
+
+  const recentJobs = (recentJobsRows ?? []).map((row) => ({
+    ...mapManagedJobRecord({
+      ...row,
+      applications_count: 0
+    }),
+    organization_name:
+      typeof user.organization_id === "string"
+        ? organizationMap.get(user.organization_id) ?? "Madajob"
+        : "Madajob"
+  })) satisfies ManagedJob[];
+
+  return {
+    ...user,
+    headline: String(candidateRow?.headline ?? user.headline),
+    city: String(candidateRow?.city ?? user.city),
+    current_position: String(candidateRow?.current_position ?? user.current_position),
+    candidate_profile_completion:
+      typeof candidateRow?.profile_completion === "number"
+        ? candidateRow.profile_completion
+        : user.candidate_profile_completion,
+    desired_position: String(candidateRow?.desired_position ?? ""),
+    country: String(candidateRow?.country ?? "Madagascar"),
+    bio: String(candidateRow?.bio ?? ""),
+    skills_text: String(candidateRow?.skills_text ?? ""),
+    recent_applications: recentApplications,
+    recent_jobs: recentJobs
+  } satisfies ManagedUserDetail;
 }
 
 export async function getAdminSnapshot() {
