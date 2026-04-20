@@ -11,6 +11,7 @@ import type { CandidateDocumentData } from "@/lib/types";
 type CandidateCvUploadProps = {
   candidateId: string;
   currentDocument: CandidateDocumentData | null;
+  recentDocuments: CandidateDocumentData[];
 };
 
 function sanitizeFileName(value: string) {
@@ -24,7 +25,8 @@ function sanitizeFileName(value: string) {
 
 export function CandidateCvUpload({
   candidateId,
-  currentDocument
+  currentDocument,
+  recentDocuments
 }: CandidateCvUploadProps) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -175,6 +177,30 @@ export function CandidateCvUpload({
           </div>
         </div>
       ) : null}
+
+      <div className="document-card">
+        <strong>Historique recent</strong>
+        {recentDocuments.length > 0 ? (
+          <div className="dashboard-upload-history">
+            {recentDocuments.map((document) => (
+              <div key={document.id} className="dashboard-upload-history__item">
+                <div>
+                  <strong>{document.file_name}</strong>
+                  <div className="document-meta">
+                    <span>{formatFileSize(document.file_size)}</span>
+                    <span>Ajoute le {formatDisplayDate(document.created_at)}</span>
+                  </div>
+                </div>
+                <span className="tag">{document.is_primary ? "Principal" : "Archive"}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="form-caption">
+            Aucun document charge pour le moment. Le premier CV depose apparaitra ici.
+          </p>
+        )}
+      </div>
 
       <label className="field field--full">
         <span>Choisir un fichier</span>

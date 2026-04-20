@@ -145,7 +145,8 @@ const fallbackCandidateProfile: CandidateProfileData = {
   skills_text: "",
   cv_text: "",
   profile_completion: 0,
-  primary_cv: null
+  primary_cv: null,
+  recent_documents: []
 };
 
 function mapJobRecord(record: Record<string, unknown>): Job {
@@ -638,6 +639,32 @@ export async function getCandidatePrimaryDocument(candidateId: string) {
   return mapCandidateDocumentRecord(data);
 }
 
+export async function getCandidateDocuments(
+  candidateId: string,
+  options: { limit?: number } = {}
+) {
+  const { limit = 6 } = options;
+
+  if (!isSupabaseConfigured) {
+    return [] as CandidateDocumentData[];
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("candidate_documents")
+    .select("id, bucket_id, storage_path, file_name, mime_type, file_size, is_primary, created_at")
+    .eq("candidate_id", candidateId)
+    .order("is_primary", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error || !data) {
+    return [] as CandidateDocumentData[];
+  }
+
+  return data.map((item) => mapCandidateDocumentRecord(item));
+}
+
 async function getApplicationCountsByJobIds(jobIds: string[]) {
   if (!jobIds.length) {
     return new Map<string, number>();
@@ -691,7 +718,7 @@ export async function getCandidateWorkspace(profile: Profile): Promise<Candidate
   }
 
   const supabase = await createClient();
-  const [{ data: profileData }, { data: candidateData }, primaryCv] = await Promise.all([
+  const [{ data: profileData }, { data: candidateData }, primaryCv, recentDocuments] = await Promise.all([
     supabase
       .from("profiles")
       .select("full_name, email, phone")
@@ -704,7 +731,8 @@ export async function getCandidateWorkspace(profile: Profile): Promise<Candidate
       )
       .eq("user_id", profile.id)
       .maybeSingle(),
-    getCandidatePrimaryDocument(profile.id)
+    getCandidatePrimaryDocument(profile.id),
+    getCandidateDocuments(profile.id)
   ]);
 
   const profileInsights = getCandidateProfileInsights({
@@ -741,7 +769,8 @@ export async function getCandidateWorkspace(profile: Profile): Promise<Candidate
     skills_text: String(candidateData?.skills_text ?? ""),
     cv_text: String(candidateData?.cv_text ?? ""),
     profile_completion: profileInsights.completion,
-    primary_cv: primaryCv
+    primary_cv: primaryCv,
+    recent_documents: recentDocuments
   };
 }
 

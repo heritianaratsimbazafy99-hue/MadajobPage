@@ -89,19 +89,22 @@ export async function updateCandidateProfileAction(
 
   const { error: candidateError } = await supabase
     .from("candidate_profiles")
-    .update({
-      headline: headline || null,
-      city: city || null,
-      country: country || "Madagascar",
-      bio: bio || null,
-      experience_years: experienceYears,
-      current_position: currentPosition || null,
-      desired_position: desiredPosition || null,
-      skills_text: skillsText || null,
-      cv_text: cvText || null,
-      profile_completion: profileInsights.completion
-    })
-    .eq("user_id", profile.id);
+    .upsert(
+      {
+        user_id: profile.id,
+        headline: headline || null,
+        city: city || null,
+        country: country || "Madagascar",
+        bio: bio || null,
+        experience_years: experienceYears,
+        current_position: currentPosition || null,
+        desired_position: desiredPosition || null,
+        skills_text: skillsText || null,
+        cv_text: cvText || null,
+        profile_completion: profileInsights.completion
+      },
+      { onConflict: "user_id" }
+    );
 
   if (candidateError) {
     return {

@@ -1097,6 +1097,29 @@ code {
   gap: 14px;
 }
 
+.dashboard-upload-history {
+  display: grid;
+  gap: 12px;
+}
+
+.dashboard-upload-history__item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 0;
+  border-top: 1px solid rgba(22, 49, 74, 0.08);
+}
+
+.dashboard-upload-history__item:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.dashboard-upload-history__item strong {
+  display: block;
+}
+
 .document-card {
   display: grid;
   gap: 10px;

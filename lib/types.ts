@@ -26,6 +26,7 @@ export type CandidateProfileData = {
   cv_text: string;
   profile_completion: number;
   primary_cv: CandidateDocumentData | null;
+  recent_documents: CandidateDocumentData[];
 };
 
 export type CandidateDocumentData = {

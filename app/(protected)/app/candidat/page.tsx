@@ -122,6 +122,7 @@ export default async function CandidateDashboardPage() {
           <CandidateCvUpload
             candidateId={profile.id}
             currentDocument={candidateProfile.primary_cv}
+            recentDocuments={candidateProfile.recent_documents}
           />
 
           <CandidateProfileForm profile={candidateProfile} />
