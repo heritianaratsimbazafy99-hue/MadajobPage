@@ -121,6 +121,11 @@ export default async function AdminDashboardPage() {
                     applicationId={application.id}
                     currentStatus={application.status}
                   />
+                  <div className="dashboard-action-stack">
+                    <Link className="btn btn-ghost btn-block" href={`/app/admin/candidatures/${application.id}`}>
+                      Ouvrir le dossier complet
+                    </Link>
+                  </div>
                   <ApplicationNotes
                     applicationId={application.id}
                     notes={notesByApplicationId.get(application.id) ?? []}
@@ -145,6 +150,9 @@ export default async function AdminDashboardPage() {
             <div className="dashboard-action-stack">
               <Link className="btn btn-primary btn-block" href="/app/admin/offres">
                 Piloter toutes les offres
+              </Link>
+              <Link className="btn btn-secondary btn-block" href="/app/admin/candidatures">
+                Ouvrir toutes les candidatures
               </Link>
               <Link className="btn btn-secondary btn-block" href="/">
                 Retour a la vitrine institutionnelle

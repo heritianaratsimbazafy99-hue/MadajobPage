@@ -95,6 +95,10 @@ export async function updateApplicationStatusAction(
 
   revalidatePath("/app/recruteur");
   revalidatePath("/app/admin");
+  revalidatePath("/app/recruteur/candidatures");
+  revalidatePath("/app/admin/candidatures");
+  revalidatePath(`/app/recruteur/candidatures/${applicationId}`);
+  revalidatePath(`/app/admin/candidatures/${applicationId}`);
   revalidatePath("/app/candidat");
 
   return {
@@ -134,6 +138,10 @@ export async function addInternalNoteAction(
 
   revalidatePath("/app/recruteur");
   revalidatePath("/app/admin");
+  revalidatePath("/app/recruteur/candidatures");
+  revalidatePath("/app/admin/candidatures");
+  revalidatePath(`/app/recruteur/candidatures/${applicationId}`);
+  revalidatePath(`/app/admin/candidatures/${applicationId}`);
 
   return {
     status: "success",

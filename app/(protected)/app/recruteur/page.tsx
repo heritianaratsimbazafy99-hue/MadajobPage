@@ -129,6 +129,11 @@ export default async function RecruiterDashboardPage() {
                       applicationId={application.id}
                       currentStatus={application.status}
                     />
+                    <div className="dashboard-action-stack">
+                      <Link className="btn btn-ghost btn-block" href={`/app/recruteur/candidatures/${application.id}`}>
+                        Ouvrir le dossier complet
+                      </Link>
+                    </div>
                     <ApplicationNotes
                       applicationId={application.id}
                       notes={notesByApplicationId.get(application.id) ?? []}
@@ -159,6 +164,9 @@ export default async function RecruiterDashboardPage() {
             <div className="dashboard-action-stack">
               <Link className="btn btn-primary btn-block" href="/app/recruteur/offres">
                 Gerer toutes mes offres
+              </Link>
+              <Link className="btn btn-secondary btn-block" href="/app/recruteur/candidatures">
+                Ouvrir toutes les candidatures
               </Link>
               <Link className="btn btn-secondary btn-block" href="/entreprise">
                 Retour a l&apos;offre entreprise

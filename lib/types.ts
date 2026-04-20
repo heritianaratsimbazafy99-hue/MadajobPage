@@ -104,3 +104,53 @@ export type InternalApplicationNote = {
   author_name: string;
   author_email: string | null;
 };
+
+export type ApplicationStatusHistoryEntry = {
+  id: string;
+  from_status: string | null;
+  to_status: string;
+  note: string | null;
+  created_at: string;
+  changed_by_name: string;
+  changed_by_email: string | null;
+};
+
+export type ApplicationDetail = {
+  id: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  cover_letter: string | null;
+  has_cv: boolean;
+  job: {
+    id: string;
+    title: string;
+    slug: string;
+    location: string;
+    contract_type: string;
+    work_mode: string;
+    sector: string;
+    summary: string;
+    organization_name: string;
+  };
+  candidate: {
+    id: string;
+    full_name: string;
+    email: string | null;
+    phone: string | null;
+    headline: string;
+    city: string;
+    country: string;
+    bio: string;
+    experience_years: number | null;
+    current_position: string;
+    desired_position: string;
+    skills_text: string;
+    cv_text: string;
+    profile_completion: number;
+  };
+  cv_document: CandidateDocumentData | null;
+  cv_download_url: string | null;
+  notes: InternalApplicationNote[];
+  status_history: ApplicationStatusHistoryEntry[];
+};

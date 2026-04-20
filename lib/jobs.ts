@@ -2,6 +2,8 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type {
+  ApplicationDetail,
+  ApplicationStatusHistoryEntry,
   CandidateApplication,
   CandidateDocumentData,
   CandidateProfileData,
@@ -686,6 +688,281 @@ export async function getInternalNotesByApplicationIds(
   }
 
   return notesByApplicationId;
+}
+
+export async function getApplicationDetail(profile: Profile, applicationId: string) {
+  if (!isSupabaseConfigured) {
+    const fallbackApplication = fallbackRecruiterApplications[0];
+    const fallbackJob = fallbackJobs[0];
+
+    if (!fallbackApplication || !fallbackJob) {
+      return null;
+    }
+
+    return {
+      id: fallbackApplication.id,
+      status: fallbackApplication.status,
+      created_at: fallbackApplication.created_at,
+      updated_at: fallbackApplication.created_at,
+      cover_letter: fallbackApplication.cover_letter,
+      has_cv: fallbackApplication.has_cv,
+      job: {
+        id: fallbackJob.id,
+        title: fallbackJob.title,
+        slug: fallbackJob.slug,
+        location: fallbackJob.location,
+        contract_type: fallbackJob.contract_type,
+        work_mode: fallbackJob.work_mode,
+        sector: fallbackJob.sector,
+        summary: fallbackJob.summary,
+        organization_name: fallbackJob.organization_name ?? "Madajob"
+      },
+      candidate: {
+        id: "candidate-demo",
+        full_name: fallbackApplication.candidate_name,
+        email: fallbackApplication.candidate_email,
+        phone: null,
+        headline: "Profil demo",
+        city: "Antananarivo",
+        country: "Madagascar",
+        bio: "",
+        experience_years: 4,
+        current_position: "",
+        desired_position: "",
+        skills_text: "",
+        cv_text: "",
+        profile_completion: 72
+      },
+      cv_document: null,
+      cv_download_url: null,
+      notes: [],
+      status_history: []
+    } satisfies ApplicationDetail;
+  }
+
+  const supabase = await createClient();
+  let accessQuery = supabase
+    .from("applications")
+    .select(
+      `
+      id,
+      status,
+      created_at,
+      updated_at,
+      cover_letter,
+      candidate_id,
+      cv_document_id,
+      job_posts!inner(
+        id,
+        slug,
+        title,
+        location,
+        contract_type,
+        work_mode,
+        sector,
+        summary,
+        organization_id
+      )
+    `
+    )
+    .eq("id", applicationId);
+
+  if (profile.role === "recruteur") {
+    accessQuery = accessQuery.eq("job_posts.organization_id", profile.organization_id);
+  }
+
+  const { data: accessData, error: accessError } = await accessQuery.maybeSingle();
+
+  if (accessError || !accessData) {
+    return null;
+  }
+
+  const rawJobAccess = accessData.job_posts;
+  const jobAccess = (
+    Array.isArray(rawJobAccess) ? rawJobAccess[0] : rawJobAccess
+  ) as Record<string, unknown> | null;
+
+  if (!jobAccess) {
+    return null;
+  }
+
+  const adminClient = createAdminClient();
+
+  if (!adminClient) {
+    return {
+      id: String(accessData.id),
+      status: String(accessData.status ?? "submitted"),
+      created_at: String(accessData.created_at ?? ""),
+      updated_at: String(accessData.updated_at ?? ""),
+      cover_letter: typeof accessData.cover_letter === "string" ? accessData.cover_letter : null,
+      has_cv: Boolean(accessData.cv_document_id),
+      job: {
+        id: String(jobAccess.id),
+        title: String(jobAccess.title ?? "Offre Madajob"),
+        slug: String(jobAccess.slug ?? ""),
+        location: String(jobAccess.location ?? ""),
+        contract_type: String(jobAccess.contract_type ?? ""),
+        work_mode: String(jobAccess.work_mode ?? ""),
+        sector: String(jobAccess.sector ?? ""),
+        summary: String(jobAccess.summary ?? ""),
+        organization_name: "Madajob"
+      },
+      candidate: {
+        id: String(accessData.candidate_id ?? ""),
+        full_name: "Candidat Madajob",
+        email: null,
+        phone: null,
+        headline: "",
+        city: "",
+        country: "Madagascar",
+        bio: "",
+        experience_years: null,
+        current_position: "",
+        desired_position: "",
+        skills_text: "",
+        cv_text: "",
+        profile_completion: 0
+      },
+      cv_document: null,
+      cv_download_url: null,
+      notes: [],
+      status_history: []
+    } satisfies ApplicationDetail;
+  }
+
+  const candidateId = String(accessData.candidate_id ?? "");
+  const cvDocumentId =
+    typeof accessData.cv_document_id === "string" ? accessData.cv_document_id : null;
+
+  const [
+    { data: candidateProfileData },
+    { data: candidateExtendedData },
+    { data: organizationData },
+    { data: noteRows },
+    { data: historyRows },
+    { data: cvDocumentRow }
+  ] = await Promise.all([
+    adminClient
+      .from("profiles")
+      .select("id, full_name, email, phone")
+      .eq("id", candidateId)
+      .maybeSingle(),
+    adminClient
+      .from("candidate_profiles")
+      .select(
+        "headline, city, country, bio, experience_years, current_position, desired_position, skills_text, cv_text, profile_completion"
+      )
+      .eq("user_id", candidateId)
+      .maybeSingle(),
+    adminClient
+      .from("organizations")
+      .select("name")
+      .eq("id", String(jobAccess.organization_id ?? ""))
+      .maybeSingle(),
+    adminClient
+      .from("internal_notes")
+      .select("id, application_id, body, created_at, author:profiles(full_name, email)")
+      .eq("application_id", applicationId)
+      .order("created_at", { ascending: false }),
+    adminClient
+      .from("application_status_history")
+      .select("id, from_status, to_status, note, created_at, actor:profiles(full_name, email)")
+      .eq("application_id", applicationId)
+      .order("created_at", { ascending: false }),
+    cvDocumentId
+      ? adminClient
+          .from("candidate_documents")
+          .select("id, bucket_id, storage_path, file_name, mime_type, file_size, is_primary, created_at")
+          .eq("id", cvDocumentId)
+          .maybeSingle()
+      : Promise.resolve({ data: null })
+  ]);
+
+  let cvDownloadUrl: string | null = null;
+
+  if (cvDocumentRow?.storage_path && cvDocumentRow?.bucket_id) {
+    const { data } = await adminClient.storage
+      .from(String(cvDocumentRow.bucket_id))
+      .createSignedUrl(String(cvDocumentRow.storage_path), 60 * 20);
+
+    cvDownloadUrl = data?.signedUrl ?? null;
+  }
+
+  const notes = (noteRows ?? []).map((item: Record<string, unknown>) => {
+    const author =
+      (item.author as { full_name?: string | null; email?: string | null } | null) ?? null;
+
+    return {
+      id: String(item.id),
+      application_id: String(item.application_id),
+      body: String(item.body ?? ""),
+      created_at: String(item.created_at ?? ""),
+      author_name: author?.full_name || author?.email || "Equipe Madajob",
+      author_email: author?.email ?? null
+    } satisfies InternalApplicationNote;
+  });
+
+  const statusHistory = (historyRows ?? []).map((item: Record<string, unknown>) => {
+    const actor =
+      (item.actor as { full_name?: string | null; email?: string | null } | null) ?? null;
+
+    return {
+      id: String(item.id),
+      from_status: typeof item.from_status === "string" ? item.from_status : null,
+      to_status: String(item.to_status ?? "submitted"),
+      note: typeof item.note === "string" ? item.note : null,
+      created_at: String(item.created_at ?? ""),
+      changed_by_name: actor?.full_name || actor?.email || "Equipe Madajob",
+      changed_by_email: actor?.email ?? null
+    } satisfies ApplicationStatusHistoryEntry;
+  });
+
+  return {
+    id: String(accessData.id),
+    status: String(accessData.status ?? "submitted"),
+    created_at: String(accessData.created_at ?? ""),
+    updated_at: String(accessData.updated_at ?? ""),
+    cover_letter: typeof accessData.cover_letter === "string" ? accessData.cover_letter : null,
+    has_cv: Boolean(cvDocumentRow),
+    job: {
+      id: String(jobAccess.id),
+      title: String(jobAccess.title ?? "Offre Madajob"),
+      slug: String(jobAccess.slug ?? ""),
+      location: String(jobAccess.location ?? ""),
+      contract_type: String(jobAccess.contract_type ?? ""),
+      work_mode: String(jobAccess.work_mode ?? ""),
+      sector: String(jobAccess.sector ?? ""),
+      summary: String(jobAccess.summary ?? ""),
+      organization_name: String(organizationData?.name ?? "Madajob")
+    },
+    candidate: {
+      id: String(candidateProfileData?.id ?? candidateId),
+      full_name:
+        String(candidateProfileData?.full_name ?? candidateProfileData?.email ?? "Candidat Madajob"),
+      email: candidateProfileData?.email ?? null,
+      phone: candidateProfileData?.phone ?? null,
+      headline: String(candidateExtendedData?.headline ?? ""),
+      city: String(candidateExtendedData?.city ?? ""),
+      country: String(candidateExtendedData?.country ?? "Madagascar"),
+      bio: String(candidateExtendedData?.bio ?? ""),
+      experience_years:
+        typeof candidateExtendedData?.experience_years === "number"
+          ? candidateExtendedData.experience_years
+          : null,
+      current_position: String(candidateExtendedData?.current_position ?? ""),
+      desired_position: String(candidateExtendedData?.desired_position ?? ""),
+      skills_text: String(candidateExtendedData?.skills_text ?? ""),
+      cv_text: String(candidateExtendedData?.cv_text ?? ""),
+      profile_completion:
+        typeof candidateExtendedData?.profile_completion === "number"
+          ? candidateExtendedData.profile_completion
+          : 0
+    },
+    cv_document: cvDocumentRow ? mapCandidateDocumentRecord(cvDocumentRow) : null,
+    cv_download_url: cvDownloadUrl,
+    notes,
+    status_history: statusHistory
+  } satisfies ApplicationDetail;
 }
 
 export async function getRecruiterApplications(profile: Profile) {
