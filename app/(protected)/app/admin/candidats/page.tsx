@@ -13,7 +13,7 @@ export default async function AdminCandidatesPage() {
   return (
     <DashboardShell
       title="Base candidats"
-      description="Centralisez les profils candidats, leurs CV et leurs candidatures depuis un module dedie."
+      description="Centralisez les profils candidats, triez-les plus vite et comparez-les a une offre cible pour piloter le matching."
       profile={profile}
       currentPath="/app/admin/candidats"
     >

@@ -249,6 +249,7 @@ export type ManagedCandidateSummary = {
   email: string | null;
   phone: string | null;
   headline: string;
+  skills_text: string;
   city: string;
   country: string;
   current_position: string;

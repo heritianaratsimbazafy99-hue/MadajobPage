@@ -1479,6 +1479,7 @@ export async function getManagedCandidates(
       email: application.candidate_email,
       phone: null,
       headline: "",
+      skills_text: "",
       city: "Antananarivo",
       country: "Madagascar",
       current_position: "",
@@ -1534,7 +1535,7 @@ export async function getManagedCandidates(
     adminClient
       .from("candidate_profiles")
       .select(
-        "user_id, headline, city, country, current_position, desired_position, profile_completion"
+        "user_id, headline, skills_text, city, country, current_position, desired_position, profile_completion"
       )
       .in("user_id", candidateIds),
     adminClient
@@ -1590,6 +1591,7 @@ export async function getManagedCandidates(
       email: profileRow?.email ?? null,
       phone: profileRow?.phone ?? null,
       headline: String(candidateRow?.headline ?? ""),
+      skills_text: String(candidateRow?.skills_text ?? ""),
       city: String(candidateRow?.city ?? ""),
       country: String(candidateRow?.country ?? "Madagascar"),
       current_position: String(candidateRow?.current_position ?? ""),

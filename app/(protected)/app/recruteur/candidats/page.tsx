@@ -13,7 +13,7 @@ export default async function RecruiterCandidatesPage() {
   return (
     <DashboardShell
       title="Base candidats"
-      description="Retrouvez les profils lies a vos offres, leurs CV et leurs candidatures recentes."
+      description="Triez les profils, filtrez-les par offre de reference et identifiez les meilleurs matchs candidat pour vos recrutements."
       profile={profile}
       currentPath="/app/recruteur/candidats"
     >
