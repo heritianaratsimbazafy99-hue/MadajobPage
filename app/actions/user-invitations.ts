@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/auth";
 import { createNotifications } from "@/lib/notifications";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { enqueueTransactionalEmails } from "@/lib/transactional-emails";
 import type { AppRole } from "@/lib/types";
 
 export type UserInvitationState = {
@@ -152,7 +153,26 @@ export async function inviteUserAction(
     }
   ]);
 
+  await enqueueTransactionalEmails([
+    {
+      recipient_email: email,
+      recipient_name: fullName || null,
+      recipient_user_id: data.user.id,
+      template_key: "account_invited",
+      subject: "Votre acces Madajob est pret",
+      preview_text:
+        "Votre invitation a ete preparee. Utilisez le lien recu par email pour finaliser votre acces a la plateforme.",
+      link_href: "/connexion",
+      provider: "supabase_auth",
+      status: "sent",
+      metadata: {
+        invited_role: role
+      }
+    }
+  ]);
+
   revalidatePath("/app/admin");
+  revalidatePath("/app/admin/emails");
   revalidatePath("/app/admin/notifications");
   revalidatePath("/app/admin/utilisateurs");
 

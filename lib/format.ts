@@ -12,6 +12,22 @@ export function formatDisplayDate(value: string | null) {
   }).format(date);
 }
 
+export function formatDateTimeDisplay(value: string | null) {
+  if (!value) {
+    return "A definir";
+  }
+
+  const date = new Date(value);
+
+  return new Intl.DateTimeFormat("fr-FR", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(date);
+}
+
 export function formatFileSize(value: number | null) {
   if (!value || value <= 0) {
     return "Taille inconnue";

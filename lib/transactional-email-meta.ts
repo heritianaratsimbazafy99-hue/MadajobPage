@@ -10,6 +10,11 @@ export function getTransactionalEmailTemplateMeta(templateKey: string) {
         label: "Mise a jour candidature",
         description: "Email prevu lors d'un changement de statut candidat."
       };
+    case "account_invited":
+      return {
+        label: "Invitation compte",
+        description: "Email d'invitation declenche via Supabase Auth."
+      };
     default:
       return {
         label: templateKey.replace(/[_-]+/g, " ").replace(/\b\w/g, (character) => character.toUpperCase()),

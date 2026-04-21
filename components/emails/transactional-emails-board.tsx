@@ -167,6 +167,7 @@ export function TransactionalEmailsBoard({ emails }: TransactionalEmailsBoardPro
                       : "Provider non branche pour le moment"}
                   </small>
                   <div className="notification-card__actions">
+                    <Link href={`/app/admin/emails/${email.id}`}>Voir l'email</Link>
                     {email.link_href ? <Link href={email.link_href}>Ouvrir le contexte</Link> : null}
                   </div>
                 </div>

@@ -80,6 +80,24 @@ export async function getTransactionalEmails(options: { limit?: number } = {}) {
   return data.map((row) => mapTransactionalEmailRecord(row));
 }
 
+export async function getTransactionalEmailById(emailId: string) {
+  noStore();
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("transactional_emails")
+    .select(
+      "id, recipient_email, recipient_name, recipient_user_id, template_key, subject, preview_text, link_href, status, provider, provider_message_id, attempts_count, last_attempt_at, sent_at, error_message, metadata, created_at, updated_at"
+    )
+    .eq("id", emailId)
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return mapTransactionalEmailRecord(data);
+}
+
 export async function enqueueTransactionalEmails(entries: TransactionalEmailInsert[]) {
   const sanitizedEntries = entries.filter((entry) => entry.recipient_email.trim().length > 0);
 

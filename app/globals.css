@@ -865,6 +865,30 @@ code {
   line-height: 1;
 }
 
+.email-preview-card {
+  display: grid;
+  gap: 16px;
+  padding: 24px;
+  border-radius: 24px;
+  border: 1px solid rgba(22, 49, 74, 0.08);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 249, 253, 0.96));
+}
+
+.email-preview-card__intro {
+  margin: 0;
+  font-size: 1.08rem;
+  line-height: 1.7;
+  color: var(--text);
+}
+
+.email-preview-card__text {
+  margin: 0;
+  white-space: pre-wrap;
+  font: inherit;
+  line-height: 1.8;
+  color: var(--muted);
+}
+
 .dashboard-nav__item:hover,
 .dashboard-nav__item.is-active {
   border-color: rgba(178, 210, 33, 0.22);

@@ -496,7 +496,8 @@ export async function applyToJobAction(
           metadata: {
             application_id: applicationId,
             job_post_id: jobId,
-            job_slug: jobSlug
+            job_slug: jobSlug,
+            job_title: job.title
           }
         }
       ]);
