@@ -1328,6 +1328,52 @@ code {
   color: var(--muted);
 }
 
+.pipeline-board {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.pipeline-column {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+}
+
+.pipeline-column__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.pipeline-column__head h2 {
+  margin: 8px 0 0;
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(1.2rem, 2.6vw, 1.55rem);
+}
+
+.pipeline-column__list {
+  display: grid;
+  gap: 12px;
+}
+
+.pipeline-card {
+  display: grid;
+  gap: 12px;
+}
+
+.pipeline-card p,
+.pipeline-card small {
+  margin: 0;
+}
+
+.pipeline-card--empty {
+  min-height: 150px;
+  place-content: center;
+}
+
 .jobs-empty {
   min-height: 220px;
   display: grid;
@@ -1485,6 +1531,10 @@ code {
   }
 
   .jobs-results {
+    grid-template-columns: 1fr;
+  }
+
+  .pipeline-board {
     grid-template-columns: 1fr;
   }
 }
