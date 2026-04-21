@@ -10,6 +10,7 @@ import {
 } from "@/lib/notifications";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { enqueueTransactionalEmails } from "@/lib/transactional-emails";
 
 export type JobActionState = {
   status: "idle" | "success" | "error";
@@ -481,6 +482,25 @@ export async function applyToJobAction(
         }
       }
     ]);
+
+    if (profile.email) {
+      await enqueueTransactionalEmails([
+        {
+          recipient_email: profile.email,
+          recipient_name: profile.full_name,
+          recipient_user_id: profile.id,
+          template_key: "candidate_application_confirmation",
+          subject: `Candidature recue pour ${job.title}`,
+          preview_text: `Votre candidature pour ${job.title} a bien ete enregistree sur Madajob. Vous pouvez suivre son evolution depuis votre espace candidat.`,
+          link_href: `/app/candidat/candidatures/${applicationId}`,
+          metadata: {
+            application_id: applicationId,
+            job_post_id: jobId,
+            job_slug: jobSlug
+          }
+        }
+      ]);
+    }
 
     const adminClient = createAdminClient();
 

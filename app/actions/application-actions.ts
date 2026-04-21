@@ -8,6 +8,7 @@ import { getApplicationStatusMeta } from "@/lib/application-status";
 import { createNotifications } from "@/lib/notifications";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { enqueueTransactionalEmails } from "@/lib/transactional-emails";
 
 export type ApplicationActionState = {
   status: "idle" | "success" | "error";
@@ -39,7 +40,9 @@ async function getManageableApplicationForActor(
   const supabase = await getApplicationMutationClient();
   let query = supabase
     .from("applications")
-    .select("id, status, candidate_id, job_posts!inner(organization_id, slug, title)")
+    .select(
+      "id, status, candidate_id, candidate:profiles!applications_candidate_id_fkey(full_name, email), job_posts!inner(organization_id, slug, title)"
+    )
     .eq("id", applicationId);
 
   if (actorRole === "recruteur") {
@@ -104,6 +107,18 @@ export async function updateApplicationStatusAction(
     typeof (existingApplication as { candidate_id?: string | null }).candidate_id === "string"
       ? String((existingApplication as { candidate_id?: string | null }).candidate_id)
       : null;
+  const rawCandidateRelation =
+    (existingApplication as {
+      candidate?: { full_name?: string | null; email?: string | null } | null;
+    }).candidate ?? null;
+  const candidateName =
+    rawCandidateRelation && typeof rawCandidateRelation.full_name === "string"
+      ? rawCandidateRelation.full_name
+      : null;
+  const candidateEmail =
+    rawCandidateRelation && typeof rawCandidateRelation.email === "string"
+      ? rawCandidateRelation.email
+      : null;
 
   if (currentStatus === nextStatus) {
     return {
@@ -152,6 +167,25 @@ export async function updateApplicationStatusAction(
         metadata: {
           application_id: applicationId,
           status: nextStatus
+        }
+      }
+    ]);
+  }
+
+  if (candidateEmail) {
+    await enqueueTransactionalEmails([
+      {
+        recipient_email: candidateEmail,
+        recipient_name: candidateName,
+        recipient_user_id: candidateId,
+        template_key: "candidate_application_status_update",
+        subject: `Mise a jour de votre candidature pour ${jobTitle}`,
+        preview_text: `Votre candidature est maintenant au statut ${statusMeta.label}. Consultez votre espace candidat pour voir le suivi detaille et les prochaines etapes.`,
+        link_href: `/app/candidat/candidatures/${applicationId}`,
+        metadata: {
+          application_id: applicationId,
+          status: nextStatus,
+          job_title: jobTitle
         }
       }
     ]);

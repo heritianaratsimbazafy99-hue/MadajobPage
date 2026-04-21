@@ -411,6 +411,26 @@ code {
   font-weight: 700;
 }
 
+.tag--info {
+  background: rgba(77, 142, 197, 0.14);
+  color: #356b99;
+}
+
+.tag--success {
+  background: rgba(178, 210, 33, 0.16);
+  color: var(--lime-soft);
+}
+
+.tag--danger {
+  background: rgba(220, 78, 78, 0.12);
+  color: #b64242;
+}
+
+.tag--muted {
+  background: rgba(22, 49, 74, 0.08);
+  color: var(--muted);
+}
+
 .metric-band {
   padding: 20px 0 8px;
 }

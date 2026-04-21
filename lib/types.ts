@@ -13,6 +13,34 @@ export type AppNotification = {
   metadata: Record<string, unknown>;
 };
 
+export type TransactionalEmailStatus =
+  | "queued"
+  | "processing"
+  | "sent"
+  | "failed"
+  | "skipped";
+
+export type TransactionalEmail = {
+  id: string;
+  recipient_email: string;
+  recipient_name: string | null;
+  recipient_user_id: string | null;
+  template_key: string;
+  subject: string;
+  preview_text: string;
+  link_href: string | null;
+  status: TransactionalEmailStatus;
+  provider: string | null;
+  provider_message_id: string | null;
+  attempts_count: number;
+  last_attempt_at: string | null;
+  sent_at: string | null;
+  error_message: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Profile = {
   id: string;
   email: string | null;
