@@ -814,9 +814,35 @@ code {
   color: var(--text);
 }
 
+.dashboard-nav__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dashboard-nav__title strong {
+  color: var(--text);
+  font-size: 1rem;
+}
+
 .dashboard-nav__item small {
   font-size: 0.86rem;
   color: var(--muted);
+}
+
+.dashboard-notification-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  padding: 5px 9px;
+  border-radius: 999px;
+  background: rgba(77, 142, 197, 0.14);
+  color: #356b99;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .dashboard-nav__item:hover,

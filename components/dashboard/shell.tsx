@@ -2,6 +2,9 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { SignOutButton } from "@/components/auth/sign-out-button";
+import { UnreadNotificationsNavLink } from "@/components/notifications/unread-notifications-nav-link";
+import { getNotificationsPath } from "@/lib/notification-path";
+import { getUnreadNotificationsCount } from "@/lib/notifications";
 import type { AppRole, Profile } from "@/lib/types";
 
 type DashboardShellProps = {
@@ -77,7 +80,7 @@ const supportByRole: Record<AppRole, string[]> = {
   ]
 };
 
-export function DashboardShell({
+export async function DashboardShell({
   title,
   description,
   profile,
@@ -87,6 +90,8 @@ export function DashboardShell({
   const nav = navByRole[profile.role];
   const action = actionByRole[profile.role];
   const profileName = profile.full_name || profile.email || "Utilisateur";
+  const notificationsPath = getNotificationsPath(profile.role);
+  const unreadNotificationsCount = await getUnreadNotificationsCount(profile.id);
 
   return (
     <div className="dashboard-shell">
@@ -110,6 +115,19 @@ export function DashboardShell({
         <nav className="dashboard-nav">
           {nav.map((item) => {
             const isActive = item.href === currentPath;
+
+            if (item.href === notificationsPath) {
+              return (
+                <UnreadNotificationsNavLink
+                  key={item.href}
+                  href={item.href}
+                  label={item.label}
+                  hint={item.hint}
+                  isActive={isActive}
+                  initialCount={unreadNotificationsCount}
+                />
+              );
+            }
 
             return (
               <Link
@@ -155,6 +173,11 @@ export function DashboardShell({
               <span className="dashboard-context__label">Role</span>
               <strong>{roleLabel[profile.role]}</strong>
               <small>{profile.email || "Compte connecte"}</small>
+              <small>
+                {unreadNotificationsCount > 0
+                  ? `${unreadNotificationsCount} notification(s) non lue(s)`
+                  : "Aucune notification en attente"}
+              </small>
             </div>
             <Link className="btn btn-primary" href={action.href}>
               {action.label}
