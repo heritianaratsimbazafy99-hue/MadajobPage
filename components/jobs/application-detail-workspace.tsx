@@ -3,7 +3,12 @@ import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard/shell";
 import { ApplicationNotes } from "@/components/jobs/application-notes";
 import { ApplicationStatusForm } from "@/components/jobs/application-status-form";
-import { formatDisplayDate, formatFileSize } from "@/lib/format";
+import { formatDateTimeDisplay, formatDisplayDate, formatFileSize } from "@/lib/format";
+import { getNotificationKindMeta } from "@/lib/notification-kind";
+import {
+  getTransactionalEmailStatusMeta,
+  getTransactionalEmailTemplateMeta
+} from "@/lib/transactional-email-meta";
 import type { ApplicationDetail, Profile } from "@/lib/types";
 
 type ApplicationDetailWorkspaceProps = {
@@ -21,6 +26,31 @@ export function ApplicationDetailWorkspace({
 }: ApplicationDetailWorkspaceProps) {
   const candidatesBasePath =
     profile.role === "admin" ? "/app/admin/candidats" : "/app/recruteur/candidats";
+
+  function getCommunicationMeta(communication: ApplicationDetail["communications"][number]) {
+    if (communication.channel === "notification") {
+      const kindMeta = getNotificationKindMeta(communication.event_key);
+
+      return {
+        channelLabel: "Notification",
+        channelTone: "info",
+        eventLabel: kindMeta.label,
+        statusLabel: communication.status === "read" ? "Lue" : "Non lue",
+        statusTone: communication.status === "read" ? "muted" : "info"
+      };
+    }
+
+    const templateMeta = getTransactionalEmailTemplateMeta(communication.event_key);
+    const statusMeta = getTransactionalEmailStatusMeta(communication.status);
+
+    return {
+      channelLabel: "Email",
+      channelTone: "success",
+      eventLabel: templateMeta.label,
+      statusLabel: statusMeta.label,
+      statusTone: statusMeta.tone
+    };
+  }
 
   return (
     <DashboardShell
@@ -160,6 +190,60 @@ export function ApplicationDetailWorkspace({
                 <article className="panel list-card dashboard-card dashboard-card--empty">
                   <h3>Aucun changement de statut pour le moment</h3>
                   <p>Le dossier apparaitra ici au fur et a mesure des actions recruteur/admin.</p>
+                </article>
+              )}
+            </div>
+          </div>
+
+          <div className="dashboard-form">
+            <div className="dashboard-form__head">
+              <div>
+                <p className="eyebrow">Communications</p>
+                <h2>Notifications et emails lies a ce dossier</h2>
+              </div>
+              <span className="tag">{application.communications.length} element(s)</span>
+            </div>
+
+            <div className="dashboard-list">
+              {application.communications.length > 0 ? (
+                application.communications.map((communication) => {
+                  const meta = getCommunicationMeta(communication);
+
+                  return (
+                    <article key={communication.id} className="panel list-card dashboard-card">
+                      <div className="dashboard-card__top">
+                        <div>
+                          <h3>{communication.title}</h3>
+                          <p>{meta.eventLabel}</p>
+                        </div>
+                        <div className="dashboard-card__badges">
+                          <span className={`tag tag--${meta.channelTone}`}>{meta.channelLabel}</span>
+                          <span className={`tag tag--${meta.statusTone}`}>{meta.statusLabel}</span>
+                        </div>
+                      </div>
+                      <p>{communication.body}</p>
+                      <div className="job-card__meta">
+                        <span>{communication.recipient_label}</span>
+                        <span>{formatDateTimeDisplay(communication.created_at)}</span>
+                      </div>
+                      <div className="job-card__footer">
+                        <small>Evenement de communication journalise dans la plateforme.</small>
+                        <div className="notification-card__actions">
+                          {communication.link_href ? (
+                            <Link href={communication.link_href}>Ouvrir le contexte</Link>
+                          ) : null}
+                          {communication.management_href ? (
+                            <Link href={communication.management_href}>Ouvrir le log email</Link>
+                          ) : null}
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })
+              ) : (
+                <article className="panel list-card dashboard-card dashboard-card--empty">
+                  <h3>Aucune communication pour le moment</h3>
+                  <p>Les notifications et emails lies a ce dossier apparaitront ici automatiquement.</p>
                 </article>
               )}
             </div>

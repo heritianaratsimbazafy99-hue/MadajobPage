@@ -5,6 +5,7 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type {
+  ApplicationCommunicationEvent,
   ApplicationDetail,
   ApplicationStatusHistoryEntry,
   CandidateApplicationDetail,
@@ -1086,7 +1087,8 @@ export async function getApplicationDetail(profile: Profile, applicationId: stri
       cv_document: null,
       cv_download_url: null,
       notes: [],
-      status_history: []
+      status_history: [],
+      communications: []
     } satisfies ApplicationDetail;
   }
 
@@ -1176,7 +1178,8 @@ export async function getApplicationDetail(profile: Profile, applicationId: stri
       cv_document: null,
       cv_download_url: null,
       notes: [],
-      status_history: []
+      status_history: [],
+      communications: []
     } satisfies ApplicationDetail;
   }
 
@@ -1190,7 +1193,9 @@ export async function getApplicationDetail(profile: Profile, applicationId: stri
     { data: organizationData },
     { data: noteRows },
     { data: historyRows },
-    { data: cvDocumentRow }
+    { data: cvDocumentRow },
+    { data: notificationRows },
+    { data: emailRows }
   ] = await Promise.all([
     adminClient
       .from("profiles")
@@ -1225,7 +1230,23 @@ export async function getApplicationDetail(profile: Profile, applicationId: stri
           .select("id, bucket_id, storage_path, file_name, mime_type, file_size, is_primary, created_at")
           .eq("id", cvDocumentId)
           .maybeSingle()
-      : Promise.resolve({ data: null })
+      : Promise.resolve({ data: null }),
+    adminClient
+      .from("notifications")
+      .select("id, kind, title, body, link_href, is_read, created_at, recipient:profiles(full_name, email, role)")
+      .in("link_href", [
+        `/app/candidat/candidatures/${applicationId}`,
+        `/app/recruteur/candidatures/${applicationId}`,
+        `/app/admin/candidatures/${applicationId}`
+      ])
+      .order("created_at", { ascending: false }),
+    adminClient
+      .from("transactional_emails")
+      .select(
+        "id, template_key, subject, preview_text, link_href, status, recipient_name, recipient_email, created_at"
+      )
+      .eq("link_href", `/app/candidat/candidatures/${applicationId}`)
+      .order("created_at", { ascending: false })
   ]);
 
   const cvDownloadUrl = await createSignedUrlForDocument(
@@ -1260,6 +1281,48 @@ export async function getApplicationDetail(profile: Profile, applicationId: stri
       changed_by_name: actor?.full_name || actor?.email || "Equipe Madajob",
       changed_by_email: actor?.email ?? null
     } satisfies ApplicationStatusHistoryEntry;
+  });
+
+  const communications: ApplicationCommunicationEvent[] = [
+    ...(notificationRows ?? []).map((item: Record<string, unknown>) => {
+      const recipient =
+        (item.recipient as { full_name?: string | null; email?: string | null; role?: string | null } | null) ??
+        null;
+
+      return {
+        id: `notification:${String(item.id)}`,
+        channel: "notification",
+        event_key: String(item.kind ?? "notification"),
+        title: String(item.title ?? "Notification Madajob"),
+        body: String(item.body ?? ""),
+        recipient_label:
+          recipient?.full_name || recipient?.email || String(recipient?.role ?? "Utilisateur cible"),
+        status: Boolean(item.is_read) ? "read" : "unread",
+        created_at: String(item.created_at ?? ""),
+        link_href: typeof item.link_href === "string" ? item.link_href : null,
+        management_href: null
+      } satisfies ApplicationCommunicationEvent;
+    }),
+    ...(emailRows ?? []).map((item: Record<string, unknown>) => {
+      return {
+        id: `email:${String(item.id)}`,
+        channel: "email",
+        event_key: String(item.template_key ?? "transactional_email"),
+        title: String(item.subject ?? "Email Madajob"),
+        body: String(item.preview_text ?? ""),
+        recipient_label:
+          (typeof item.recipient_name === "string" && item.recipient_name) ||
+          String(item.recipient_email ?? "Destinataire"),
+        status: String(item.status ?? "queued"),
+        created_at: String(item.created_at ?? ""),
+        link_href: typeof item.link_href === "string" ? item.link_href : null,
+        management_href: profile.role === "admin" ? `/app/admin/emails/${String(item.id)}` : null
+      } satisfies ApplicationCommunicationEvent;
+    })
+  ].sort((left, right) => {
+    const leftTime = new Date(left.created_at).getTime();
+    const rightTime = new Date(right.created_at).getTime();
+    return rightTime - leftTime;
   });
 
   return {
@@ -1306,7 +1369,8 @@ export async function getApplicationDetail(profile: Profile, applicationId: stri
     cv_document: cvDocumentRow ? mapCandidateDocumentRecord(cvDocumentRow) : null,
     cv_download_url: cvDownloadUrl,
     notes,
-    status_history: statusHistory
+    status_history: statusHistory,
+    communications
   } satisfies ApplicationDetail;
 }
 

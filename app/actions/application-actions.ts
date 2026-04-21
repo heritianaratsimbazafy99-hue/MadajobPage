@@ -193,6 +193,7 @@ export async function updateApplicationStatusAction(
 
   revalidatePath("/app/recruteur");
   revalidatePath("/app/admin");
+  revalidatePath("/app/admin/emails");
   revalidatePath("/app/recruteur/candidatures");
   revalidatePath("/app/admin/candidatures");
   revalidatePath(`/app/recruteur/candidatures/${applicationId}`);

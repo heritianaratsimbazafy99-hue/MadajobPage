@@ -166,6 +166,19 @@ export type ApplicationStatusHistoryEntry = {
   changed_by_email: string | null;
 };
 
+export type ApplicationCommunicationEvent = {
+  id: string;
+  channel: "notification" | "email";
+  event_key: string;
+  title: string;
+  body: string;
+  recipient_label: string;
+  status: string;
+  created_at: string;
+  link_href: string | null;
+  management_href: string | null;
+};
+
 export type ApplicationDetail = {
   id: string;
   status: string;
@@ -204,6 +217,7 @@ export type ApplicationDetail = {
   cv_download_url: string | null;
   notes: InternalApplicationNote[];
   status_history: ApplicationStatusHistoryEntry[];
+  communications: ApplicationCommunicationEvent[];
 };
 
 export type CandidateApplicationDetail = {

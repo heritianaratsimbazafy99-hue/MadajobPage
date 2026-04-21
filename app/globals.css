@@ -1077,6 +1077,14 @@ code {
   gap: 14px;
 }
 
+.dashboard-card__badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .dashboard-card--empty {
   min-height: 180px;
   place-content: center;

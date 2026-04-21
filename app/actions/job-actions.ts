@@ -555,8 +555,10 @@ export async function applyToJobAction(
   revalidatePath("/app/candidat/notifications");
   revalidatePath("/app/candidat/offres");
   revalidatePath("/app/recruteur");
+  revalidatePath("/app/recruteur/candidatures");
   revalidatePath("/app/recruteur/notifications");
   revalidatePath("/app/admin");
+  revalidatePath("/app/admin/emails");
   revalidatePath("/app/admin/notifications");
   revalidatePath("/carrieres");
   if (jobSlug) {
