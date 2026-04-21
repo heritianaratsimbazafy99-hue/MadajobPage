@@ -2,11 +2,16 @@ import Link from "next/link";
 
 import { DashboardShell } from "@/components/dashboard/shell";
 import { formatDisplayDate, formatFileSize } from "@/lib/format";
+import type { JobMatchResult, MatchableJob } from "@/lib/matching";
 import type { CandidateDetail, Profile } from "@/lib/types";
 
 type CandidateDetailWorkspaceProps = {
   profile: Profile;
   candidate: CandidateDetail;
+  suggestedJobMatches: Array<{
+    job: MatchableJob;
+    match: JobMatchResult;
+  }>;
   currentPath: string;
   backHref: string;
 };
@@ -14,11 +19,13 @@ type CandidateDetailWorkspaceProps = {
 export function CandidateDetailWorkspace({
   profile,
   candidate,
+  suggestedJobMatches,
   currentPath,
   backHref
 }: CandidateDetailWorkspaceProps) {
   const applicationsBasePath =
     profile.role === "admin" ? "/app/admin/candidatures" : "/app/recruteur/candidatures";
+  const offersBasePath = profile.role === "admin" ? "/app/admin/offres" : "/app/recruteur/offres";
 
   return (
     <DashboardShell
@@ -146,6 +153,51 @@ export function CandidateDetailWorkspace({
                 <article className="panel list-card dashboard-card dashboard-card--empty">
                   <h3>Aucune candidature disponible</h3>
                   <p>Ce candidat n'a pas encore de dossier visible dans votre perimetre.</p>
+                </article>
+              )}
+            </div>
+          </div>
+
+          <div className="dashboard-form">
+            <div className="dashboard-form__head">
+              <div>
+                <p className="eyebrow">Matching</p>
+                <h2>Offres les plus compatibles avec ce profil</h2>
+              </div>
+              <span className="tag">{suggestedJobMatches.length} suggestion(s)</span>
+            </div>
+
+            <div className="dashboard-list">
+              {suggestedJobMatches.length > 0 ? (
+                suggestedJobMatches.map(({ job, match }) => (
+                  <article key={job.id} className="panel list-card dashboard-card">
+                    <div className="dashboard-card__top">
+                      <div>
+                        <h3>{job.title}</h3>
+                        <p>{job.organization_name || "Madajob"}</p>
+                      </div>
+                      <div className="dashboard-card__badges">
+                        <span className={`tag tag--${match.tone}`}>{match.label}</span>
+                        <span className="tag tag--muted">{match.level}</span>
+                      </div>
+                    </div>
+                    <p>{match.reason}</p>
+                    <div className="job-card__meta">
+                      <span>{job.location}</span>
+                      <span>{job.contract_type}</span>
+                      <span>{job.work_mode}</span>
+                      <span>{job.sector}</span>
+                    </div>
+                    <div className="job-card__footer">
+                      <small>{match.matchedKeywords.join(", ") || "Matching actif"}</small>
+                      <Link href={`${offersBasePath}/${job.id}`}>Ouvrir l'offre</Link>
+                    </div>
+                  </article>
+                ))
+              ) : (
+                <article className="panel list-card dashboard-card dashboard-card--empty">
+                  <h3>Pas encore de matching exploitable</h3>
+                  <p>Completez davantage le profil candidat pour faire remonter des offres plus precises.</p>
                 </article>
               )}
             </div>

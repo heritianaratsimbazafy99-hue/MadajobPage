@@ -2,18 +2,22 @@ import { DashboardShell } from "@/components/dashboard/shell";
 import { CandidateJobsBoard } from "@/components/jobs/candidate-jobs-board";
 import { isFinalApplicationStatus } from "@/lib/application-status";
 import { requireRole } from "@/lib/auth";
-import { getCandidateApplicationSummaries, getPublicJobs } from "@/lib/jobs";
+import { getCandidateApplicationSummaries, getCandidateWorkspace, getPublicJobs } from "@/lib/jobs";
+import { rankJobsForCandidate } from "@/lib/matching";
 
 export default async function CandidateJobsPage() {
   const profile = await requireRole(["candidat"]);
-  const [jobs, applications] = await Promise.all([
+  const [jobs, applications, candidateProfile] = await Promise.all([
     getPublicJobs(),
-    getCandidateApplicationSummaries(profile.id)
+    getCandidateApplicationSummaries(profile.id),
+    getCandidateWorkspace(profile)
   ]);
   const appliedJobIds = new Set(applications.map((application) => application.job_id));
   const activeApplicationsCount = applications.filter(
     (application) => !isFinalApplicationStatus(application.status)
   ).length;
+  const rankedJobs = rankJobsForCandidate(candidateProfile, jobs);
+  const strongMatchesCount = rankedJobs.filter((entry) => entry.match.score >= 78).length;
 
   return (
     <DashboardShell
@@ -39,13 +43,17 @@ export default async function CandidateJobsPage() {
           <small>suivi encore en mouvement dans votre espace</small>
         </article>
         <article className="panel metric-panel">
-          <span>Offres a explorer</span>
-          <strong>{Math.max(jobs.length - appliedJobIds.size, 0)}</strong>
-          <small>offres sans candidature envoyee a ce jour</small>
+          <span>Forts matchs</span>
+          <strong>{strongMatchesCount}</strong>
+          <small>offres avec forte compatibilite calculee depuis votre profil</small>
         </article>
       </section>
 
-      <CandidateJobsBoard jobs={jobs} applications={applications} />
+      <CandidateJobsBoard
+        jobs={jobs}
+        applications={applications}
+        candidateProfile={candidateProfile}
+      />
     </DashboardShell>
   );
 }

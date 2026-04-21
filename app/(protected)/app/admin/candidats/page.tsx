@@ -1,11 +1,14 @@
 import { DashboardShell } from "@/components/dashboard/shell";
 import { ManagedCandidatesBoard } from "@/components/candidates/managed-candidates-board";
 import { requireRole } from "@/lib/auth";
-import { getManagedCandidates } from "@/lib/jobs";
+import { getManagedCandidates, getManagedJobs } from "@/lib/jobs";
 
 export default async function AdminCandidatesPage() {
   const profile = await requireRole(["admin"]);
-  const candidates = await getManagedCandidates(profile);
+  const [candidates, jobs] = await Promise.all([
+    getManagedCandidates(profile),
+    getManagedJobs(profile, { limit: 300 })
+  ]);
 
   return (
     <DashboardShell
@@ -16,6 +19,7 @@ export default async function AdminCandidatesPage() {
     >
       <ManagedCandidatesBoard
         candidates={candidates}
+        jobs={jobs}
         basePath="/app/admin/candidats"
       />
     </DashboardShell>

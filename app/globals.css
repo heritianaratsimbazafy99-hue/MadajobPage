@@ -395,6 +395,13 @@ code {
   font-size: 0.95rem;
 }
 
+.jobs-result-card__badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .job-card__footer {
   justify-content: space-between;
   margin-top: 20px;
@@ -1165,6 +1172,12 @@ code {
   margin: 0;
   color: var(--muted);
   line-height: 1.6;
+}
+
+.match-caption {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
 }
 
 .field input[type="file"] {

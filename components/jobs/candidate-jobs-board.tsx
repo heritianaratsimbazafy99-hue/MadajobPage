@@ -8,11 +8,13 @@ import {
   isFinalApplicationStatus
 } from "@/lib/application-status";
 import { formatDisplayDate } from "@/lib/format";
+import { rankJobsForCandidate, type MatchingCandidateProfile } from "@/lib/matching";
 import type { CandidateApplicationSummary, Job } from "@/lib/types";
 
 type CandidateJobsBoardProps = {
   jobs: Job[];
   applications: CandidateApplicationSummary[];
+  candidateProfile: MatchingCandidateProfile;
 };
 
 type Filters = {
@@ -23,7 +25,7 @@ type Filters = {
   sector: string;
   applicationState: "" | "available" | "applied" | "active_applied";
   featuredOnly: boolean;
-  sort: "recent" | "oldest" | "featured";
+  sort: "recent" | "oldest" | "featured" | "match";
 };
 
 const initialFilters: Filters = {
@@ -49,13 +51,21 @@ function getUniqueValues(values: Array<string | undefined>) {
 
 export function CandidateJobsBoard({
   jobs,
-  applications
+  applications,
+  candidateProfile
 }: CandidateJobsBoardProps) {
   const [filters, setFilters] = useState<Filters>(initialFilters);
   const deferredQuery = useDeferredValue(filters.query);
   const applicationByJobId = useMemo(
     () => new Map(applications.map((application) => [application.job_id, application])),
     [applications]
+  );
+  const matchByJobId = useMemo(
+    () =>
+      new Map(
+        rankJobsForCandidate(candidateProfile, jobs).map((entry) => [entry.job.id, entry.match])
+      ),
+    [candidateProfile, jobs]
   );
 
   const options = useMemo(
@@ -71,8 +81,8 @@ export function CandidateJobsBoard({
   const filteredJobs = useMemo(() => {
     const query = deferredQuery.trim().toLowerCase();
 
-    const matchingJobs = jobs.filter((job) => {
-      const application = applicationByJobId.get(job.id) ?? null;
+      const matchingJobs = jobs.filter((job) => {
+        const application = applicationByJobId.get(job.id) ?? null;
       const matchesQuery =
         !query ||
         [
@@ -114,9 +124,17 @@ export function CandidateJobsBoard({
     return matchingJobs.sort((left, right) => {
       const leftDate = left.published_at ? new Date(left.published_at).getTime() : 0;
       const rightDate = right.published_at ? new Date(right.published_at).getTime() : 0;
+      const leftMatch = matchByJobId.get(left.id)?.score ?? 0;
+      const rightMatch = matchByJobId.get(right.id)?.score ?? 0;
 
       if (filters.sort === "oldest") {
         return leftDate - rightDate;
+      }
+
+      if (filters.sort === "match") {
+        if (leftMatch !== rightMatch) {
+          return rightMatch - leftMatch;
+        }
       }
 
       if (filters.sort === "featured") {
@@ -137,7 +155,8 @@ export function CandidateJobsBoard({
     filters.sector,
     filters.sort,
     filters.workMode,
-    jobs
+    jobs,
+    matchByJobId
   ]);
 
   const activeFilterCount = [
@@ -287,6 +306,7 @@ export function CandidateJobsBoard({
               }
             >
               <option value="recent">Plus recentes</option>
+              <option value="match">Meilleur match</option>
               <option value="featured">Mises en avant d'abord</option>
               <option value="oldest">Plus anciennes</option>
             </select>
@@ -327,28 +347,47 @@ export function CandidateJobsBoard({
             const applicationStatus = application
               ? getApplicationStatusMeta(application.status)
               : null;
+            const match = matchByJobId.get(job.id) ?? null;
+            const shouldHighlightMatch =
+              !application && match !== null && match.hasSignal && match.score >= 40;
 
             return (
               <article key={job.id} className="panel job-card jobs-result-card">
                 <div className="jobs-result-card__head">
-                  <span className="tag">
-                    {applicationStatus
-                      ? applicationStatus.label
-                      : job.is_featured
-                        ? "Mise en avant"
-                        : "Disponible"}
-                  </span>
+                  <div className="jobs-result-card__badges">
+                    <span className={`tag ${shouldHighlightMatch ? `tag--${match?.tone}` : ""}`.trim()}>
+                      {applicationStatus
+                        ? applicationStatus.label
+                        : shouldHighlightMatch && match
+                          ? match.label
+                          : job.is_featured
+                            ? "Mise en avant"
+                            : "Disponible"}
+                    </span>
+                    {shouldHighlightMatch && match ? (
+                      <span className="tag tag--muted">{match.level}</span>
+                    ) : null}
+                  </div>
                   <small>Publie le {formatDisplayDate(job.published_at)}</small>
                 </div>
 
                 <h2>{job.title}</h2>
-                <p>{applicationStatus ? applicationStatus.description : job.summary}</p>
+                <p>
+                  {applicationStatus
+                    ? applicationStatus.description
+                    : shouldHighlightMatch && match
+                      ? match.reason
+                      : job.summary}
+                </p>
 
                 <div className="job-card__meta">
                   <span>{job.location}</span>
                   <span>{job.contract_type}</span>
                   <span>{job.work_mode}</span>
                   <span>{job.sector}</span>
+                  {shouldHighlightMatch && match ? (
+                    <span>{match.matchedKeywords.join(", ") || "Matching actif"}</span>
+                  ) : null}
                 </div>
 
                 <div className="job-card__footer">
