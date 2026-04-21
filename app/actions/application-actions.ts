@@ -58,14 +58,12 @@ async function getManageableApplicationForActor(
   return data;
 }
 
-export async function updateApplicationStatusAction(
-  _previousState: ApplicationActionState = defaultState,
-  formData: FormData
+async function updateApplicationStatusInternal(
+  profile: Awaited<ReturnType<typeof requireRole>>,
+  applicationId: string,
+  nextStatus: string
 ): Promise<ApplicationActionState> {
-  const profile = await requireRole(["recruteur", "admin"]);
   const actorRole = profile.role === "admin" ? "admin" : "recruteur";
-  const applicationId = getTrimmedValue(formData, "application_id");
-  const nextStatus = getTrimmedValue(formData, "status");
 
   if (!applicationId || !uuidPattern.test(applicationId) || !allowedStatuses.has(nextStatus)) {
     return {
@@ -210,6 +208,26 @@ export async function updateApplicationStatusAction(
     status: "success",
     message: "Statut mis a jour avec succes."
   };
+}
+
+export async function updateApplicationStatusAction(
+  _previousState: ApplicationActionState = defaultState,
+  formData: FormData
+): Promise<ApplicationActionState> {
+  const profile = await requireRole(["recruteur", "admin"]);
+  const applicationId = getTrimmedValue(formData, "application_id");
+  const nextStatus = getTrimmedValue(formData, "status");
+
+  return updateApplicationStatusInternal(profile, applicationId, nextStatus);
+}
+
+export async function moveApplicationStatusAction(
+  applicationId: string,
+  nextStatus: string
+): Promise<ApplicationActionState> {
+  const profile = await requireRole(["recruteur", "admin"]);
+
+  return updateApplicationStatusInternal(profile, applicationId, nextStatus);
 }
 
 export async function addInternalNoteAction(

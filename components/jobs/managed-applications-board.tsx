@@ -1,8 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useDeferredValue, useMemo, useState } from "react";
+import {
+  type DragEvent,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useState,
+  useTransition
+} from "react";
+import { useRouter } from "next/navigation";
 
+import { moveApplicationStatusAction } from "@/app/actions/application-actions";
 import {
   applicationStatusOptions,
   getApplicationStatusMeta,
@@ -44,15 +53,25 @@ export function ManagedApplicationsBoard({
   applications,
   basePath
 }: ManagedApplicationsBoardProps) {
+  const router = useRouter();
   const [filters, setFilters] = useState<Filters>(initialFilters);
+  const [boardApplications, setBoardApplications] = useState(applications);
+  const [draggedApplicationId, setDraggedApplicationId] = useState<string | null>(null);
+  const [dropTargetStatus, setDropTargetStatus] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ kind: "success" | "error"; message: string } | null>(null);
+  const [isPending, startTransition] = useTransition();
   const deferredQuery = useDeferredValue(filters.query);
 
-  const statusOptions = useMemo(() => getUniqueStatuses(applications), [applications]);
+  useEffect(() => {
+    setBoardApplications(applications);
+  }, [applications]);
+
+  const statusOptions = useMemo(() => getUniqueStatuses(boardApplications), [boardApplications]);
 
   const filteredApplications = useMemo(() => {
     const query = deferredQuery.trim().toLowerCase();
 
-    return applications
+    return boardApplications
       .filter((application) => {
         const matchesQuery =
           !query ||
@@ -85,7 +104,7 @@ export function ManagedApplicationsBoard({
 
         return rightDate - leftDate;
       });
-  }, [applications, deferredQuery, filters.sort, filters.stage, filters.status, filters.withCvOnly]);
+  }, [boardApplications, deferredQuery, filters.sort, filters.stage, filters.status, filters.withCvOnly]);
 
   const statusCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -114,6 +133,74 @@ export function ManagedApplicationsBoard({
     filters.view !== "pipeline" ? filters.view : "",
     filters.sort !== "recent" ? filters.sort : ""
   ].filter(Boolean).length;
+
+  function updateLocalApplicationStatus(applicationId: string, status: string) {
+    setBoardApplications((previous) =>
+      previous.map((application) =>
+        application.id === applicationId ? { ...application, status } : application
+      )
+    );
+  }
+
+  function handleDragStart(event: DragEvent<HTMLElement>, applicationId: string) {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", applicationId);
+    setDraggedApplicationId(applicationId);
+    setFeedback(null);
+  }
+
+  function handleDragEnd() {
+    setDraggedApplicationId(null);
+    setDropTargetStatus(null);
+  }
+
+  async function handleDrop(nextStatus: string) {
+    if (!draggedApplicationId || isPending) {
+      return;
+    }
+
+    const draggedApplication = boardApplications.find(
+      (application) => application.id === draggedApplicationId
+    );
+
+    if (!draggedApplication || draggedApplication.status === nextStatus) {
+      handleDragEnd();
+      return;
+    }
+
+    const previousStatus = draggedApplication.status;
+    updateLocalApplicationStatus(draggedApplicationId, nextStatus);
+    setDropTargetStatus(null);
+    setDraggedApplicationId(null);
+    setFeedback(null);
+
+    startTransition(() => {
+      void moveApplicationStatusAction(draggedApplicationId, nextStatus)
+        .then((result) => {
+          if (result.status === "error") {
+            updateLocalApplicationStatus(draggedApplicationId, previousStatus);
+            setFeedback({
+              kind: "error",
+              message: result.message
+            });
+            return;
+          }
+
+          setFeedback({
+            kind: "success",
+            message: result.message
+          });
+          router.refresh();
+        })
+        .catch(() => {
+          updateLocalApplicationStatus(draggedApplicationId, previousStatus);
+          setFeedback({
+            kind: "error",
+            message: "Le deplacement du dossier a echoue. Reessayez."
+          });
+        });
+    });
+  }
 
   return (
     <div className="jobs-board">
@@ -249,13 +336,49 @@ export function ManagedApplicationsBoard({
             </button>
           ) : null}
         </div>
+
+        <p className="form-caption">
+          {filters.view === "pipeline"
+            ? "Glissez une carte vers une autre colonne pour faire avancer le dossier dans le pipeline."
+            : "Passez en vue pipeline pour reorganiser les dossiers par glisser-deposer."}
+        </p>
+
+        {feedback ? (
+          <p className={feedback.kind === "error" ? "form-feedback form-feedback--error" : "form-feedback"}>
+            {feedback.message}
+          </p>
+        ) : null}
       </section>
 
       {filteredApplications.length > 0 ? (
         filters.view === "pipeline" ? (
           <section className="pipeline-board">
             {pipelineColumns.map((column) => (
-              <article key={column.value} className="panel pipeline-column">
+              <article
+                key={column.value}
+                className={[
+                  "panel pipeline-column",
+                  dropTargetStatus === column.value ? "is-drop-target" : ""
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  if (!isPending) {
+                    event.dataTransfer.dropEffect = "move";
+                    setDropTargetStatus(column.value);
+                  }
+                }}
+                onDragLeave={() => {
+                  if (dropTargetStatus === column.value) {
+                    setDropTargetStatus(null);
+                  }
+                }}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  void handleDrop(column.value);
+                }}
+              >
                 <div className="pipeline-column__head">
                   <div>
                     <p className="eyebrow">{column.label}</p>
@@ -270,9 +393,22 @@ export function ManagedApplicationsBoard({
                   {column.applications.length > 0 ? (
                     column.applications.map((application) => {
                       const statusMeta = getApplicationStatusMeta(application.status);
+                      const isDragging = draggedApplicationId === application.id;
 
                       return (
-                        <article key={application.id} className="document-card pipeline-card">
+                        <article
+                          key={application.id}
+                          className={[
+                            "document-card pipeline-card",
+                            isDragging ? "is-dragging" : "",
+                            isPending ? "is-disabled" : ""
+                          ]
+                            .filter(Boolean)
+                            .join(" ")}
+                          draggable={!isPending}
+                          onDragStart={(event) => handleDragStart(event, application.id)}
+                          onDragEnd={handleDragEnd}
+                        >
                           <div className="dashboard-card__top">
                             <div>
                               <strong>{application.candidate_name}</strong>
@@ -287,6 +423,9 @@ export function ManagedApplicationsBoard({
                           </div>
 
                           <small>{application.candidate_email}</small>
+                          <small className="pipeline-card__hint">
+                            Glisser vers une autre etape pour changer le statut
+                          </small>
 
                           <div className="job-card__footer">
                             <small>Soumis le {formatDisplayDate(application.created_at)}</small>

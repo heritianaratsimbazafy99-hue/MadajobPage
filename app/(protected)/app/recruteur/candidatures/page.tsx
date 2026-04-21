@@ -15,7 +15,7 @@ export default async function RecruiterApplicationsPage() {
   return (
     <DashboardShell
       title="Candidatures recues"
-      description="Parcourez les dossiers candidats, filtrez-les et ouvrez leur fiche detaillee."
+      description="Pilotez votre pipeline candidat en vue liste ou Kanban, puis faites avancer chaque dossier par glisser-deposer."
       profile={profile}
       currentPath="/app/recruteur/candidatures"
     >

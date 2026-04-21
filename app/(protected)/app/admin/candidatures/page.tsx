@@ -15,7 +15,7 @@ export default async function AdminApplicationsPage() {
   return (
     <DashboardShell
       title="Candidatures plateforme"
-      description="Centralisez les dossiers candidats et accedez a leur fiche detaillee."
+      description="Supervisez le pipeline candidat global en vue liste ou Kanban, avec deplacement des dossiers entre les etapes."
       profile={profile}
       currentPath="/app/admin/candidatures"
     >
