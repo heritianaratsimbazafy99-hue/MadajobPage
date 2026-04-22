@@ -19,6 +19,25 @@ const defaultState: AdminActionState = {
 
 const allowedRoles = new Set<AppRole>(["candidat", "recruteur", "admin"]);
 
+type ExistingUserAccess = {
+  id: string;
+  role: AppRole;
+  organization_id: string | null;
+  is_active: boolean;
+  full_name: string | null;
+  phone: string | null;
+};
+
+type UserAccessUpdateInput = {
+  userId: string;
+  role: AppRole;
+  organizationId: string;
+  fullName: string;
+  phone: string;
+  isActive: boolean;
+  successMessage?: string;
+};
+
 function getTrimmedValue(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
 }
@@ -68,6 +87,7 @@ async function logAdminAuditEvent(
 
 function revalidateAdminUserViews(userId: string) {
   revalidatePath("/app/admin");
+  revalidatePath("/app/admin/audit");
   revalidatePath("/app/admin/utilisateurs");
   revalidatePath(`/app/admin/utilisateurs/${userId}`);
   revalidatePath("/app/admin/candidats");
@@ -79,31 +99,50 @@ function revalidateAdminUserViews(userId: string) {
   revalidatePath("/connexion");
 }
 
-function revalidateAdminOrganizationViews(organizationId: string) {
-  revalidatePath("/app/admin");
-  revalidatePath("/app/admin/organisations");
-  revalidatePath(`/app/admin/organisations/${organizationId}`);
-  revalidatePath("/app/admin/utilisateurs");
-  revalidatePath("/app/admin/offres");
-  revalidatePath("/app/admin/candidatures");
-  revalidatePath("/app/admin/candidats");
-  revalidatePath("/app/recruteur");
-  revalidatePath("/app/recruteur/offres");
-  revalidatePath("/app/recruteur/candidatures");
-  revalidatePath("/app/recruteur/candidats");
+async function getExistingUserAccess(userId: string) {
+  const supabase = await createClient();
+
+  const { data: existingUser, error: fetchError } = await supabase
+    .from("profiles")
+    .select("id, role, organization_id, is_active, full_name, phone")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (fetchError || !existingUser) {
+    return {
+      user: null,
+      error: fetchError?.message || "Utilisateur introuvable."
+    };
+  }
+
+  return {
+    user: {
+      id: String(existingUser.id),
+      role: (existingUser.role as AppRole) ?? "candidat",
+      organization_id:
+        typeof existingUser.organization_id === "string" ? existingUser.organization_id : null,
+      is_active: Boolean(existingUser.is_active),
+      full_name: typeof existingUser.full_name === "string" ? existingUser.full_name : null,
+      phone: typeof existingUser.phone === "string" ? existingUser.phone : null
+    } satisfies ExistingUserAccess,
+    error: null
+  };
 }
 
-export async function updateUserAccessAction(
-  _previousState: AdminActionState = defaultState,
-  formData: FormData
+async function updateUserAccessInternal(
+  profile: Awaited<ReturnType<typeof requireRole>>,
+  input: UserAccessUpdateInput,
+  existingUserInput?: ExistingUserAccess
 ): Promise<AdminActionState> {
-  const profile = await requireRole(["admin"]);
-  const userId = getTrimmedValue(formData, "user_id");
-  const role = getTrimmedValue(formData, "role") as AppRole;
-  const organizationId = getTrimmedValue(formData, "organization_id");
-  const fullName = getTrimmedValue(formData, "full_name");
-  const phone = getTrimmedValue(formData, "phone");
-  const isActive = formData.get("is_active") === "on";
+  const {
+    userId,
+    role,
+    organizationId,
+    fullName,
+    phone,
+    isActive,
+    successMessage = "Acces utilisateur mis a jour avec succes."
+  } = input;
 
   if (!userId || !allowedRoles.has(role)) {
     return {
@@ -126,21 +165,19 @@ export async function updateUserAccessAction(
     };
   }
 
-  const supabase = await createClient();
-  const { data: existingUser, error: fetchError } = await supabase
-    .from("profiles")
-    .select("id, role, organization_id, is_active, full_name, phone")
-    .eq("id", userId)
-    .maybeSingle();
+  const existingUser =
+    existingUserInput ??
+    (await getExistingUserAccess(userId)).user;
 
-  if (fetchError || !existingUser) {
+  if (!existingUser) {
     return {
       status: "error",
-      message: fetchError?.message || "Utilisateur introuvable."
+      message: "Utilisateur introuvable."
     };
   }
 
   const nextOrganizationId = role === "candidat" ? null : organizationId || null;
+  const supabase = await createClient();
   const { error: updateError } = await supabase
     .from("profiles")
     .update({
@@ -183,10 +220,85 @@ export async function updateUserAccessAction(
 
   revalidateAdminUserViews(userId);
 
+  if (existingUser.organization_id) {
+    revalidateAdminOrganizationViews(existingUser.organization_id);
+  }
+
+  if (nextOrganizationId && nextOrganizationId !== existingUser.organization_id) {
+    revalidateAdminOrganizationViews(nextOrganizationId);
+  }
+
   return {
     status: "success",
-    message: "Acces utilisateur mis a jour avec succes."
+    message: successMessage
   };
+}
+
+function revalidateAdminOrganizationViews(organizationId: string) {
+  revalidatePath("/app/admin");
+  revalidatePath("/app/admin/organisations");
+  revalidatePath(`/app/admin/organisations/${organizationId}`);
+  revalidatePath("/app/admin/utilisateurs");
+  revalidatePath("/app/admin/offres");
+  revalidatePath("/app/admin/candidatures");
+  revalidatePath("/app/admin/candidats");
+  revalidatePath("/app/recruteur");
+  revalidatePath("/app/recruteur/offres");
+  revalidatePath("/app/recruteur/candidatures");
+  revalidatePath("/app/recruteur/candidats");
+}
+
+export async function updateUserAccessAction(
+  _previousState: AdminActionState = defaultState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const profile = await requireRole(["admin"]);
+  const userId = getTrimmedValue(formData, "user_id");
+  const role = getTrimmedValue(formData, "role") as AppRole;
+  const organizationId = getTrimmedValue(formData, "organization_id");
+  const fullName = getTrimmedValue(formData, "full_name");
+  const phone = getTrimmedValue(formData, "phone");
+  const isActive = formData.get("is_active") === "on";
+
+  return updateUserAccessInternal(profile, {
+    userId,
+    role,
+    organizationId,
+    fullName,
+    phone,
+    isActive
+  });
+}
+
+export async function quickUpdateUserStatusAction(
+  userId: string,
+  nextIsActive: boolean
+): Promise<AdminActionState> {
+  const profile = await requireRole(["admin"]);
+  const { user: existingUser, error } = await getExistingUserAccess(userId);
+
+  if (!existingUser) {
+    return {
+      status: "error",
+      message: error ?? "Utilisateur introuvable."
+    };
+  }
+
+  return updateUserAccessInternal(
+    profile,
+    {
+      userId,
+      role: existingUser.role,
+      organizationId: existingUser.organization_id ?? "",
+      fullName: existingUser.full_name ?? "",
+      phone: existingUser.phone ?? "",
+      isActive: nextIsActive,
+      successMessage: nextIsActive
+        ? "Compte reactive avec succes."
+        : "Compte desactive avec succes."
+    },
+    existingUser
+  );
 }
 
 export async function updateOrganizationAction(

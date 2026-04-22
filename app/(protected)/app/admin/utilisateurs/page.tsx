@@ -10,17 +10,52 @@ export default async function AdminUsersPage() {
     getAdminUsers(),
     getAdminOrganizations()
   ]);
+  const activeCount = users.filter((user) => user.is_active).length;
+  const internalCount = users.filter((user) => user.role !== "candidat").length;
+  const priorityCount = users.filter(
+    (user) =>
+      !user.is_active ||
+      (user.role === "recruteur" && !user.organization_id) ||
+      (user.role === "candidat" && (user.candidate_profile_completion ?? 0) < 70)
+  ).length;
 
   return (
     <DashboardShell
       title="Utilisateurs & droits"
-      description="Administrez les comptes candidats, recruteurs et admins depuis un module dedie."
+      description="Administrez les comptes candidats, recruteurs et admins depuis un vrai cockpit de controle des acces."
       profile={profile}
       currentPath="/app/admin/utilisateurs"
     >
+      <section className="dashboard-grid dashboard-grid--four">
+        <article className="panel metric-panel">
+          <span>Utilisateurs visibles</span>
+          <strong>{users.length}</strong>
+          <small>comptes pilotes dans l'espace admin</small>
+        </article>
+        <article className="panel metric-panel">
+          <span>Actifs</span>
+          <strong>{activeCount}</strong>
+          <small>{users.length - activeCount} inactif(s)</small>
+        </article>
+        <article className="panel metric-panel">
+          <span>Comptes internes</span>
+          <strong>{internalCount}</strong>
+          <small>recruteurs et admins confondus</small>
+        </article>
+        <article className="panel metric-panel">
+          <span>A traiter</span>
+          <strong>{priorityCount}</strong>
+          <small>comptes a verifier ou completer</small>
+        </article>
+      </section>
+
       <section className="dashboard-workspace">
         <div className="dashboard-column">
-          <AdminUsersBoard users={users} organizations={organizations} />
+          <AdminUsersBoard
+            adminProfileId={profile.id}
+            users={users}
+            organizations={organizations}
+          />
         </div>
 
         <aside className="dashboard-column dashboard-column--aside">
