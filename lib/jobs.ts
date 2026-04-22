@@ -5,6 +5,7 @@ import { isSupabaseConfigured } from "@/lib/env";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type {
+  AdminAuditEvent,
   ApplicationCommunicationEvent,
   ApplicationDetail,
   ApplicationStatusHistoryEntry,
@@ -2174,6 +2175,216 @@ export async function getAdminOrganizationDetail(organizationId: string) {
     recent_jobs: recentJobs,
     recent_applications: recentApplications
   } satisfies ManagedOrganizationDetail;
+}
+
+function getAuditEntityFallbackLabel(entityType: string, entityId: string) {
+  if (entityType === "profile") {
+    return "Utilisateur";
+  }
+
+  if (entityType === "job_post") {
+    return "Offre";
+  }
+
+  if (entityType === "organization") {
+    return "Organisation";
+  }
+
+  return entityId ? `${entityType}:${entityId.slice(0, 8)}` : entityType;
+}
+
+function getAuditEntityHref(entityType: string, entityId: string) {
+  if (!entityId) {
+    return null;
+  }
+
+  if (entityType === "profile") {
+    return `/app/admin/utilisateurs/${entityId}`;
+  }
+
+  if (entityType === "job_post") {
+    return `/app/admin/offres/${entityId}`;
+  }
+
+  if (entityType === "organization") {
+    return `/app/admin/organisations/${entityId}`;
+  }
+
+  return null;
+}
+
+export async function getAdminAuditEvents(options: { limit?: number } = {}) {
+  const { limit = 250 } = options;
+
+  if (!isSupabaseConfigured) {
+    return [
+      {
+        id: "audit-1",
+        action: "profile_access_updated",
+        entity_type: "profile",
+        entity_id: "user-recruiter",
+        metadata: {
+          previous_role: "recruteur",
+          next_role: "admin"
+        },
+        created_at: "2026-04-21T09:30:00.000Z",
+        actor_name: "Admin Madajob",
+        actor_email: "admin@madajob.mg",
+        entity_label: "Recruteur Madajob",
+        entity_href: "/app/admin/utilisateurs/user-recruiter"
+      },
+      {
+        id: "audit-2",
+        action: "job_status_changed",
+        entity_type: "job_post",
+        entity_id: "job-1",
+        metadata: {
+          from_status: "draft",
+          to_status: "published"
+        },
+        created_at: "2026-04-20T15:10:00.000Z",
+        actor_name: "Admin Madajob",
+        actor_email: "admin@madajob.mg",
+        entity_label: "Responsable recrutement multi-sites",
+        entity_href: "/app/admin/offres/job-1"
+      },
+      {
+        id: "audit-3",
+        action: "organization_updated",
+        entity_type: "organization",
+        entity_id: "org-madajob",
+        metadata: {
+          previous_is_active: true,
+          next_is_active: true
+        },
+        created_at: "2026-04-19T11:00:00.000Z",
+        actor_name: "Admin Madajob",
+        actor_email: "admin@madajob.mg",
+        entity_label: "Madajob",
+        entity_href: "/app/admin/organisations/org-madajob"
+      }
+    ] satisfies AdminAuditEvent[];
+  }
+
+  const adminClient = createAdminClient();
+
+  if (!adminClient) {
+    return [] as AdminAuditEvent[];
+  }
+
+  const { data, error } = await adminClient
+    .from("audit_events")
+    .select(
+      "id, action, entity_type, entity_id, metadata, created_at, actor:profiles(full_name, email)"
+    )
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error || !data) {
+    return [] as AdminAuditEvent[];
+  }
+
+  const rawEvents = data.map((item: Record<string, unknown>) => ({
+    id: String(item.id ?? ""),
+    action: String(item.action ?? ""),
+    entity_type: String(item.entity_type ?? ""),
+    entity_id: String(item.entity_id ?? ""),
+    metadata:
+      typeof item.metadata === "object" && item.metadata !== null
+        ? (item.metadata as Record<string, unknown>)
+        : {},
+    created_at: String(item.created_at ?? ""),
+    actor:
+      (item.actor as { full_name?: string | null; email?: string | null } | null) ?? null
+  }));
+
+  const profileIds = Array.from(
+    new Set(
+      rawEvents
+        .filter((event) => event.entity_type === "profile")
+        .map((event) => event.entity_id)
+        .filter(Boolean)
+    )
+  );
+  const jobIds = Array.from(
+    new Set(
+      rawEvents
+        .filter((event) => event.entity_type === "job_post")
+        .map((event) => event.entity_id)
+        .filter(Boolean)
+    )
+  );
+  const organizationIds = Array.from(
+    new Set(
+      rawEvents
+        .filter((event) => event.entity_type === "organization")
+        .map((event) => event.entity_id)
+        .filter(Boolean)
+    )
+  );
+
+  const [{ data: profileRows }, { data: jobRows }, { data: organizationRows }] = await Promise.all([
+    profileIds.length
+      ? adminClient
+          .from("profiles")
+          .select("id, full_name, email")
+          .in("id", profileIds)
+      : Promise.resolve({ data: [] }),
+    jobIds.length
+      ? adminClient
+          .from("job_posts")
+          .select("id, title")
+          .in("id", jobIds)
+      : Promise.resolve({ data: [] }),
+    organizationIds.length
+      ? adminClient
+          .from("organizations")
+          .select("id, name")
+          .in("id", organizationIds)
+      : Promise.resolve({ data: [] })
+  ]);
+
+  const profileMap = new Map(
+    (profileRows ?? []).map((row) => [
+      String(row.id ?? ""),
+      String(row.full_name ?? row.email ?? "Utilisateur")
+    ])
+  );
+  const jobMap = new Map(
+    (jobRows ?? []).map((row) => [String(row.id ?? ""), String(row.title ?? "Offre")])
+  );
+  const organizationMap = new Map(
+    (organizationRows ?? []).map((row) => [String(row.id ?? ""), String(row.name ?? "Organisation")])
+  );
+
+  return rawEvents.map((event) => {
+    let entityLabel = getAuditEntityFallbackLabel(event.entity_type, event.entity_id);
+
+    if (event.entity_type === "profile") {
+      entityLabel =
+        profileMap.get(event.entity_id) ||
+        String(event.metadata.invited_email ?? entityLabel);
+    } else if (event.entity_type === "job_post") {
+      entityLabel = jobMap.get(event.entity_id) || String(event.metadata.title ?? entityLabel);
+    } else if (event.entity_type === "organization") {
+      entityLabel =
+        organizationMap.get(event.entity_id) ||
+        String(event.metadata.next_name ?? event.metadata.previous_name ?? entityLabel);
+    }
+
+    return {
+      id: event.id,
+      action: event.action,
+      entity_type: event.entity_type,
+      entity_id: event.entity_id,
+      metadata: event.metadata,
+      created_at: event.created_at,
+      actor_name: event.actor?.full_name || event.actor?.email || "Equipe Madajob",
+      actor_email: event.actor?.email ?? null,
+      entity_label: entityLabel,
+      entity_href: getAuditEntityHref(event.entity_type, event.entity_id)
+    } satisfies AdminAuditEvent;
+  });
 }
 
 export async function getAdminUsers() {

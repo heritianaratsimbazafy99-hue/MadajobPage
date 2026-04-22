@@ -119,6 +119,19 @@ export type JobAuditEvent = {
   actor_email: string | null;
 };
 
+export type AdminAuditEvent = {
+  id: string;
+  action: string;
+  entity_type: string;
+  entity_id: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  actor_name: string;
+  actor_email: string | null;
+  entity_label: string;
+  entity_href: string | null;
+};
+
 export type CandidateApplication = {
   id: string;
   status: string;

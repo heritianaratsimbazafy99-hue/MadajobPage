@@ -53,6 +53,7 @@ const navByRole: Record<AppRole, NavItem[]> = {
     { href: "/app/admin/candidats", label: "Candidats", hint: "Centraliser la base profils" },
     { href: "/app/admin/organisations", label: "Organisations", hint: "Piloter les entites clientes et internes" },
     { href: "/app/admin/utilisateurs", label: "Utilisateurs", hint: "Gerer les droits et les acces" },
+    { href: "/app/admin/audit", label: "Audit", hint: "Tracer les actions critiques de la plateforme" },
     { href: "/app/admin/notifications", label: "Notifications", hint: "Suivre les alertes plateforme" },
     { href: "/app/admin/emails", label: "Emails", hint: "Superviser la file transactionnelle" },
     { href: "/app/admin/reporting", label: "Reporting", hint: "Exporter et lire les volumes plateforme" },

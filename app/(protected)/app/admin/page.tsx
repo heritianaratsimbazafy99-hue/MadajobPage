@@ -163,6 +163,9 @@ export default async function AdminDashboardPage() {
               <Link className="btn btn-secondary btn-block" href="/app/admin/organisations">
                 Ouvrir les organisations
               </Link>
+              <Link className="btn btn-secondary btn-block" href="/app/admin/audit">
+                Ouvrir l'audit interne
+              </Link>
               <Link className="btn btn-secondary btn-block" href="/app/admin/utilisateurs">
                 Gerer les utilisateurs
               </Link>
