@@ -1306,6 +1306,31 @@ code {
   gap: 12px;
 }
 
+.bulk-toolbar {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(22, 49, 74, 0.08);
+  background: rgba(247, 250, 252, 0.92);
+}
+
+.bulk-toolbar__select-all {
+  color: var(--ink);
+}
+
+.bulk-toolbar__content {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+}
+
+.bulk-toolbar__content .field {
+  min-width: 220px;
+  margin: 0;
+}
+
 .jobs-results {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1315,6 +1340,27 @@ code {
 .jobs-result-card {
   display: grid;
   gap: 14px;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
+}
+
+.jobs-result-card.is-selected,
+.pipeline-card.is-selected {
+  border-color: rgba(20, 94, 76, 0.24);
+  background: rgba(240, 248, 244, 0.96);
+  box-shadow: 0 18px 42px rgba(20, 94, 76, 0.1);
+}
+
+.jobs-result-card__select,
+.pipeline-card__select {
+  color: var(--muted);
+}
+
+.jobs-result-card__select span,
+.pipeline-card__select span {
+  font-size: 0.84rem;
 }
 
 .jobs-result-card__head {

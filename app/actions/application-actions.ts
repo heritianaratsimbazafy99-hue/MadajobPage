@@ -32,6 +32,26 @@ async function getApplicationMutationClient() {
   return createAdminClient() ?? (await createClient());
 }
 
+function revalidateApplicationSurfaces(applicationId: string, jobSlug: string | null) {
+  revalidatePath("/app/recruteur");
+  revalidatePath("/app/admin");
+  revalidatePath("/app/admin/emails");
+  revalidatePath("/app/recruteur/candidatures");
+  revalidatePath("/app/admin/candidatures");
+  revalidatePath("/app/recruteur/shortlist");
+  revalidatePath("/app/admin/shortlist");
+  revalidatePath(`/app/recruteur/candidatures/${applicationId}`);
+  revalidatePath(`/app/admin/candidatures/${applicationId}`);
+  revalidatePath("/app/candidat");
+  revalidatePath("/app/candidat/candidatures");
+  revalidatePath(`/app/candidat/candidatures/${applicationId}`);
+  revalidatePath("/app/candidat/notifications");
+
+  if (jobSlug) {
+    revalidatePath(`/app/candidat/offres/${jobSlug}`);
+  }
+}
+
 async function getManageableApplicationForActor(
   actorRole: "admin" | "recruteur",
   organizationId: string | null,
@@ -189,20 +209,7 @@ async function updateApplicationStatusInternal(
     ]);
   }
 
-  revalidatePath("/app/recruteur");
-  revalidatePath("/app/admin");
-  revalidatePath("/app/admin/emails");
-  revalidatePath("/app/recruteur/candidatures");
-  revalidatePath("/app/admin/candidatures");
-  revalidatePath(`/app/recruteur/candidatures/${applicationId}`);
-  revalidatePath(`/app/admin/candidatures/${applicationId}`);
-  revalidatePath("/app/candidat");
-  revalidatePath("/app/candidat/candidatures");
-  revalidatePath(`/app/candidat/candidatures/${applicationId}`);
-  revalidatePath("/app/candidat/notifications");
-  if (jobSlug) {
-    revalidatePath(`/app/candidat/offres/${jobSlug}`);
-  }
+  revalidateApplicationSurfaces(applicationId, jobSlug);
 
   return {
     status: "success",
@@ -228,6 +235,68 @@ export async function moveApplicationStatusAction(
   const profile = await requireRole(["recruteur", "admin"]);
 
   return updateApplicationStatusInternal(profile, applicationId, nextStatus);
+}
+
+export async function bulkMoveApplicationsStatusAction(
+  applicationIds: string[],
+  nextStatus: string
+): Promise<ApplicationActionState> {
+  const profile = await requireRole(["recruteur", "admin"]);
+  const uniqueIds = Array.from(
+    new Set(
+      applicationIds
+        .map((applicationId) => applicationId.trim())
+        .filter((applicationId) => uuidPattern.test(applicationId))
+    )
+  );
+
+  if (!uniqueIds.length || !allowedStatuses.has(nextStatus)) {
+    return {
+      status: "error",
+      message: "Selection ou statut invalide."
+    };
+  }
+
+  let updatedCount = 0;
+  let unchangedCount = 0;
+  let failedCount = 0;
+
+  for (const applicationId of uniqueIds) {
+    const result = await updateApplicationStatusInternal(profile, applicationId, nextStatus);
+
+    if (result.status === "success") {
+      if (result.message === "Le statut est deja a jour.") {
+        unchangedCount += 1;
+      } else {
+        updatedCount += 1;
+      }
+      continue;
+    }
+
+    failedCount += 1;
+  }
+
+  if (updatedCount === 0 && failedCount > 0) {
+    return {
+      status: "error",
+      message: "Aucun dossier n'a pu etre mis a jour."
+    };
+  }
+
+  const details = [
+    updatedCount > 0 ? `${updatedCount} mis a jour` : "",
+    unchangedCount > 0 ? `${unchangedCount} deja a jour` : "",
+    failedCount > 0 ? `${failedCount} en echec` : ""
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  return {
+    status: failedCount > 0 ? "success" : "success",
+    message: details
+      ? `Traitement termine: ${details}.`
+      : "Traitement termine."
+  };
 }
 
 export async function addInternalNoteAction(

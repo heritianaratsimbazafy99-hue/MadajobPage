@@ -11,7 +11,10 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 
-import { moveApplicationStatusAction } from "@/app/actions/application-actions";
+import {
+  bulkMoveApplicationsStatusAction,
+  moveApplicationStatusAction
+} from "@/app/actions/application-actions";
 import {
   applicationStatusOptions,
   getApplicationStatusMeta,
@@ -56,6 +59,8 @@ export function ManagedApplicationsBoard({
   const router = useRouter();
   const [filters, setFilters] = useState<Filters>(initialFilters);
   const [boardApplications, setBoardApplications] = useState(applications);
+  const [selectedApplicationIds, setSelectedApplicationIds] = useState<string[]>([]);
+  const [bulkStatus, setBulkStatus] = useState("");
   const [draggedApplicationId, setDraggedApplicationId] = useState<string | null>(null);
   const [dropTargetStatus, setDropTargetStatus] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ kind: "success" | "error"; message: string } | null>(null);
@@ -133,6 +138,16 @@ export function ManagedApplicationsBoard({
     filters.view !== "pipeline" ? filters.view : "",
     filters.sort !== "recent" ? filters.sort : ""
   ].filter(Boolean).length;
+  const selectedCount = selectedApplicationIds.length;
+  const allVisibleSelected =
+    filteredApplications.length > 0 && selectedCount === filteredApplications.length;
+
+  useEffect(() => {
+    const visibleIds = new Set(filteredApplications.map((application) => application.id));
+    setSelectedApplicationIds((previous) =>
+      previous.filter((applicationId) => visibleIds.has(applicationId))
+    );
+  }, [filteredApplications]);
 
   function updateLocalApplicationStatus(applicationId: string, status: string) {
     setBoardApplications((previous) =>
@@ -140,6 +155,32 @@ export function ManagedApplicationsBoard({
         application.id === applicationId ? { ...application, status } : application
       )
     );
+  }
+
+  function updateManyLocalApplicationStatuses(applicationIds: string[], status: string) {
+    const selectedIds = new Set(applicationIds);
+    setBoardApplications((previous) =>
+      previous.map((application) =>
+        selectedIds.has(application.id) ? { ...application, status } : application
+      )
+    );
+  }
+
+  function toggleApplicationSelection(applicationId: string) {
+    setSelectedApplicationIds((previous) =>
+      previous.includes(applicationId)
+        ? previous.filter((currentId) => currentId !== applicationId)
+        : [...previous, applicationId]
+    );
+  }
+
+  function toggleSelectAllVisible() {
+    if (allVisibleSelected) {
+      setSelectedApplicationIds([]);
+      return;
+    }
+
+    setSelectedApplicationIds(filteredApplications.map((application) => application.id));
   }
 
   function handleDragStart(event: DragEvent<HTMLElement>, applicationId: string) {
@@ -197,6 +238,79 @@ export function ManagedApplicationsBoard({
           setFeedback({
             kind: "error",
             message: "Le deplacement du dossier a echoue. Reessayez."
+          });
+        });
+    });
+  }
+
+  function handleBulkStatusChange() {
+    if (!bulkStatus || !selectedApplicationIds.length || isPending) {
+      return;
+    }
+
+    const previousStatuses = new Map(
+      selectedApplicationIds
+        .map((applicationId) => {
+          const application = boardApplications.find((item) => item.id === applicationId);
+          return application ? [applicationId, application.status] : null;
+        })
+        .filter(Boolean) as Array<[string, string]>
+    );
+
+    const idsToUpdate = Array.from(previousStatuses.entries())
+      .filter(([, currentStatus]) => currentStatus !== bulkStatus)
+      .map(([applicationId]) => applicationId);
+
+    if (!idsToUpdate.length) {
+      setFeedback({
+        kind: "success",
+        message: "Les dossiers selectionnes sont deja sur ce statut."
+      });
+      return;
+    }
+
+    updateManyLocalApplicationStatuses(idsToUpdate, bulkStatus);
+    setFeedback(null);
+
+    startTransition(() => {
+      void bulkMoveApplicationsStatusAction(idsToUpdate, bulkStatus)
+        .then((result) => {
+          if (result.status === "error") {
+            setBoardApplications((previous) =>
+              previous.map((application) => {
+                const previousStatus = previousStatuses.get(application.id);
+                return previousStatus
+                  ? { ...application, status: previousStatus }
+                  : application;
+              })
+            );
+            setFeedback({
+              kind: "error",
+              message: result.message
+            });
+            return;
+          }
+
+          setSelectedApplicationIds([]);
+          setBulkStatus("");
+          setFeedback({
+            kind: "success",
+            message: result.message
+          });
+          router.refresh();
+        })
+        .catch(() => {
+          setBoardApplications((previous) =>
+            previous.map((application) => {
+              const previousStatus = previousStatuses.get(application.id);
+              return previousStatus
+                ? { ...application, status: previousStatus }
+                : application;
+            })
+          );
+          setFeedback({
+            kind: "error",
+            message: "La mise a jour groupee a echoue. Reessayez."
           });
         });
     });
@@ -337,10 +451,52 @@ export function ManagedApplicationsBoard({
           ) : null}
         </div>
 
+        <div className="bulk-toolbar">
+          <label className="checkbox-field bulk-toolbar__select-all">
+            <input
+              type="checkbox"
+              checked={allVisibleSelected}
+              onChange={toggleSelectAllVisible}
+            />
+            <span>
+              {allVisibleSelected ? "Tout deselectionner" : "Selectionner tous les dossiers visibles"}
+            </span>
+          </label>
+
+          <div className="bulk-toolbar__content">
+            <span className="tag tag--muted">{selectedCount} dossier(s) selectionne(s)</span>
+
+            <label className="field">
+              <span>Action groupee</span>
+              <select
+                value={bulkStatus}
+                onChange={(event) => setBulkStatus(event.target.value)}
+                disabled={selectedCount === 0 || isPending}
+              >
+                <option value="">Choisir un statut</option>
+                {applicationStatusOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={!bulkStatus || selectedCount === 0 || isPending}
+              onClick={handleBulkStatusChange}
+            >
+              {isPending ? "Traitement..." : "Appliquer"}
+            </button>
+          </div>
+        </div>
+
         <p className="form-caption">
           {filters.view === "pipeline"
-            ? "Glissez une carte vers une autre colonne pour faire avancer le dossier dans le pipeline."
-            : "Passez en vue pipeline pour reorganiser les dossiers par glisser-deposer."}
+            ? "Glissez une carte vers une autre colonne pour faire avancer le dossier dans le pipeline, ou utilisez les actions groupees."
+            : "Passez en vue pipeline pour reorganiser les dossiers par glisser-deposer, ou utilisez les actions groupees."}
         </p>
 
         {feedback ? (
@@ -394,12 +550,14 @@ export function ManagedApplicationsBoard({
                     column.applications.map((application) => {
                       const statusMeta = getApplicationStatusMeta(application.status);
                       const isDragging = draggedApplicationId === application.id;
+                      const isSelected = selectedApplicationIds.includes(application.id);
 
                       return (
                         <article
                           key={application.id}
                           className={[
                             "document-card pipeline-card",
+                            isSelected ? "is-selected" : "",
                             isDragging ? "is-dragging" : "",
                             isPending ? "is-disabled" : ""
                           ]
@@ -409,6 +567,16 @@ export function ManagedApplicationsBoard({
                           onDragStart={(event) => handleDragStart(event, application.id)}
                           onDragEnd={handleDragEnd}
                         >
+                          <label className="checkbox-field pipeline-card__select">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleApplicationSelection(application.id)}
+                              onClick={(event) => event.stopPropagation()}
+                            />
+                            <span>Selectionner ce dossier</span>
+                          </label>
+
                           <div className="dashboard-card__top">
                             <div>
                               <strong>{application.candidate_name}</strong>
@@ -448,9 +616,27 @@ export function ManagedApplicationsBoard({
           <section className="jobs-results">
             {filteredApplications.map((application) => {
               const statusMeta = getApplicationStatusMeta(application.status);
+              const isSelected = selectedApplicationIds.includes(application.id);
 
               return (
-                <article key={application.id} className="panel job-card jobs-result-card">
+                <article
+                  key={application.id}
+                  className={[
+                    "panel job-card jobs-result-card",
+                    isSelected ? "is-selected" : ""
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
+                >
+                  <label className="checkbox-field jobs-result-card__select">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleApplicationSelection(application.id)}
+                    />
+                    <span>Selectionner ce dossier</span>
+                  </label>
+
                   <div className="jobs-result-card__head">
                     <div className="jobs-result-card__badges">
                       <span className="tag">{statusMeta.label}</span>
