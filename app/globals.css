@@ -1509,6 +1509,22 @@ code {
   gap: 12px;
 }
 
+.reporting-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.reporting-list__item {
+  gap: 8px;
+}
+
+.reporting-list__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .site-footer {
   border-top: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.86);
