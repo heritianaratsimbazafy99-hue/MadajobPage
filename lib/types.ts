@@ -98,6 +98,7 @@ export type Job = {
 };
 
 export type ManagedJob = Job & {
+  organization_id: string | null;
   department?: string;
   responsibilities?: string;
   requirements?: string;

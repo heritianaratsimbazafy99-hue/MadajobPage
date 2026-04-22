@@ -182,6 +182,7 @@ function mapJobRecord(record: Record<string, unknown>): Job {
 function mapManagedJobRecord(record: Record<string, unknown>): ManagedJob {
   return {
     ...mapJobRecord(record),
+    organization_id: typeof record.organization_id === "string" ? record.organization_id : null,
     department: typeof record.department === "string" ? record.department : "",
     responsibilities:
       typeof record.responsibilities === "string" ? record.responsibilities : "",
@@ -882,7 +883,7 @@ export async function getManagedJobs(profile: Profile, options: { limit?: number
   let query = supabase
     .from("job_posts")
     .select(
-      "id, title, slug, department, location, contract_type, work_mode, sector, summary, responsibilities, requirements, benefits, status, is_featured, published_at, closing_at, created_at, updated_at"
+      "id, title, slug, organization_id, department, location, contract_type, work_mode, sector, summary, responsibilities, requirements, benefits, status, is_featured, published_at, closing_at, created_at, updated_at"
     )
     .order("created_at", { ascending: false });
 
@@ -897,11 +898,42 @@ export async function getManagedJobs(profile: Profile, options: { limit?: number
     return [];
   }
 
+  const organizationIds = Array.from(
+    new Set(
+      data
+        .map((item) => String(item.organization_id ?? ""))
+        .filter(Boolean)
+    )
+  );
+
+  const organizationMap =
+    profile.role === "admin" && organizationIds.length > 0
+      ? new Map(
+          (
+            (
+              await (createAdminClient() ?? supabase)
+                .from("organizations")
+                .select("id, name")
+                .in("id", organizationIds)
+            ).data ?? []
+          ).map((row) => [String(row.id ?? ""), String(row.name ?? "Madajob")])
+        )
+      : new Map<string, string>();
+
   const countsByJobId = await getApplicationCountsByJobIds(
     data.map((item) => String(item.id))
   );
 
-  return buildManagedJobs(data, countsByJobId);
+  return buildManagedJobs(
+    data.map((item) => ({
+      ...item,
+      organization_name:
+        typeof item.organization_id === "string"
+          ? organizationMap.get(item.organization_id) ?? "Madajob"
+          : "Madajob"
+    })),
+    countsByJobId
+  );
 }
 
 export async function getManagedJobById(profile: Profile, jobId: string) {
@@ -933,7 +965,7 @@ export async function getManagedJobById(profile: Profile, jobId: string) {
   let query = supabase
     .from("job_posts")
     .select(
-      "id, title, slug, department, location, contract_type, work_mode, sector, summary, responsibilities, requirements, benefits, status, is_featured, published_at, closing_at, created_at, updated_at"
+      "id, title, slug, organization_id, department, location, contract_type, work_mode, sector, summary, responsibilities, requirements, benefits, status, is_featured, published_at, closing_at, created_at, updated_at"
     )
     .eq("id", jobId);
 
@@ -949,8 +981,23 @@ export async function getManagedJobById(profile: Profile, jobId: string) {
 
   const countsByJobId = await getApplicationCountsByJobIds([jobId]);
 
+  let organizationName = "Madajob";
+
+  if (typeof data.organization_id === "string" && data.organization_id) {
+    const organizationClient = createAdminClient() ?? supabase;
+    const { data: organizationRow } = await organizationClient
+      .from("organizations")
+      .select("name")
+      .eq("id", data.organization_id)
+      .maybeSingle();
+
+    organizationName =
+      typeof organizationRow?.name === "string" ? organizationRow.name : "Madajob";
+  }
+
   return mapManagedJobRecord({
     ...data,
+    organization_name: organizationName,
     applications_count: countsByJobId.get(jobId) ?? 0
   });
 }

@@ -90,6 +90,90 @@ async function getManageableJobForActor(
   return data;
 }
 
+async function updateJobStatusInternal(
+  profile: Awaited<ReturnType<typeof requireRole>>,
+  jobId: string,
+  nextStatus: string
+): Promise<JobActionState> {
+  const actorRole = profile.role === "admin" ? "admin" : "recruteur";
+
+  if (!jobId || !uuidPattern.test(jobId) || !allowedJobStatuses.has(nextStatus)) {
+    return {
+      status: "error",
+      message: "Transition d'offre invalide."
+    };
+  }
+
+  const job = await getManageableJobForActor(
+    profile.id,
+    actorRole,
+    profile.organization_id,
+    jobId
+  );
+
+  if (!job) {
+    return {
+      status: "error",
+      message: "Vous ne pouvez pas modifier cette offre."
+    };
+  }
+
+  const currentStatus = String(job.status ?? "draft");
+
+  if (currentStatus === nextStatus) {
+    return {
+      status: "success",
+      message: "Le statut de cette offre est deja a jour."
+    };
+  }
+
+  const now = new Date().toISOString();
+  const patch: Record<string, string | null | boolean> = {
+    status: nextStatus
+  };
+
+  if (nextStatus === "published") {
+    patch.published_at = now;
+    patch.closing_at = null;
+  } else if (nextStatus === "closed") {
+    patch.closing_at = now;
+  } else if (nextStatus === "draft") {
+    patch.closing_at = null;
+  }
+
+  const supabase = await getJobMutationClient();
+  const { error } = await supabase
+    .from("job_posts")
+    .update(patch)
+    .eq("id", jobId);
+
+  if (error) {
+    return {
+      status: "error",
+      message: error.message
+    };
+  }
+
+  await logJobAuditEvent(profile.id, "job_status_changed", jobId, {
+    from_status: currentStatus,
+    to_status: nextStatus
+  });
+
+  revalidateJobViews(String(job.slug ?? ""), jobId);
+
+  return {
+    status: "success",
+    message:
+      nextStatus === "published"
+        ? "Offre publiee."
+        : nextStatus === "closed"
+          ? "Offre fermee."
+          : nextStatus === "archived"
+            ? "Offre archivee."
+            : "Offre repassee en brouillon."
+  };
+}
+
 async function logJobAuditEvent(
   actorId: string,
   action: string,
@@ -313,85 +397,19 @@ export async function updateJobStatusAction(
   formData: FormData
 ): Promise<JobActionState> {
   const profile = await requireRole(["recruteur", "admin"]);
-  const actorRole = profile.role === "admin" ? "admin" : "recruteur";
   const jobId = getTrimmedValue(formData, "job_id");
   const nextStatus = getTrimmedValue(formData, "status");
 
-  if (!jobId || !uuidPattern.test(jobId) || !allowedJobStatuses.has(nextStatus)) {
-    return {
-      status: "error",
-      message: "Transition d'offre invalide."
-    };
-  }
+  return updateJobStatusInternal(profile, jobId, nextStatus);
+}
 
-  const job = await getManageableJobForActor(
-    profile.id,
-    actorRole,
-    profile.organization_id,
-    jobId
-  );
+export async function quickUpdateJobStatusAction(
+  jobId: string,
+  nextStatus: string
+): Promise<JobActionState> {
+  const profile = await requireRole(["recruteur", "admin"]);
 
-  if (!job) {
-    return {
-      status: "error",
-      message: "Vous ne pouvez pas modifier cette offre."
-    };
-  }
-
-  const currentStatus = String(job.status ?? "draft");
-
-  if (currentStatus === nextStatus) {
-    return {
-      status: "success",
-      message: "Le statut de cette offre est deja a jour."
-    };
-  }
-
-  const now = new Date().toISOString();
-  const patch: Record<string, string | null | boolean> = {
-    status: nextStatus
-  };
-
-  if (nextStatus === "published") {
-    patch.published_at = now;
-    patch.closing_at = null;
-  } else if (nextStatus === "closed") {
-    patch.closing_at = now;
-  } else if (nextStatus === "draft") {
-    patch.closing_at = null;
-  }
-
-  const supabase = await getJobMutationClient();
-  const { error } = await supabase
-    .from("job_posts")
-    .update(patch)
-    .eq("id", jobId);
-
-  if (error) {
-    return {
-      status: "error",
-      message: error.message
-    };
-  }
-
-  await logJobAuditEvent(profile.id, "job_status_changed", jobId, {
-    from_status: currentStatus,
-    to_status: nextStatus
-  });
-
-  revalidateJobViews(String(job.slug ?? ""), jobId);
-
-  return {
-    status: "success",
-    message:
-      nextStatus === "published"
-        ? "Offre publiee."
-        : nextStatus === "closed"
-          ? "Offre fermee."
-          : nextStatus === "archived"
-            ? "Offre archivee."
-            : "Offre repassee en brouillon."
-  };
+  return updateJobStatusInternal(profile, jobId, nextStatus);
 }
 
 export async function applyToJobAction(
