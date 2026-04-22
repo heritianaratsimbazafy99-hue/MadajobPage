@@ -314,6 +314,22 @@ export type OrganizationOption = {
   is_active: boolean;
 };
 
+export type ManagedOrganizationSummary = OrganizationOption & {
+  members_count: number;
+  recruiters_count: number;
+  active_jobs_count: number;
+  applications_count: number;
+  shortlist_count: number;
+  latest_job_at: string | null;
+  latest_application_at: string | null;
+};
+
+export type ManagedOrganizationDetail = ManagedOrganizationSummary & {
+  members: ManagedUserSummary[];
+  recent_jobs: ManagedJob[];
+  recent_applications: RecruiterApplication[];
+};
+
 export type ManagedUserSummary = {
   id: string;
   email: string | null;

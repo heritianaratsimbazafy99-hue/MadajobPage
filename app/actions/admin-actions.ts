@@ -44,6 +44,28 @@ async function logProfileAuditEvent(
   });
 }
 
+async function logAdminAuditEvent(
+  actorId: string,
+  entityType: string,
+  entityId: string,
+  action: string,
+  metadata: Record<string, unknown>
+) {
+  const adminClient = createAdminClient();
+
+  if (!adminClient) {
+    return;
+  }
+
+  await adminClient.from("audit_events").insert({
+    actor_id: actorId,
+    action,
+    entity_type: entityType,
+    entity_id: entityId,
+    metadata
+  });
+}
+
 function revalidateAdminUserViews(userId: string) {
   revalidatePath("/app/admin");
   revalidatePath("/app/admin/utilisateurs");
@@ -55,6 +77,20 @@ function revalidateAdminUserViews(userId: string) {
   revalidatePath("/app/recruteur/candidatures");
   revalidatePath("/app/candidat");
   revalidatePath("/connexion");
+}
+
+function revalidateAdminOrganizationViews(organizationId: string) {
+  revalidatePath("/app/admin");
+  revalidatePath("/app/admin/organisations");
+  revalidatePath(`/app/admin/organisations/${organizationId}`);
+  revalidatePath("/app/admin/utilisateurs");
+  revalidatePath("/app/admin/offres");
+  revalidatePath("/app/admin/candidatures");
+  revalidatePath("/app/admin/candidats");
+  revalidatePath("/app/recruteur");
+  revalidatePath("/app/recruteur/offres");
+  revalidatePath("/app/recruteur/candidatures");
+  revalidatePath("/app/recruteur/candidats");
 }
 
 export async function updateUserAccessAction(
@@ -150,5 +186,80 @@ export async function updateUserAccessAction(
   return {
     status: "success",
     message: "Acces utilisateur mis a jour avec succes."
+  };
+}
+
+export async function updateOrganizationAction(
+  _previousState: AdminActionState = defaultState,
+  formData: FormData
+): Promise<AdminActionState> {
+  const profile = await requireRole(["admin"]);
+  const organizationId = getTrimmedValue(formData, "organization_id");
+  const name = getTrimmedValue(formData, "name");
+  const slug = getTrimmedValue(formData, "slug").toLowerCase();
+  const kind = getTrimmedValue(formData, "kind");
+  const isActive = formData.get("is_active") === "on";
+
+  if (!organizationId || !name || !slug || !kind) {
+    return {
+      status: "error",
+      message: "Tous les champs organisation sont requis."
+    };
+  }
+
+  if (!/^[a-z0-9-]{2,80}$/.test(slug)) {
+    return {
+      status: "error",
+      message: "Le slug doit contenir uniquement lettres, chiffres et tirets."
+    };
+  }
+
+  const supabase = createAdminClient() ?? (await createClient());
+  const { data: existingOrganization, error: fetchError } = await supabase
+    .from("organizations")
+    .select("id, name, slug, kind, is_active")
+    .eq("id", organizationId)
+    .maybeSingle();
+
+  if (fetchError || !existingOrganization) {
+    return {
+      status: "error",
+      message: fetchError?.message || "Organisation introuvable."
+    };
+  }
+
+  const { error: updateError } = await supabase
+    .from("organizations")
+    .update({
+      name,
+      slug,
+      kind,
+      is_active: isActive
+    })
+    .eq("id", organizationId);
+
+  if (updateError) {
+    return {
+      status: "error",
+      message: updateError.message
+    };
+  }
+
+  await logAdminAuditEvent(profile.id, "organization", organizationId, "organization_updated", {
+    previous_name: existingOrganization.name,
+    next_name: name,
+    previous_slug: existingOrganization.slug,
+    next_slug: slug,
+    previous_kind: existingOrganization.kind,
+    next_kind: kind,
+    previous_is_active: existingOrganization.is_active,
+    next_is_active: isActive
+  });
+
+  revalidateAdminOrganizationViews(organizationId);
+
+  return {
+    status: "success",
+    message: "Organisation mise a jour avec succes."
   };
 }

@@ -20,6 +20,8 @@ import type {
   JobAuditEvent,
   ManagedJob,
   ManagedCandidateSummary,
+  ManagedOrganizationDetail,
+  ManagedOrganizationSummary,
   ManagedUserDetail,
   ManagedUserSummary,
   OrganizationOption,
@@ -1927,6 +1929,251 @@ export async function getAdminOrganizations() {
     kind: String(row.kind ?? "client"),
     is_active: Boolean(row.is_active)
   })) satisfies OrganizationOption[];
+}
+
+export async function getManagedOrganizations() {
+  const organizations = await getAdminOrganizations();
+
+  if (!organizations.length) {
+    return [] as ManagedOrganizationSummary[];
+  }
+
+  if (!isSupabaseConfigured) {
+    return organizations.map((organization, index) => ({
+      ...organization,
+      members_count: index === 0 ? 2 : 0,
+      recruiters_count: index === 0 ? 1 : 0,
+      active_jobs_count: index === 0 ? fallbackJobs.filter((job) => job.status === "published").length : 0,
+      applications_count: index === 0 ? fallbackRecruiterApplications.length : 0,
+      shortlist_count:
+        index === 0
+          ? fallbackRecruiterApplications.filter((application) =>
+              ["shortlist", "interview", "hired"].includes(application.status)
+            ).length
+          : 0,
+      latest_job_at: fallbackJobs[0]?.published_at ?? null,
+      latest_application_at: fallbackRecruiterApplications[0]?.created_at ?? null
+    })) satisfies ManagedOrganizationSummary[];
+  }
+
+  const adminClient = createAdminClient();
+
+  if (!adminClient) {
+    return [] as ManagedOrganizationSummary[];
+  }
+
+  const [{ data: profileRows }, { data: jobRows }, { data: applicationRows }] = await Promise.all([
+    adminClient
+      .from("profiles")
+      .select("id, role, organization_id")
+      .not("organization_id", "is", null)
+      .limit(1000),
+    adminClient
+      .from("job_posts")
+      .select("id, organization_id, status, created_at")
+      .limit(1000),
+    adminClient
+      .from("applications")
+      .select(
+        `
+        id,
+        status,
+        created_at,
+        job_posts!inner(organization_id)
+      `
+      )
+      .limit(2000)
+  ]);
+
+  const statsByOrganizationId = new Map<
+    string,
+    {
+      members_count: number;
+      recruiters_count: number;
+      active_jobs_count: number;
+      applications_count: number;
+      shortlist_count: number;
+      latest_job_at: string | null;
+      latest_application_at: string | null;
+    }
+  >();
+
+  for (const organization of organizations) {
+    statsByOrganizationId.set(organization.id, {
+      members_count: 0,
+      recruiters_count: 0,
+      active_jobs_count: 0,
+      applications_count: 0,
+      shortlist_count: 0,
+      latest_job_at: null,
+      latest_application_at: null
+    });
+  }
+
+  for (const row of profileRows ?? []) {
+    const organizationId = typeof row.organization_id === "string" ? row.organization_id : "";
+    const stats = statsByOrganizationId.get(organizationId);
+
+    if (!stats) {
+      continue;
+    }
+
+    stats.members_count += 1;
+
+    if (row.role === "recruteur") {
+      stats.recruiters_count += 1;
+    }
+  }
+
+  for (const row of jobRows ?? []) {
+    const organizationId = typeof row.organization_id === "string" ? row.organization_id : "";
+    const stats = statsByOrganizationId.get(organizationId);
+
+    if (!stats) {
+      continue;
+    }
+
+    if (row.status === "published") {
+      stats.active_jobs_count += 1;
+    }
+
+    const createdAt = typeof row.created_at === "string" ? row.created_at : null;
+    if (
+      createdAt &&
+      (!stats.latest_job_at ||
+        new Date(createdAt).getTime() > new Date(stats.latest_job_at).getTime())
+    ) {
+      stats.latest_job_at = createdAt;
+    }
+  }
+
+  for (const row of applicationRows ?? []) {
+    const job = normalizeJobRelation(
+      (row as Record<string, unknown>).job_posts as ApplicationAccessRow["job_posts"]
+    );
+    const organizationId = String(job?.organization_id ?? "");
+    const stats = statsByOrganizationId.get(organizationId);
+
+    if (!stats) {
+      continue;
+    }
+
+    stats.applications_count += 1;
+
+    if (["shortlist", "interview", "hired"].includes(String(row.status ?? ""))) {
+      stats.shortlist_count += 1;
+    }
+
+    const createdAt = typeof row.created_at === "string" ? row.created_at : null;
+    if (
+      createdAt &&
+      (!stats.latest_application_at ||
+        new Date(createdAt).getTime() > new Date(stats.latest_application_at).getTime())
+    ) {
+      stats.latest_application_at = createdAt;
+    }
+  }
+
+  return organizations.map((organization) => ({
+    ...organization,
+    ...(statsByOrganizationId.get(organization.id) ?? {
+      members_count: 0,
+      recruiters_count: 0,
+      active_jobs_count: 0,
+      applications_count: 0,
+      shortlist_count: 0,
+      latest_job_at: null,
+      latest_application_at: null
+    })
+  })) satisfies ManagedOrganizationSummary[];
+}
+
+export async function getAdminOrganizationDetail(organizationId: string) {
+  const organizations = await getManagedOrganizations();
+  const organization = organizations.find((item) => item.id === organizationId);
+
+  if (!organization) {
+    return null;
+  }
+
+  const [users, adminClient] = await Promise.all([getAdminUsers(), Promise.resolve(createAdminClient())]);
+
+  if (!isSupabaseConfigured || !adminClient) {
+    return {
+      ...organization,
+      members: users.filter((user) => user.organization_id === organizationId),
+      recent_jobs: [],
+      recent_applications: []
+    } satisfies ManagedOrganizationDetail;
+  }
+
+  const [{ data: jobsRows }, { data: applicationRows }] = await Promise.all([
+    adminClient
+      .from("job_posts")
+      .select(
+        "id, title, slug, department, location, contract_type, work_mode, sector, summary, responsibilities, requirements, benefits, status, is_featured, published_at, closing_at, created_at, updated_at"
+      )
+      .eq("organization_id", organizationId)
+      .order("created_at", { ascending: false })
+      .limit(8),
+    adminClient
+      .from("applications")
+      .select(
+        `
+        id,
+        status,
+        created_at,
+        updated_at,
+        candidate_id,
+        job_post_id,
+        cv_document_id,
+        cover_letter,
+        candidate:profiles!applications_candidate_id_fkey(full_name, email),
+        job_posts!inner(title, location, organization_id)
+      `
+      )
+      .eq("job_posts.organization_id", organizationId)
+      .order("created_at", { ascending: false })
+      .limit(8)
+  ]);
+
+  const jobRowsList = (jobsRows ?? []) as Array<Record<string, unknown>>;
+  const countsByJobId = await getApplicationCountsByJobIds(
+    jobRowsList.map((row) => String(row.id ?? "")).filter(Boolean)
+  );
+  const recentJobs = buildManagedJobs(jobRowsList, countsByJobId).map((job) => ({
+    ...job,
+    organization_name: organization.name
+  })) satisfies ManagedJob[];
+
+  const recentApplications = ((applicationRows ?? []) as Array<Record<string, unknown>>).map((item) => {
+    const candidate =
+      (item.candidate as { full_name?: string | null; email?: string | null } | null) ?? null;
+    const job =
+      (item.job_posts as { title?: string | null; location?: string | null } | null) ?? null;
+
+    return {
+      id: String(item.id),
+      status: String(item.status ?? "submitted"),
+      created_at: String(item.created_at ?? ""),
+      updated_at: typeof item.updated_at === "string" ? item.updated_at : null,
+      candidate_id: typeof item.candidate_id === "string" ? item.candidate_id : null,
+      job_id: typeof item.job_post_id === "string" ? item.job_post_id : null,
+      cover_letter: typeof item.cover_letter === "string" ? item.cover_letter : null,
+      has_cv: Boolean(item.cv_document_id),
+      candidate_name: candidate?.full_name || candidate?.email || "Candidat Madajob",
+      candidate_email: candidate?.email || "email non renseigne",
+      job_title: job?.title || "Offre Madajob",
+      job_location: job?.location || "Lieu a definir"
+    } satisfies RecruiterApplication;
+  });
+
+  return {
+    ...organization,
+    members: users.filter((user) => user.organization_id === organizationId),
+    recent_jobs: recentJobs,
+    recent_applications: recentApplications
+  } satisfies ManagedOrganizationDetail;
 }
 
 export async function getAdminUsers() {
