@@ -168,6 +168,9 @@ export default async function RecruiterDashboardPage() {
               <Link className="btn btn-secondary btn-block" href="/app/recruteur/candidatures">
                 Ouvrir toutes les candidatures
               </Link>
+              <Link className="btn btn-secondary btn-block" href="/app/recruteur/shortlist">
+                Ouvrir la shortlist
+              </Link>
               <Link className="btn btn-secondary btn-block" href="/app/recruteur/candidats">
                 Ouvrir la base candidats
               </Link>

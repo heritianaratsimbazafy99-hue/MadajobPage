@@ -154,6 +154,9 @@ export default async function AdminDashboardPage() {
               <Link className="btn btn-secondary btn-block" href="/app/admin/candidatures">
                 Ouvrir toutes les candidatures
               </Link>
+              <Link className="btn btn-secondary btn-block" href="/app/admin/shortlist">
+                Ouvrir la shortlist
+              </Link>
               <Link className="btn btn-secondary btn-block" href="/app/admin/candidats">
                 Ouvrir la base candidats
               </Link>

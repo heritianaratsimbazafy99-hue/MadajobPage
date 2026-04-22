@@ -139,6 +139,9 @@ export type RecruiterApplication = {
   id: string;
   status: string;
   created_at: string;
+  updated_at: string | null;
+  candidate_id: string | null;
+  job_id: string | null;
   cover_letter: string | null;
   has_cv: boolean;
   candidate_name: string;
