@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useDeferredValue, useMemo, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "react";
 
+import { quickUpdateOrganizationStatusAction } from "@/app/actions/admin-actions";
 import { formatDisplayDate } from "@/lib/format";
 import type { ManagedOrganizationSummary } from "@/lib/types";
 
@@ -14,32 +15,53 @@ type Filters = {
   query: string;
   kind: string;
   status: string;
-  sort: "activity" | "members" | "jobs" | "applications";
+  focus:
+    | ""
+    | "inactive"
+    | "without_recruiters"
+    | "without_jobs"
+    | "shortlist_active"
+    | "dormant";
+  sort: "activity" | "members" | "jobs" | "applications" | "shortlist" | "name";
 };
 
 const initialFilters: Filters = {
   query: "",
   kind: "",
   status: "",
+  focus: "",
   sort: "activity"
 };
 
 export function OrganizationsBoard({ organizations }: OrganizationsBoardProps) {
   const [filters, setFilters] = useState<Filters>(initialFilters);
+  const [boardOrganizations, setBoardOrganizations] = useState(organizations);
+  const [feedback, setFeedback] = useState<{
+    kind: "success" | "error";
+    message: string;
+  } | null>(null);
+  const [isPending, startTransition] = useTransition();
   const deferredQuery = useDeferredValue(filters.query);
+
+  useEffect(() => {
+    setBoardOrganizations(organizations);
+    setFeedback(null);
+  }, [organizations]);
 
   const kindOptions = useMemo(
     () =>
-      Array.from(new Set(organizations.map((organization) => organization.kind).filter(Boolean))).sort((a, b) =>
+      Array.from(new Set(boardOrganizations.map((organization) => organization.kind).filter(Boolean))).sort((a, b) =>
         a.localeCompare(b, "fr")
       ),
-    [organizations]
+    [boardOrganizations]
   );
 
   const filteredOrganizations = useMemo(() => {
     const query = deferredQuery.trim().toLowerCase();
+    const now = Date.now();
+    const thirtyDaysAgo = now - 30 * 24 * 60 * 60 * 1000;
 
-    return organizations
+    return boardOrganizations
       .filter((organization) => {
         const matchesQuery =
           !query ||
@@ -51,8 +73,18 @@ export function OrganizationsBoard({ organizations }: OrganizationsBoardProps) {
         const matchesStatus =
           !filters.status ||
           (filters.status === "active" ? organization.is_active : !organization.is_active);
+        const latestSignalAt = organization.latest_application_at ?? organization.latest_job_at;
+        const latestSignalTime = latestSignalAt ? new Date(latestSignalAt).getTime() : 0;
+        const matchesFocus =
+          !filters.focus ||
+          (filters.focus === "inactive" && !organization.is_active) ||
+          (filters.focus === "without_recruiters" && organization.recruiters_count === 0) ||
+          (filters.focus === "without_jobs" && organization.active_jobs_count === 0) ||
+          (filters.focus === "shortlist_active" && organization.shortlist_count > 0) ||
+          (filters.focus === "dormant" &&
+            (!latestSignalTime || latestSignalTime < thirtyDaysAgo));
 
-        return matchesQuery && matchesKind && matchesStatus;
+        return matchesQuery && matchesKind && matchesStatus && matchesFocus;
       })
       .sort((left, right) => {
         if (filters.sort === "members" && left.members_count !== right.members_count) {
@@ -65,6 +97,14 @@ export function OrganizationsBoard({ organizations }: OrganizationsBoardProps) {
 
         if (filters.sort === "applications" && left.applications_count !== right.applications_count) {
           return right.applications_count - left.applications_count;
+        }
+
+        if (filters.sort === "shortlist" && left.shortlist_count !== right.shortlist_count) {
+          return right.shortlist_count - left.shortlist_count;
+        }
+
+        if (filters.sort === "name") {
+          return left.name.localeCompare(right.name, "fr");
         }
 
         const leftTime = left.latest_application_at
@@ -80,14 +120,71 @@ export function OrganizationsBoard({ organizations }: OrganizationsBoardProps) {
 
         return rightTime - leftTime;
       });
-  }, [deferredQuery, filters.kind, filters.sort, filters.status, organizations]);
+  }, [boardOrganizations, deferredQuery, filters.focus, filters.kind, filters.sort, filters.status]);
 
   const activeFilterCount = [
     filters.query,
     filters.kind,
     filters.status,
+    filters.focus,
     filters.sort !== "activity" ? filters.sort : ""
   ].filter(Boolean).length;
+
+  async function handleQuickStatusToggle(organizationId: string, nextIsActive: boolean) {
+    const previousOrganization = boardOrganizations.find(
+      (organization) => organization.id === organizationId
+    );
+
+    if (!previousOrganization || previousOrganization.is_active === nextIsActive || isPending) {
+      return;
+    }
+
+    setBoardOrganizations((current) =>
+      current.map((organization) =>
+        organization.id === organizationId
+          ? {
+              ...organization,
+              is_active: nextIsActive
+            }
+          : organization
+      )
+    );
+    setFeedback(null);
+
+    startTransition(() => {
+      void quickUpdateOrganizationStatusAction(organizationId, nextIsActive)
+        .then((result) => {
+          if (result.status === "error") {
+            setBoardOrganizations((current) =>
+              current.map((organization) =>
+                organization.id === organizationId ? previousOrganization : organization
+              )
+            );
+            setFeedback({
+              kind: "error",
+              message: result.message
+            });
+            return;
+          }
+
+          setFeedback({
+            kind: "success",
+            message: result.message
+          });
+        })
+        .catch(() => {
+          setBoardOrganizations((current) =>
+            current.map((organization) =>
+              organization.id === organizationId ? previousOrganization : organization
+            )
+          );
+          setFeedback({
+            kind: "error",
+            message: "La mise a jour rapide de l'organisation a echoue. Reessayez."
+          });
+        });
+    });
+  }
 
   return (
     <div className="jobs-board">
@@ -95,7 +192,7 @@ export function OrganizationsBoard({ organizations }: OrganizationsBoardProps) {
         <div className="dashboard-form__head">
           <div>
             <p className="eyebrow">Organisations</p>
-            <h2>Pilotez les entites clientes et internes depuis un module dedie</h2>
+            <h2>Priorisez les organisations a surveiller et arbitrez rapidement leur statut</h2>
           </div>
           <span className="tag">{filteredOrganizations.length} organisation(s)</span>
         </div>
@@ -144,6 +241,26 @@ export function OrganizationsBoard({ organizations }: OrganizationsBoardProps) {
           </label>
 
           <label className="field">
+            <span>Priorite admin</span>
+            <select
+              value={filters.focus}
+              onChange={(event) =>
+                setFilters((previous) => ({
+                  ...previous,
+                  focus: event.target.value as Filters["focus"]
+                }))
+              }
+            >
+              <option value="">Toutes les vues</option>
+              <option value="inactive">Inactives</option>
+              <option value="without_recruiters">Sans recruteur</option>
+              <option value="without_jobs">Sans offre active</option>
+              <option value="shortlist_active">Pipeline avance</option>
+              <option value="dormant">Dormantes</option>
+            </select>
+          </label>
+
+          <label className="field">
             <span>Tri</span>
             <select
               value={filters.sort}
@@ -158,15 +275,32 @@ export function OrganizationsBoard({ organizations }: OrganizationsBoardProps) {
               <option value="members">Plus de membres</option>
               <option value="jobs">Plus d'offres actives</option>
               <option value="applications">Plus de candidatures</option>
+              <option value="shortlist">Plus de dossiers avances</option>
+              <option value="name">Nom A-Z</option>
             </select>
           </label>
         </div>
 
-        {activeFilterCount > 0 ? (
-          <div className="jobs-board__actions">
-            <div className="dashboard-card__badges">
-              <span className="tag tag--muted">{filteredOrganizations.length} resultat(s)</span>
-            </div>
+        <div className="dashboard-card__top">
+          <div className="dashboard-card__badges">
+            <span className="tag tag--success">
+              {boardOrganizations.filter((organization) => organization.is_active).length} active(s)
+            </span>
+            <span className="tag tag--muted">
+              {
+                boardOrganizations.filter((organization) => organization.recruiters_count === 0).length
+              }{" "}
+              sans recruteur
+            </span>
+            <span className="tag tag--info">
+              {
+                boardOrganizations.filter((organization) => organization.active_jobs_count === 0).length
+              }{" "}
+              sans offre active
+            </span>
+          </div>
+
+          {activeFilterCount > 0 ? (
             <button
               type="button"
               className="btn btn-ghost"
@@ -174,7 +308,19 @@ export function OrganizationsBoard({ organizations }: OrganizationsBoardProps) {
             >
               Reinitialiser les filtres
             </button>
-          </div>
+          ) : null}
+        </div>
+
+        {activeFilterCount > 0 ? (
+          <p className="form-caption">
+            {activeFilterCount} filtre(s) actif(s) pour isoler les organisations prioritaires.
+          </p>
+        ) : null}
+
+        {feedback ? (
+          <p className={feedback.kind === "error" ? "form-feedback form-feedback--error" : "form-feedback"}>
+            {feedback.message}
+          </p>
         ) : null}
       </section>
 
@@ -188,6 +334,15 @@ export function OrganizationsBoard({ organizations }: OrganizationsBoardProps) {
                   <span className={`tag ${organization.is_active ? "tag--success" : "tag--muted"}`}>
                     {organization.is_active ? "Active" : "Inactive"}
                   </span>
+                  {organization.recruiters_count === 0 ? (
+                    <span className="tag tag--danger">Sans recruteur</span>
+                  ) : null}
+                  {organization.active_jobs_count === 0 ? (
+                    <span className="tag tag--muted">Sans offre active</span>
+                  ) : null}
+                  {organization.shortlist_count > 0 ? (
+                    <span className="tag tag--info">Pipeline avance</span>
+                  ) : null}
                 </div>
                 <small>{organization.slug}</small>
               </div>
@@ -210,7 +365,22 @@ export function OrganizationsBoard({ organizations }: OrganizationsBoardProps) {
                       ? `Derniere offre le ${formatDisplayDate(organization.latest_job_at)}`
                       : "Pas encore d'activite"}
                 </small>
-                <Link href={`/app/admin/organisations/${organization.id}`}>Ouvrir la fiche</Link>
+                <div className="dashboard-card__badges">
+                  <button
+                    type="button"
+                    className={organization.is_active ? "btn btn-ghost" : "btn btn-primary"}
+                    disabled={isPending}
+                    onClick={() =>
+                      void handleQuickStatusToggle(
+                        organization.id,
+                        !organization.is_active
+                      )
+                    }
+                  >
+                    {organization.is_active ? "Desactiver" : "Reactiver"}
+                  </button>
+                  <Link href={`/app/admin/organisations/${organization.id}`}>Ouvrir la fiche</Link>
+                </div>
               </div>
             </article>
           ))

@@ -20,6 +20,12 @@ export default async function AdminOrganizationsPage() {
     (sum, organization) => sum + organization.applications_count,
     0
   );
+  const priorityCount = organizations.filter(
+    (organization) =>
+      !organization.is_active ||
+      organization.recruiters_count === 0 ||
+      organization.active_jobs_count === 0
+  ).length;
 
   return (
     <DashboardShell
@@ -45,9 +51,9 @@ export default async function AdminOrganizationsPage() {
           <small>annonces actuellement publiees</small>
         </article>
         <article className="panel metric-panel">
-          <span>Candidatures</span>
-          <strong>{applicationsCount}</strong>
-          <small>flux consolide par organisation</small>
+          <span>A surveiller</span>
+          <strong>{priorityCount}</strong>
+          <small>{applicationsCount} candidature(s) consolidee(s)</small>
         </article>
       </section>
 

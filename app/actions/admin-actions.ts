@@ -38,6 +38,23 @@ type UserAccessUpdateInput = {
   successMessage?: string;
 };
 
+type ExistingOrganizationAccess = {
+  id: string;
+  name: string;
+  slug: string;
+  kind: string;
+  is_active: boolean;
+};
+
+type OrganizationUpdateInput = {
+  organizationId: string;
+  name: string;
+  slug: string;
+  kind: string;
+  isActive: boolean;
+  successMessage?: string;
+};
+
 function getTrimmedValue(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
 }
@@ -236,6 +253,7 @@ async function updateUserAccessInternal(
 
 function revalidateAdminOrganizationViews(organizationId: string) {
   revalidatePath("/app/admin");
+  revalidatePath("/app/admin/audit");
   revalidatePath("/app/admin/organisations");
   revalidatePath(`/app/admin/organisations/${organizationId}`);
   revalidatePath("/app/admin/utilisateurs");
@@ -246,6 +264,109 @@ function revalidateAdminOrganizationViews(organizationId: string) {
   revalidatePath("/app/recruteur/offres");
   revalidatePath("/app/recruteur/candidatures");
   revalidatePath("/app/recruteur/candidats");
+}
+
+async function getExistingOrganizationAccess(organizationId: string) {
+  const supabase = createAdminClient() ?? (await createClient());
+  const { data: existingOrganization, error: fetchError } = await supabase
+    .from("organizations")
+    .select("id, name, slug, kind, is_active")
+    .eq("id", organizationId)
+    .maybeSingle();
+
+  if (fetchError || !existingOrganization) {
+    return {
+      organization: null,
+      error: fetchError?.message || "Organisation introuvable."
+    };
+  }
+
+  return {
+    organization: {
+      id: String(existingOrganization.id),
+      name: String(existingOrganization.name ?? "Organisation"),
+      slug: String(existingOrganization.slug ?? ""),
+      kind: String(existingOrganization.kind ?? "client"),
+      is_active: Boolean(existingOrganization.is_active)
+    } satisfies ExistingOrganizationAccess,
+    error: null
+  };
+}
+
+async function updateOrganizationInternal(
+  profile: Awaited<ReturnType<typeof requireRole>>,
+  input: OrganizationUpdateInput,
+  existingOrganizationInput?: ExistingOrganizationAccess
+): Promise<AdminActionState> {
+  const {
+    organizationId,
+    name,
+    slug,
+    kind,
+    isActive,
+    successMessage = "Organisation mise a jour avec succes."
+  } = input;
+
+  if (!organizationId || !name || !slug || !kind) {
+    return {
+      status: "error",
+      message: "Tous les champs organisation sont requis."
+    };
+  }
+
+  if (!/^[a-z0-9-]{2,80}$/.test(slug)) {
+    return {
+      status: "error",
+      message: "Le slug doit contenir uniquement lettres, chiffres et tirets."
+    };
+  }
+
+  const existingOrganization =
+    existingOrganizationInput ??
+    (await getExistingOrganizationAccess(organizationId)).organization;
+
+  if (!existingOrganization) {
+    return {
+      status: "error",
+      message: "Organisation introuvable."
+    };
+  }
+
+  const supabase = createAdminClient() ?? (await createClient());
+  const { error: updateError } = await supabase
+    .from("organizations")
+    .update({
+      name,
+      slug,
+      kind,
+      is_active: isActive
+    })
+    .eq("id", organizationId);
+
+  if (updateError) {
+    return {
+      status: "error",
+      message: updateError.message
+    };
+  }
+
+  await logAdminAuditEvent(profile.id, "organization", organizationId, "organization_updated", {
+    previous_name: existingOrganization.name,
+    next_name: name,
+    previous_slug: existingOrganization.slug,
+    next_slug: slug,
+    previous_kind: existingOrganization.kind,
+    next_kind: kind,
+    previous_is_active: existingOrganization.is_active,
+    next_is_active: isActive
+  });
+
+  revalidateAdminOrganizationViews(organizationId);
+
+  return {
+    status: "success",
+    message: successMessage
+  };
 }
 
 export async function updateUserAccessAction(
@@ -312,66 +433,41 @@ export async function updateOrganizationAction(
   const kind = getTrimmedValue(formData, "kind");
   const isActive = formData.get("is_active") === "on";
 
-  if (!organizationId || !name || !slug || !kind) {
-    return {
-      status: "error",
-      message: "Tous les champs organisation sont requis."
-    };
-  }
-
-  if (!/^[a-z0-9-]{2,80}$/.test(slug)) {
-    return {
-      status: "error",
-      message: "Le slug doit contenir uniquement lettres, chiffres et tirets."
-    };
-  }
-
-  const supabase = createAdminClient() ?? (await createClient());
-  const { data: existingOrganization, error: fetchError } = await supabase
-    .from("organizations")
-    .select("id, name, slug, kind, is_active")
-    .eq("id", organizationId)
-    .maybeSingle();
-
-  if (fetchError || !existingOrganization) {
-    return {
-      status: "error",
-      message: fetchError?.message || "Organisation introuvable."
-    };
-  }
-
-  const { error: updateError } = await supabase
-    .from("organizations")
-    .update({
-      name,
-      slug,
-      kind,
-      is_active: isActive
-    })
-    .eq("id", organizationId);
-
-  if (updateError) {
-    return {
-      status: "error",
-      message: updateError.message
-    };
-  }
-
-  await logAdminAuditEvent(profile.id, "organization", organizationId, "organization_updated", {
-    previous_name: existingOrganization.name,
-    next_name: name,
-    previous_slug: existingOrganization.slug,
-    next_slug: slug,
-    previous_kind: existingOrganization.kind,
-    next_kind: kind,
-    previous_is_active: existingOrganization.is_active,
-    next_is_active: isActive
+  return updateOrganizationInternal(profile, {
+    organizationId,
+    name,
+    slug,
+    kind,
+    isActive
   });
+}
 
-  revalidateAdminOrganizationViews(organizationId);
+export async function quickUpdateOrganizationStatusAction(
+  organizationId: string,
+  nextIsActive: boolean
+): Promise<AdminActionState> {
+  const profile = await requireRole(["admin"]);
+  const { organization, error } = await getExistingOrganizationAccess(organizationId);
 
-  return {
-    status: "success",
-    message: "Organisation mise a jour avec succes."
-  };
+  if (!organization) {
+    return {
+      status: "error",
+      message: error ?? "Organisation introuvable."
+    };
+  }
+
+  return updateOrganizationInternal(
+    profile,
+    {
+      organizationId,
+      name: organization.name,
+      slug: organization.slug,
+      kind: organization.kind,
+      isActive: nextIsActive,
+      successMessage: nextIsActive
+        ? "Organisation reactivee avec succes."
+        : "Organisation desactivee avec succes."
+    },
+    organization
+  );
 }
