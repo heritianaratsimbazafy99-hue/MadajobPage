@@ -3,6 +3,7 @@ import Link from "next/link";
 import { OrganizationAccessForm } from "@/components/admin/organization-access-form";
 import { DashboardShell } from "@/components/dashboard/shell";
 import { formatDisplayDate } from "@/lib/format";
+import { getManagedOrganizationPriorityMeta } from "@/lib/managed-organization-insights";
 import type { ManagedOrganizationDetail, Profile } from "@/lib/types";
 
 type OrganizationDetailWorkspaceProps = {
@@ -14,6 +15,8 @@ export function OrganizationDetailWorkspace({
   profile,
   organization
 }: OrganizationDetailWorkspaceProps) {
+  const priorityMeta = getManagedOrganizationPriorityMeta(organization);
+
   return (
     <DashboardShell
       title={organization.name}
@@ -24,8 +27,8 @@ export function OrganizationDetailWorkspace({
       <section className="dashboard-grid dashboard-grid--four">
         <article className="panel metric-panel">
           <span>Statut</span>
-          <strong>{organization.is_active ? "Active" : "Inactive"}</strong>
-          <small>{organization.kind}</small>
+          <strong>{priorityMeta.label}</strong>
+          <small>{organization.is_active ? organization.kind : "organisation inactive"}</small>
         </article>
         <article className="panel metric-panel">
           <span>Membres</span>
@@ -42,6 +45,56 @@ export function OrganizationDetailWorkspace({
           <strong>{organization.applications_count}</strong>
           <small>{organization.shortlist_count} dossier(s) avances</small>
         </article>
+      </section>
+
+      <section className="dashboard-form">
+        <div className="dashboard-form__head">
+          <div>
+            <p className="eyebrow">Centre d'action</p>
+            <h2>Ce que cette organisation demande maintenant</h2>
+          </div>
+          <span className={`tag tag--${priorityMeta.tone}`}>{priorityMeta.label}</span>
+        </div>
+
+        <div className="job-management-summary-grid">
+          <article className="document-card job-management-summary-card">
+            <strong>Signal principal</strong>
+            <p>{priorityMeta.description}</p>
+            <small>
+              {organization.latest_application_at
+                ? `Derniere candidature le ${formatDisplayDate(organization.latest_application_at)}.`
+                : organization.latest_job_at
+                  ? `Derniere offre le ${formatDisplayDate(organization.latest_job_at)}.`
+                  : "Aucun signal d'activite recent pour le moment."}
+            </small>
+          </article>
+
+          <article className="document-card job-management-summary-card">
+            <strong>Couverture interne</strong>
+            <p>
+              {organization.recruiters_count} recruteur(s) pour {organization.members_count} membre(s)
+              rattache(s).
+            </p>
+            <small>
+              {organization.recruiters_count === 0
+                ? "Aucun porteur operationnel n'est rattache. C'est le premier arbitrage a faire."
+                : "La fiche utilisateurs permet ensuite de verifier les activations et les droits."}
+            </small>
+          </article>
+
+          <article className="document-card job-management-summary-card">
+            <strong>Cadence recrutement</strong>
+            <p>
+              {organization.active_jobs_count} offre(s) active(s) et {organization.shortlist_count} dossier(s)
+              avances.
+            </p>
+            <small>
+              {organization.shortlist_count > 0
+                ? "Un suivi plus fin des offres et candidatures de cette organisation est recommande."
+                : "L'organisation reste suivie ici pour detecter vite un trou de diffusion ou de pipeline."}
+            </small>
+          </article>
+        </div>
       </section>
 
       <section className="dashboard-workspace">
