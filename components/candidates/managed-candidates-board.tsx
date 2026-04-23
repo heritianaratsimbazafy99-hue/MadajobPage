@@ -3,7 +3,14 @@
 import Link from "next/link";
 import { useDeferredValue, useMemo, useState } from "react";
 
+import { getApplicationStatusMeta } from "@/lib/application-status";
 import { formatDisplayDate } from "@/lib/format";
+import {
+  getManagedCandidatePriorityMeta,
+  getManagedCandidatePriorityScore,
+  summarizeManagedCandidates,
+  type ManagedCandidatePriorityKey
+} from "@/lib/managed-candidate-insights";
 import {
   getBestJobMatchForCandidate,
   getCandidateJobMatch,
@@ -24,8 +31,10 @@ type Filters = {
   city: string;
   selectedJobId: string;
   withCvOnly: boolean;
+  focus: "" | ManagedCandidatePriorityKey;
   matchMode: "" | "with_signal" | "good" | "strong";
   sort:
+    | "priority_desc"
     | "activity_desc"
     | "match_desc"
     | "completion_desc"
@@ -44,8 +53,9 @@ const initialFilters: Filters = {
   city: "",
   selectedJobId: "",
   withCvOnly: false,
+  focus: "",
   matchMode: "",
-  sort: "activity_desc"
+  sort: "priority_desc"
 };
 
 function getCities(candidates: ManagedCandidateSummary[]) {
@@ -125,6 +135,60 @@ function shouldShowMatch(
   return matchContext.match.score >= 40;
 }
 
+function getCandidateSignalCopy(
+  candidate: ManagedCandidateSummary,
+  priorityLabel: string,
+  matchContext: CandidateMatchContext,
+  selectedJob: MatchableJob | null
+) {
+  if (!candidate.has_primary_cv && candidate.applications_count > 0) {
+    return {
+      title: "CV principal a fiabiliser",
+      body: "Le candidat a deja depose un dossier, mais il manque encore le document de reference pour accelerer le tri."
+    };
+  }
+
+  if (matchContext?.match.hasSignal && matchContext.match.score >= 78) {
+    return {
+      title: selectedJob ? "Fort match sur l'offre cible" : "Fort match detecte",
+      body: `Le profil peut etre rapproche rapidement de ${matchContext.job?.title ?? "l'offre la plus proche"} avec ${matchContext.match.label.toLowerCase()}.`
+    };
+  }
+
+  if (matchContext?.match.hasSignal && matchContext.match.score >= 60) {
+    return {
+      title: selectedJob ? "Bon match sur l'offre cible" : "Bon match a exploiter",
+      body: `Le profil remonte avec un signal solide sur ${matchContext.job?.title ?? "une offre accessible"} et merite un suivi plus direct.`
+    };
+  }
+
+  if (candidate.latest_status === "interview") {
+    return {
+      title: "Dossier deja en entretien",
+      body: "Le candidat est deja dans un cycle de rendez-vous. La prochaine action se joue surtout sur le suivi du dossier le plus recent."
+    };
+  }
+
+  if (candidate.latest_status === "shortlist") {
+    return {
+      title: "Profil deja shortlist",
+      body: "Le candidat fait deja partie des profils avances. Gardez-le visible pour les arbitrages ou la suite du process."
+    };
+  }
+
+  if (candidate.profile_completion >= 80 && candidate.has_primary_cv) {
+    return {
+      title: "Profil exploitable rapidement",
+      body: "Le dossier est bien renseigne et peut etre mobilise sans gros travail de qualification supplementaire."
+    };
+  }
+
+  return {
+    title: priorityLabel,
+    body: "Le cockpit met en avant ce profil pour faciliter votre prochain tri, relance ou arbitrage."
+  };
+}
+
 export function ManagedCandidatesBoard({
   candidates,
   jobs,
@@ -132,6 +196,7 @@ export function ManagedCandidatesBoard({
 }: ManagedCandidatesBoardProps) {
   const [filters, setFilters] = useState<Filters>(initialFilters);
   const deferredQuery = useDeferredValue(filters.query);
+  const isAdminView = basePath === "/app/admin/candidats";
 
   const cityOptions = useMemo(() => getCities(candidates), [candidates]);
   const jobOptions = useMemo(
@@ -154,6 +219,7 @@ export function ManagedCandidatesBoard({
     () => jobOptions.find((job) => job.id === filters.selectedJobId) ?? null,
     [filters.selectedJobId, jobOptions]
   );
+  const boardSummary = useMemo(() => summarizeManagedCandidates(candidates), [candidates]);
 
   const matchContextByCandidateId = useMemo(
     () =>
@@ -172,6 +238,7 @@ export function ManagedCandidatesBoard({
     return candidates
       .filter((candidate) => {
         const matchContext = matchContextByCandidateId.get(candidate.id) ?? null;
+        const priorityMeta = getManagedCandidatePriorityMeta(candidate);
         const matchesQuery =
           !query ||
           [
@@ -182,13 +249,16 @@ export function ManagedCandidatesBoard({
             candidate.current_position,
             candidate.desired_position,
             candidate.latest_job_title,
-            matchContext?.job?.title ?? ""
+            matchContext?.job?.title ?? "",
+            priorityMeta.label,
+            priorityMeta.description
           ]
             .filter(Boolean)
             .some((value) => String(value).toLowerCase().includes(query));
 
         const matchesCity = !filters.city || candidate.city === filters.city;
         const matchesCv = !filters.withCvOnly || candidate.has_primary_cv;
+        const matchesFocus = !filters.focus || priorityMeta.key === filters.focus;
         const matchesMatchMode =
           !filters.matchMode ||
           (filters.matchMode === "with_signal" &&
@@ -198,7 +268,7 @@ export function ManagedCandidatesBoard({
           (filters.matchMode === "strong" &&
             Boolean(matchContext?.match.hasSignal && matchContext.match.score >= 78));
 
-        return matchesQuery && matchesCity && matchesCv && matchesMatchMode;
+        return matchesQuery && matchesCity && matchesCv && matchesFocus && matchesMatchMode;
       })
       .sort((left, right) => {
         const leftMatch = matchContextByCandidateId.get(left.id) ?? null;
@@ -211,6 +281,15 @@ export function ManagedCandidatesBoard({
         const rightDate = right.latest_application_at
           ? new Date(right.latest_application_at).getTime()
           : 0;
+
+        if (filters.sort === "priority_desc") {
+          const leftPriority = getManagedCandidatePriorityScore(left, { matchScore: leftScore });
+          const rightPriority = getManagedCandidatePriorityScore(right, { matchScore: rightScore });
+
+          if (leftPriority !== rightPriority) {
+            return rightPriority - leftPriority;
+          }
+        }
 
         if (filters.sort === "match_desc") {
           if (leftScore !== rightScore) {
@@ -244,19 +323,25 @@ export function ManagedCandidatesBoard({
     candidates,
     deferredQuery,
     filters.city,
+    filters.focus,
     filters.matchMode,
     filters.sort,
     filters.withCvOnly,
     matchContextByCandidateId
   ]);
+  const filteredSummary = useMemo(
+    () => summarizeManagedCandidates(filteredCandidates),
+    [filteredCandidates]
+  );
 
   const activeFilterCount = [
     filters.query,
     filters.city,
     filters.selectedJobId,
     filters.withCvOnly ? "cv" : "",
+    filters.focus,
     filters.matchMode,
-    filters.sort !== "activity_desc" ? filters.sort : ""
+    filters.sort !== "priority_desc" ? filters.sort : ""
   ].filter(Boolean).length;
 
   const matchStats = useMemo(() => {
@@ -290,8 +375,12 @@ export function ManagedCandidatesBoard({
       <section className="dashboard-form">
         <div className="dashboard-form__head">
           <div>
-            <p className="eyebrow">Base candidats</p>
-            <h2>Retrouvez les profils qui alimentent votre pipeline</h2>
+            <p className="eyebrow">{isAdminView ? "Supervision candidats" : "Base candidats"}</p>
+            <h2>
+              {isAdminView
+                ? "Surveillez la qualite du vivier, les profils a fiabiliser et ceux qui meritent un arbitrage rapide"
+                : "Retrouvez vite les profils a activer, fiabiliser ou rapprocher des offres accessibles"}
+            </h2>
           </div>
           <span className="tag">{filteredCandidates.length} profil(s)</span>
         </div>
@@ -352,6 +441,29 @@ export function ManagedCandidatesBoard({
           </label>
 
           <label className="field">
+            <span>{isAdminView ? "Priorite vivier" : "Focus sourcing"}</span>
+            <select
+              value={filters.focus}
+              onChange={(event) =>
+                setFilters((previous) => ({
+                  ...previous,
+                  focus: event.target.value as Filters["focus"]
+                }))
+              }
+            >
+              <option value="">
+                {isAdminView ? "Toutes les priorites" : "Tous les profils"}
+              </option>
+              <option value="missing_cv">CV principal a fiabiliser</option>
+              <option value="advanced_pipeline">Pipeline avance</option>
+              <option value="ready_profile">Profils prets a activer</option>
+              <option value="active_followup">Profils a relancer</option>
+              <option value="to_qualify">Profils a qualifier</option>
+              <option value="inactive">A surveiller</option>
+            </select>
+          </label>
+
+          <label className="field">
             <span>Option match candidat</span>
             <select
               value={filters.matchMode}
@@ -380,6 +492,7 @@ export function ManagedCandidatesBoard({
                 }))
               }
             >
+              <option value="priority_desc">Priorite</option>
               <option value="activity_desc">Activite recente</option>
               <option value="match_desc">
                 {selectedJob ? "Compatibilite sur l'offre" : "Compatibilite globale"}
@@ -405,6 +518,29 @@ export function ManagedCandidatesBoard({
           </label>
         </div>
 
+        <div className="interviews-board__stats">
+          <article className="document-card">
+            <strong>{filteredSummary.readyCount}</strong>
+            <p>profil(s) pret(s)</p>
+          </article>
+          <article className="document-card">
+            <strong>{filteredSummary.withoutCvCount}</strong>
+            <p>sans CV principal</p>
+          </article>
+          <article className="document-card">
+            <strong>{filteredSummary.activePipelineCount}</strong>
+            <p>pipeline(s) actif(s)</p>
+          </article>
+          <article className="document-card">
+            <strong>{matchStats.good}</strong>
+            <p>bon(s) match(s)</p>
+          </article>
+          <article className="document-card">
+            <strong>{matchStats.strong}</strong>
+            <p>fort(s) match(s)</p>
+          </article>
+        </div>
+
         <div className="jobs-board__actions">
           <div className="dashboard-card__badges">
             <span className="tag tag--muted">
@@ -412,9 +548,10 @@ export function ManagedCandidatesBoard({
                 ? `Matching sur ${selectedJob.title}`
                 : "Matching sur la meilleure offre accessible"}
             </span>
+            <span className="tag tag--muted">{boardSummary.withCvCount} CV principal(aux)</span>
+            <span className="tag tag--info">{boardSummary.readyCount} profil(s) pret(s)</span>
+            <span className="tag tag--success">{boardSummary.activePipelineCount} pipeline(s) actif(s)</span>
             <span className="tag tag--muted">{matchStats.withSignal} profil(s) matchables</span>
-            <span className="tag tag--info">{matchStats.good} bon(s) match(s)</span>
-            <span className="tag tag--success">{matchStats.strong} fort(s) match(s)</span>
           </div>
 
           {activeFilterCount > 0 ? (
@@ -431,7 +568,10 @@ export function ManagedCandidatesBoard({
         <p className="form-caption">
           {selectedJob
             ? "Le matching et le tri par compatibilite sont maintenant calcules sur l'offre selectionnee."
-            : "Sans offre selectionnee, chaque profil est compare a toutes les offres accessibles et conserve son meilleur match."}
+            : "Sans offre selectionnee, chaque profil conserve automatiquement son meilleur match global parmi les offres accessibles."}{" "}
+          {activeFilterCount > 0
+            ? "Combinez ensuite le focus vivier, la presence d'un CV et le niveau de match pour isoler les bons profils."
+            : "Le tri par priorite remonte d'abord les candidats a activer, fiabiliser ou relancer."}
         </p>
       </section>
 
@@ -439,7 +579,17 @@ export function ManagedCandidatesBoard({
         {filteredCandidates.length > 0 ? (
           filteredCandidates.map((candidate) => {
             const matchContext = matchContextByCandidateId.get(candidate.id) ?? null;
+            const priorityMeta = getManagedCandidatePriorityMeta(candidate);
+            const latestStatus = candidate.latest_status
+              ? getApplicationStatusMeta(candidate.latest_status)
+              : null;
             const showMatch = shouldShowMatch(matchContext, selectedJob);
+            const signalCopy = getCandidateSignalCopy(
+              candidate,
+              priorityMeta.label,
+              matchContext,
+              selectedJob
+            );
             const matchTitle = selectedJob
               ? selectedJob.title
               : matchContext?.job?.title || candidate.latest_job_title || "Aucune offre cible";
@@ -448,7 +598,8 @@ export function ManagedCandidatesBoard({
               <article key={candidate.id} className="panel job-card jobs-result-card">
                 <div className="jobs-result-card__head">
                   <div className="jobs-result-card__badges">
-                    <span className="tag">{candidate.latest_status || "Profil"}</span>
+                    <span className={`tag tag--${priorityMeta.tone}`}>{priorityMeta.label}</span>
+                    <span className="tag">{latestStatus?.label ?? "Profil"}</span>
                     <span className="tag tag--muted">{candidate.profile_completion}% complet</span>
                     {showMatch && matchContext ? (
                       <span className={`tag tag--${matchContext.match.tone}`}>
@@ -464,7 +615,12 @@ export function ManagedCandidatesBoard({
                 </div>
 
                 <h2>{candidate.full_name}</h2>
-                <p>{candidate.headline || candidate.desired_position || "Profil candidat Madajob"}</p>
+                <p>
+                  {candidate.headline ||
+                    candidate.desired_position ||
+                    candidate.current_position ||
+                    "Profil candidat Madajob"}
+                </p>
 
                 <div className="job-card__meta">
                   {candidate.email ? <span>{candidate.email}</span> : null}
@@ -473,18 +629,24 @@ export function ManagedCandidatesBoard({
                   <span>{candidate.has_primary_cv ? "CV principal actif" : "Sans CV principal"}</span>
                 </div>
 
-                {showMatch && matchContext ? (
-                  <p className="match-caption">
-                    {matchContext.match.reason} {selectedJob ? "Offre cible selectionnee" : "Meilleure offre detectee"}:
-                    {" "}
-                    {matchContext.job?.title || matchTitle}.
-                  </p>
-                ) : selectedJob && matchContext ? (
-                  <p className="match-caption">{matchContext.match.reason}</p>
-                ) : null}
+                <div className="application-signal-card">
+                  <strong>{signalCopy.title}</strong>
+                  <p>{signalCopy.body}</p>
+                  <small>
+                    {showMatch && matchContext
+                      ? `${matchContext.match.reason} ${selectedJob ? "Offre cible selectionnee" : "Meilleure offre detectee"}: ${matchContext.job?.title || matchTitle}.`
+                      : selectedJob && matchContext
+                        ? matchContext.match.reason
+                        : priorityMeta.description}
+                  </small>
+                </div>
 
                 <div className="job-card__footer">
-                  <small>{matchTitle}</small>
+                  <small>
+                    {candidate.latest_job_title
+                      ? `Dernier dossier: ${candidate.latest_job_title}${candidate.latest_job_location ? ` · ${candidate.latest_job_location}` : ""}`
+                      : matchTitle}
+                  </small>
                   <Link href={`${basePath}/${candidate.id}`}>Ouvrir le profil</Link>
                 </div>
               </article>
