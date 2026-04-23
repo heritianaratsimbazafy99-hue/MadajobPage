@@ -42,6 +42,9 @@ const {
   rankJobsForCandidate
 } = require("../lib/matching.ts");
 const {
+  getCandidateCvAnalysis
+} = require("../lib/candidate-cv-analysis.ts");
+const {
   getAdminPlatformRecommendations,
   getRecruiterPlatformRecommendations
 } = require("../lib/platform-recommendations.ts");
@@ -265,6 +268,38 @@ test("matching: classe les offres par score decroissant", () => {
 
   assert.equal(ranked[0].job.id, "job-commercial");
   assert.ok(ranked[0].match.score > ranked[1].match.score);
+});
+
+test("cv analysis: exploite le texte extrait du CV meme sans profil formulaire", () => {
+  const analysis = getCandidateCvAnalysis({
+    headline: "",
+    bio: "",
+    city: "Antananarivo",
+    current_position: "",
+    desired_position: "",
+    skills_text: "",
+    experience_years: null,
+    primary_cv: { id: "primary-cv" },
+    documentsCount: 1,
+    cv_text:
+      "Bachelor marketing and business. Grace a plus de 4 ans d'experience dans la vente B2B, " +
+      "la prospection et le closing, le candidat a occupe des postes Account Executive SMB chez Revolut, " +
+      "Business Development Representative chez Skello et Business Developer en alternance. " +
+      "Experience concrete sur CRM, MEDDIC, prospection, pipeline commercial, objectifs de revenus, " +
+      "qualification de leads, demonstrations produit, negociations et suivi grands comptes. " +
+      "Langues: French, Anglais, Malgache. Maitrise des cycles de vente courts et longs, relation client, " +
+      "collaboration avec les equipes marketing, reporting et developpement de portefeuille."
+  });
+
+  assert.ok(analysis.score >= 80);
+  assert.equal(analysis.label, "Lecture CV exploitable");
+  assert.match(
+    analysis.signals.find((signal) => signal.label === "Cible").value,
+    /business development|vente b2b/i
+  );
+  assert.ok(
+    analysis.strengths.some((strength) => /detectee dans le CV/i.test(strength))
+  );
 });
 
 test("recommendations: priorise les dossiers recruteur bloques", (t) => {

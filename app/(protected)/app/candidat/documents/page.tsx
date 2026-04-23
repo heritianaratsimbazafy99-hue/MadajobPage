@@ -6,16 +6,18 @@ import { CandidateDocumentsManager } from "@/components/profile/candidate-docume
 import { CandidateCvUpload } from "@/components/profile/candidate-cv-upload";
 import { requireRole } from "@/lib/auth";
 import { getCandidateCvAnalysis } from "@/lib/candidate-cv-analysis";
+import { enrichCandidateProfileWithCvText } from "@/lib/candidate-cv-text";
 import { summarizeCandidateDocuments } from "@/lib/candidate-document-insights";
 import { formatDisplayDate } from "@/lib/format";
 import { getCandidateDocuments, getCandidateWorkspace } from "@/lib/jobs";
 
 export default async function CandidateDocumentsPage() {
   const profile = await requireRole(["candidat"]);
-  const [candidateProfile, documents] = await Promise.all([
+  const [rawCandidateProfile, documents] = await Promise.all([
     getCandidateWorkspace(profile),
     getCandidateDocuments(profile.id, { limit: 30 })
   ]);
+  const candidateProfile = await enrichCandidateProfileWithCvText(profile, rawCandidateProfile);
 
   const summary = summarizeCandidateDocuments(documents);
   const cvAnalysis = getCandidateCvAnalysis({

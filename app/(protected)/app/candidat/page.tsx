@@ -9,6 +9,7 @@ import {
   isFinalApplicationStatus
 } from "@/lib/application-status";
 import { getCandidateCvAnalysis } from "@/lib/candidate-cv-analysis";
+import { enrichCandidateProfileWithCvText } from "@/lib/candidate-cv-text";
 import { getCandidateProfileInsights } from "@/lib/candidate-profile";
 import { requireRole } from "@/lib/auth";
 import { formatDateTimeDisplay, formatDisplayDate } from "@/lib/format";
@@ -186,11 +187,12 @@ function buildFocusCard(
 
 export default async function CandidateDashboardPage() {
   const profile = await requireRole(["candidat"]);
-  const [applications, candidateProfile, interviews] = await Promise.all([
+  const [applications, rawCandidateProfile, interviews] = await Promise.all([
     getCandidateApplicationSummaries(profile.id),
     getCandidateWorkspace(profile),
     getCandidateInterviews(profile.id, { limit: 8 })
   ]);
+  const candidateProfile = await enrichCandidateProfileWithCvText(profile, rawCandidateProfile);
 
   const profileInsights = getCandidateProfileInsights(candidateProfile);
   const cvAnalysis = getCandidateCvAnalysis({

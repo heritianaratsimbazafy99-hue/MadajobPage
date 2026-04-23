@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { supplementaryDocumentTypeOptions } from "@/lib/candidate-documents";
+import { syncCandidateProfileTextFromUploadedFile } from "@/lib/candidate-cv-text";
 import { getCandidateProfileInsights } from "@/lib/candidate-profile";
 import { requireRole } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -139,16 +140,20 @@ export async function uploadCandidateCvAction(formData: FormData): Promise<Profi
     };
   }
 
-  const { error: insertError } = await adminClient.from("candidate_documents").insert({
-    candidate_id: profile.id,
-    document_type: "cv",
-    bucket_id: "candidate-cv",
-    storage_path: storagePath,
-    file_name: file.name,
-    mime_type: file.type || null,
-    file_size: file.size,
-    is_primary: true
-  });
+  const { data: insertedDocument, error: insertError } = await adminClient
+    .from("candidate_documents")
+    .insert({
+      candidate_id: profile.id,
+      document_type: "cv",
+      bucket_id: "candidate-cv",
+      storage_path: storagePath,
+      file_name: file.name,
+      mime_type: file.type || null,
+      file_size: file.size,
+      is_primary: true
+    })
+    .select("id, document_type, bucket_id, storage_path, file_name, mime_type, file_size, is_primary, created_at")
+    .single();
 
   if (insertError) {
     await cleanupUploadedFile("candidate-cv", storagePath);
@@ -157,6 +162,22 @@ export async function uploadCandidateCvAction(formData: FormData): Promise<Profi
       status: "error",
       message: insertError.message
     };
+  }
+
+  if (insertedDocument) {
+    await syncCandidateProfileTextFromUploadedFile(profile, file, {
+      id: String(insertedDocument.id),
+      document_type: String(insertedDocument.document_type ?? "cv"),
+      bucket_id: String(insertedDocument.bucket_id ?? "candidate-cv"),
+      storage_path: String(insertedDocument.storage_path ?? storagePath),
+      file_name: String(insertedDocument.file_name ?? file.name),
+      mime_type:
+        typeof insertedDocument.mime_type === "string" ? insertedDocument.mime_type : null,
+      file_size:
+        typeof insertedDocument.file_size === "number" ? insertedDocument.file_size : file.size,
+      is_primary: Boolean(insertedDocument.is_primary),
+      created_at: String(insertedDocument.created_at ?? new Date().toISOString())
+    });
   }
 
   revalidatePath("/app/candidat");

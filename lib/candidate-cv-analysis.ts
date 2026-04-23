@@ -146,6 +146,36 @@ const languageCatalog: CandidateCvCatalogEntry[] = [
   { label: "Italien", terms: ["italien", "italian"] }
 ];
 
+const roleCatalog: CandidateCvCatalogEntry[] = [
+  {
+    label: "Business development / vente B2B",
+    terms: [
+      "account executive",
+      "business developer",
+      "business developpement",
+      "business development",
+      "developpement commercial",
+      "sales"
+    ]
+  },
+  {
+    label: "Marketing / business",
+    terms: ["marketing", "business", "commercial"]
+  },
+  {
+    label: "Support client / relation client",
+    terms: ["support client", "customer success", "relation client"]
+  },
+  {
+    label: "Finance / comptabilite",
+    terms: ["finance", "comptabilite", "accounting"]
+  },
+  {
+    label: "Developpement web / produit",
+    terms: ["react", "next.js", "typescript", "developpeur", "developer"]
+  }
+];
+
 function normalizeText(value: string) {
   return value
     .normalize("NFD")
@@ -190,6 +220,19 @@ function detectCatalogEntries(text: string, catalog: CandidateCvCatalogEntry[]) 
     .map((entry) => entry.label);
 }
 
+function inferCandidateTarget(input: CandidateCvAnalysisInput) {
+  const explicitTarget =
+    input.desired_position.trim() ||
+    input.headline.trim() ||
+    input.current_position.trim();
+
+  if (explicitTarget) {
+    return explicitTarget;
+  }
+
+  return detectCatalogEntries(input.cv_text, roleCatalog)[0] ?? "";
+}
+
 function detectExperienceYears(input: CandidateCvAnalysisInput) {
   if (typeof input.experience_years === "number") {
     return input.experience_years;
@@ -224,11 +267,13 @@ export function getCandidateCvAnalysis(
   );
   const tools = detectCatalogEntries(fullText, toolCatalog).slice(0, 5);
   const languages = detectCatalogEntries(fullText, languageCatalog).slice(0, 4);
-  const experienceYears = detectExperienceYears(input);
-  const cvWordCount = normalizeText(input.cv_text).split(" ").filter(Boolean).length;
-  const hasTarget = Boolean(
+  const inferredTarget = inferCandidateTarget(input);
+  const hasExplicitTarget = Boolean(
     input.desired_position.trim() || input.current_position.trim() || input.headline.trim()
   );
+  const experienceYears = detectExperienceYears(input);
+  const cvWordCount = normalizeText(input.cv_text).split(" ").filter(Boolean).length;
+  const hasTarget = Boolean(inferredTarget);
   const hasNarrative = input.bio.trim().length >= 40 || input.cv_text.trim().length >= 140;
   const hasSkillsDepth = input.skills_text.trim().length >= 24 || topKeywords.length >= 4;
   const documentsCount = input.documentsCount ?? (input.primary_cv ? 1 : 0);
@@ -266,8 +311,10 @@ export function getCandidateCvAnalysis(
   const strengths: string[] = [];
   const watchouts: string[] = [];
 
-  if (hasTarget) {
+  if (hasExplicitTarget) {
     strengths.push("Cible metier deja visible dans le titre ou les postes renseignes.");
+  } else if (hasTarget) {
+    strengths.push(`Cible metier detectee dans le CV : ${inferredTarget}.`);
   } else {
     watchouts.push("Le poste vise n'est pas encore assez clair.");
   }
@@ -351,11 +398,7 @@ export function getCandidateCvAnalysis(
   const signals: CandidateCvSignal[] = [
     {
       label: "Cible",
-      value:
-        input.desired_position.trim() ||
-        input.headline.trim() ||
-        input.current_position.trim() ||
-        "A preciser"
+      value: inferredTarget || "A preciser"
     },
     {
       label: "Competences detectees",

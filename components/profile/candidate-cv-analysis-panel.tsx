@@ -24,7 +24,7 @@ export function CandidateCvAnalysisPanel({
         </div>
       </div>
 
-      <div className="candidate-documents-summary-grid">
+      <div className="candidate-cv-analysis-grid">
         <article className="document-card">
           <strong>Niveau de lecture</strong>
           <p>{analysis.description}</p>
