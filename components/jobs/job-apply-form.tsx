@@ -15,9 +15,21 @@ type JobApplyFormProps = {
   jobId: string;
   jobSlug: string;
   primaryCvName?: string | null;
+  matchLabel?: string | null;
+  matchReason?: string | null;
+  profileReadinessLabel?: string | null;
+  profileReadinessDescription?: string | null;
 };
 
-export function JobApplyForm({ jobId, jobSlug, primaryCvName = null }: JobApplyFormProps) {
+export function JobApplyForm({
+  jobId,
+  jobSlug,
+  primaryCvName = null,
+  matchLabel = null,
+  matchReason = null,
+  profileReadinessLabel = null,
+  profileReadinessDescription = null
+}: JobApplyFormProps) {
   const formRef = useRef<HTMLFormElement>(null);
   const router = useRouter();
   const [state, formAction] = useActionState(applyToJobAction, initialState);
@@ -42,6 +54,7 @@ export function JobApplyForm({ jobId, jobSlug, primaryCvName = null }: JobApplyF
           <p className="eyebrow">Candidature native</p>
           <h2>Postuler depuis la plateforme</h2>
         </div>
+        {matchLabel ? <span className="tag">{matchLabel}</span> : null}
       </div>
 
       <p className="form-caption">
@@ -49,6 +62,26 @@ export function JobApplyForm({ jobId, jobSlug, primaryCvName = null }: JobApplyF
           ? `Votre CV principal actuel (${primaryCvName}) sera rattache automatiquement a cette candidature.`
           : "Vous pouvez candidater maintenant, puis ajouter votre CV principal depuis votre espace candidat pour les prochains envois."}
       </p>
+
+      {matchReason || profileReadinessLabel ? (
+        <div className="form-grid">
+          {matchReason ? (
+            <div className="document-card">
+              <strong>Signal de compatibilite</strong>
+              <p>{matchReason}</p>
+            </div>
+          ) : null}
+          {profileReadinessLabel ? (
+            <div className="document-card">
+              <strong>{profileReadinessLabel}</strong>
+              <p>
+                {profileReadinessDescription ??
+                  "Votre profil candidat peut encore etre renforce pour soutenir vos prochaines candidatures."}
+              </p>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       <label className="field">
         <span>Message de candidature</span>

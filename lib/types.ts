@@ -86,14 +86,19 @@ export type Job = {
   id: string;
   title: string;
   slug: string;
+  department?: string;
   location: string;
   contract_type: string;
   work_mode: string;
   sector: string;
   summary: string;
+  responsibilities?: string;
+  requirements?: string;
+  benefits?: string;
   status: "draft" | "published" | "closed" | "archived";
   is_featured: boolean;
   published_at: string | null;
+  closing_at?: string | null;
   organization_name?: string;
 };
 

@@ -1429,6 +1429,12 @@ code {
   gap: 12px;
 }
 
+.candidate-job-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
 .candidate-documents-board {
   margin-top: 4px;
 }
@@ -1944,6 +1950,10 @@ code {
   }
 
   .candidate-jobs-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .candidate-job-detail-grid {
     grid-template-columns: 1fr;
   }
 

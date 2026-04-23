@@ -250,14 +250,20 @@ function mapJobRecord(record: Record<string, unknown>): Job {
     id: String(record.id),
     title: String(record.title ?? ""),
     slug: String(record.slug ?? ""),
+    department: typeof record.department === "string" ? record.department : "",
     location: String(record.location ?? ""),
     contract_type: String(record.contract_type ?? ""),
     work_mode: String(record.work_mode ?? ""),
     sector: String(record.sector ?? ""),
     summary: String(record.summary ?? ""),
+    responsibilities:
+      typeof record.responsibilities === "string" ? record.responsibilities : "",
+    requirements: typeof record.requirements === "string" ? record.requirements : "",
+    benefits: typeof record.benefits === "string" ? record.benefits : "",
     status: (record.status as Job["status"]) ?? "draft",
     is_featured: Boolean(record.is_featured),
     published_at: (record.published_at as string | null) ?? null,
+    closing_at: typeof record.closing_at === "string" ? record.closing_at : null,
     organization_name:
       typeof record.organization_name === "string"
         ? record.organization_name
@@ -530,7 +536,9 @@ export async function getPublicJobs(options: PublicJobsOptions = {}) {
   const supabase = createAdminClient() ?? (await createClient());
   let query = supabase
     .from("job_posts")
-    .select("id, title, slug, location, contract_type, work_mode, sector, summary, status, is_featured, published_at, created_at")
+    .select(
+      "id, title, slug, department, location, contract_type, work_mode, sector, summary, responsibilities, requirements, benefits, status, is_featured, published_at, closing_at, created_at"
+    )
     .eq("status", "published");
 
   if (sort === "recent") {
@@ -566,7 +574,9 @@ export async function getPublicJobBySlug(slug: string) {
   const supabase = createAdminClient() ?? (await createClient());
   const { data, error } = await supabase
     .from("job_posts")
-    .select("id, title, slug, location, contract_type, work_mode, sector, summary, status, is_featured, published_at, created_at")
+    .select(
+      "id, title, slug, department, location, contract_type, work_mode, sector, summary, responsibilities, requirements, benefits, status, is_featured, published_at, closing_at, created_at"
+    )
     .eq("slug", slug)
     .eq("status", "published")
     .maybeSingle();
@@ -592,7 +602,9 @@ export async function getPublishedJobById(jobId: string) {
   const supabase = createAdminClient() ?? (await createClient());
   const { data, error } = await supabase
     .from("job_posts")
-    .select("id, title, slug, location, contract_type, work_mode, sector, summary, status, is_featured, published_at, created_at")
+    .select(
+      "id, title, slug, department, location, contract_type, work_mode, sector, summary, responsibilities, requirements, benefits, status, is_featured, published_at, closing_at, created_at"
+    )
     .eq("id", jobId)
     .eq("status", "published")
     .maybeSingle();
