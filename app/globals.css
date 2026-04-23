@@ -1266,6 +1266,74 @@ code {
   min-height: 0;
 }
 
+.candidate-application-stage-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.candidate-application-stage {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(22, 49, 74, 0.08);
+  background: rgba(247, 250, 252, 0.92);
+}
+
+.candidate-application-stage small,
+.candidate-journey-card__type {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.candidate-application-stage strong {
+  font-size: 1rem;
+}
+
+.candidate-application-stage p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.candidate-application-stage--done {
+  border-color: rgba(178, 210, 33, 0.18);
+  background: rgba(246, 251, 238, 0.96);
+}
+
+.candidate-application-stage--current {
+  border-color: rgba(77, 142, 197, 0.18);
+  background: rgba(241, 247, 253, 0.96);
+  box-shadow: 0 14px 34px rgba(77, 142, 197, 0.08);
+}
+
+.candidate-application-guidance-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.candidate-application-guidance-grid .document-card {
+  gap: 12px;
+}
+
+.candidate-journey-card {
+  gap: 14px;
+}
+
+.candidate-journey-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
 .notification-card.is-unread {
   border-color: rgba(178, 210, 33, 0.28);
   background: rgba(255, 255, 255, 0.98);
@@ -1786,6 +1854,8 @@ code {
     grid-template-columns: 1fr;
   }
 
+  .candidate-application-stage-strip,
+  .candidate-application-guidance-grid,
   .interviews-board,
   .interviews-board__stats,
   .application-interviews__stats {
