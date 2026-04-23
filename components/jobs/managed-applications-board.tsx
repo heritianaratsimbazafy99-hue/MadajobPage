@@ -15,6 +15,7 @@ import {
   bulkMoveApplicationsStatusAction,
   moveApplicationStatusAction
 } from "@/app/actions/application-actions";
+import { DashboardEmptyState } from "@/components/dashboard/empty-state";
 import {
   applicationStatusOptions,
   getApplicationStatusMeta,
@@ -874,10 +875,31 @@ export function ManagedApplicationsBoard({
         )
       ) : (
         <section className="jobs-results">
-          <article className="panel jobs-empty">
-            <h2>Aucun dossier ne correspond a ces filtres</h2>
-            <p>Elargissez les filtres ou repassez sur toute la pile pour retrouver les candidatures a traiter.</p>
-          </article>
+          <DashboardEmptyState
+            title="Aucun dossier ne correspond a ces filtres"
+            description="Repassez sur toute la pile ou basculez vers les entretiens pour retrouver les candidatures a traiter."
+            actions={
+              <>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setFilters(initialFilters)}
+                >
+                  Reinitialiser les filtres
+                </button>
+                <Link
+                  className="btn btn-ghost"
+                  href={
+                    basePath === "/app/admin/candidatures"
+                      ? "/app/admin/entretiens"
+                      : "/app/recruteur/entretiens"
+                  }
+                >
+                  Ouvrir les entretiens
+                </Link>
+              </>
+            }
+          />
         </section>
       )}
     </div>

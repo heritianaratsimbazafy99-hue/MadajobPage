@@ -8,6 +8,7 @@ import {
   markAllNotificationsReadAction,
   markNotificationReadAction
 } from "@/app/actions/notification-actions";
+import { DashboardEmptyState } from "@/components/dashboard/empty-state";
 import { formatDisplayDate } from "@/lib/format";
 import {
   getNotificationActionLabel,
@@ -396,10 +397,19 @@ export function NotificationsBoard({ notifications }: NotificationsBoardProps) {
             );
           })
         ) : (
-          <article className="panel jobs-empty">
-            <h2>Aucune notification pour le moment</h2>
-            <p>Les evenements importants de votre espace apparaitront ici automatiquement.</p>
-          </article>
+          <DashboardEmptyState
+            title="Aucune notification pour le moment"
+            description="Les evenements importants de votre espace apparaitront ici automatiquement. Vous pouvez repartir d'une vue plus large si besoin."
+            actions={
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setFilters(initialFilters)}
+              >
+                Reinitialiser les filtres
+              </button>
+            }
+          />
         )}
       </section>
     </div>

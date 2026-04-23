@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "react";
 
 import { quickUpdateJobStatusAction } from "@/app/actions/job-actions";
+import { DashboardEmptyState } from "@/components/dashboard/empty-state";
 import { formatDisplayDate } from "@/lib/format";
 import {
   getManagedJobPriorityMeta,
@@ -485,10 +486,27 @@ export function ManagedJobsBoard({ jobs, basePath }: ManagedJobsBoardProps) {
             );
           })
         ) : (
-          <article className="panel jobs-empty">
-            <h2>Aucune offre ne correspond a ces filtres</h2>
-            <p>Ajustez votre recherche pour retrouver une annonce existante.</p>
-          </article>
+          <DashboardEmptyState
+            title="Aucune offre ne correspond a ces filtres"
+            description="Repartez d'une vue plus large pour retrouver vos annonces ou relire les signaux de diffusion."
+            actions={
+              <>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setFilters(initialFilters)}
+                >
+                  Reinitialiser les filtres
+                </button>
+                <Link
+                  className="btn btn-ghost"
+                  href={isAdminView ? "/app/admin/reporting" : "/app/recruteur/reporting"}
+                >
+                  Ouvrir le reporting
+                </Link>
+              </>
+            }
+          />
         )}
       </section>
     </div>

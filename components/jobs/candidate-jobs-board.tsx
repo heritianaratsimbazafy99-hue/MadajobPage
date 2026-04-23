@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useDeferredValue, useMemo, useState } from "react";
 
+import { DashboardEmptyState } from "@/components/dashboard/empty-state";
 import {
   getApplicationStatusMeta,
   isFinalApplicationStatus
@@ -534,10 +535,24 @@ export function CandidateJobsBoard({ opportunities }: CandidateJobsBoardProps) {
             );
           })
         ) : (
-          <article className="panel jobs-empty">
-            <h2>Aucune offre ne correspond a ces filtres</h2>
-            <p>Elargissez votre recherche ou reinitialisez les criteres pour retrouver plus d'opportunites.</p>
-          </article>
+          <DashboardEmptyState
+            title="Aucune offre ne correspond a ces filtres"
+            description="Relancez une recherche plus large ou revenez a vos candidatures actives pour garder le rythme."
+            actions={
+              <>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setFilters(initialFilters)}
+                >
+                  Reinitialiser les filtres
+                </button>
+                <Link className="btn btn-ghost" href="/app/candidat/candidatures">
+                  Ouvrir mes candidatures
+                </Link>
+              </>
+            }
+          />
         )}
       </section>
     </div>

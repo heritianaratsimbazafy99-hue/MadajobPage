@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useDeferredValue, useMemo, useState } from "react";
 
+import { DashboardEmptyState } from "@/components/dashboard/empty-state";
 import { getApplicationStatusMeta } from "@/lib/application-status";
 import { formatDisplayDate } from "@/lib/format";
 import {
@@ -653,10 +654,27 @@ export function ManagedCandidatesBoard({
             );
           })
         ) : (
-          <article className="panel jobs-empty">
-            <h2>Aucun profil ne correspond a ces filtres</h2>
-            <p>Affinez la recherche pour retrouver un candidat ou vider les filtres.</p>
-          </article>
+          <DashboardEmptyState
+            title="Aucun profil ne correspond a ces filtres"
+            description="Repartez d'une vue plus large ou ouvrez la shortlist pour retrouver les profils deja engages."
+            actions={
+              <>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setFilters(initialFilters)}
+                >
+                  Reinitialiser les filtres
+                </button>
+                <Link
+                  className="btn btn-ghost"
+                  href={basePath === "/app/admin/candidats" ? "/app/admin/shortlist" : "/app/recruteur/shortlist"}
+                >
+                  Ouvrir la shortlist
+                </Link>
+              </>
+            }
+          />
         )}
       </section>
     </div>
