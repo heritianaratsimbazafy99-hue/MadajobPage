@@ -1515,6 +1515,12 @@ code {
   min-height: 100%;
 }
 
+.interviews-board__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
 .application-interviews {
   display: grid;
   gap: 18px;
@@ -1781,6 +1787,7 @@ code {
   }
 
   .interviews-board,
+  .interviews-board__stats,
   .application-interviews__stats {
     grid-template-columns: 1fr;
   }

@@ -10,6 +10,7 @@ import {
   getInterviewNextActionLabel,
   getInterviewProposedDecisionMeta,
   getInterviewRecommendationMeta,
+  getSuggestedApplicationStatusFromInterviewDecision,
   getInterviewStatusMeta,
   interviewFormatOptions
 } from "@/lib/interviews";
@@ -26,7 +27,15 @@ type Filters = {
   status: "" | "scheduled" | "completed" | "cancelled";
   format: "" | "phone" | "video" | "onsite" | "other";
   jobId: string;
-  sort: "soonest" | "recent" | "candidate";
+  signalFocus:
+    | ""
+    | "today"
+    | "overdue"
+    | "feedback_missing"
+    | "decision_ready"
+    | "favorable_feedback"
+    | "watchout_feedback";
+  sort: "priority_desc" | "soonest" | "recent" | "candidate";
 };
 
 const initialFilters: Filters = {
@@ -34,7 +43,8 @@ const initialFilters: Filters = {
   status: "",
   format: "",
   jobId: "",
-  sort: "soonest"
+  signalFocus: "",
+  sort: "priority_desc"
 };
 
 function getApplicationStatusTone(status: string) {
@@ -50,6 +60,93 @@ function getApplicationStatusTone(status: string) {
     default:
       return "muted";
   }
+}
+
+function isToday(value: string) {
+  const date = new Date(value);
+  const now = new Date();
+
+  return (
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate()
+  );
+}
+
+function isOverdueScheduledInterview(interview: InterviewScheduleItem) {
+  return interview.status === "scheduled" && new Date(interview.starts_at).getTime() < Date.now();
+}
+
+function isFeedbackMissing(interview: InterviewScheduleItem) {
+  return interview.status === "completed" && !interview.feedback;
+}
+
+function hasFavorableFeedback(interview: InterviewScheduleItem) {
+  const recommendation = interview.feedback?.recommendation;
+  return recommendation === "strong_yes" || recommendation === "yes";
+}
+
+function hasWatchoutFeedback(interview: InterviewScheduleItem) {
+  const recommendation = interview.feedback?.recommendation;
+  return recommendation === "mixed" || recommendation === "no";
+}
+
+function getSuggestedStatus(interview: InterviewScheduleItem) {
+  if (!interview.feedback) {
+    return null;
+  }
+
+  return getSuggestedApplicationStatusFromInterviewDecision(
+    interview.feedback.proposed_decision,
+    interview.feedback.next_action
+  );
+}
+
+function isDecisionReady(interview: InterviewScheduleItem) {
+  const suggestedStatus = getSuggestedStatus(interview);
+  return Boolean(interview.feedback && suggestedStatus && suggestedStatus !== interview.application_status);
+}
+
+function getInterviewPriorityScore(interview: InterviewScheduleItem) {
+  let score = 0;
+
+  if (isFeedbackMissing(interview)) {
+    score += 320;
+  }
+
+  if (isOverdueScheduledInterview(interview)) {
+    score += 280;
+  }
+
+  if (isDecisionReady(interview)) {
+    score += 240;
+  }
+
+  if (interview.status === "scheduled" && isToday(interview.starts_at)) {
+    score += 200;
+  }
+
+  if (hasFavorableFeedback(interview)) {
+    score += 140;
+  }
+
+  if (hasWatchoutFeedback(interview)) {
+    score += 120;
+  }
+
+  if (interview.feedback?.proposed_decision === "hire") {
+    score += 100;
+  }
+
+  if (interview.feedback?.proposed_decision === "reject") {
+    score += 80;
+  }
+
+  if (interview.status === "scheduled") {
+    score += 40;
+  }
+
+  return score;
 }
 
 export function InterviewsBoard({ interviews, jobs, role }: InterviewsBoardProps) {
@@ -82,7 +179,10 @@ export function InterviewsBoard({ interviews, jobs, role }: InterviewsBoardProps
             interview.job_title,
             interview.organization_name ?? "",
             interview.interviewer_name,
-            interview.location ?? ""
+            interview.location ?? "",
+            interview.feedback?.summary ?? "",
+            interview.feedback?.strengths ?? "",
+            interview.feedback?.concerns ?? ""
           ]
             .filter(Boolean)
             .some((value) => String(value).toLowerCase().includes(query));
@@ -90,10 +190,27 @@ export function InterviewsBoard({ interviews, jobs, role }: InterviewsBoardProps
         const matchesStatus = !filters.status || interview.status === filters.status;
         const matchesFormat = !filters.format || interview.format === filters.format;
         const matchesJob = !filters.jobId || interview.job_id === filters.jobId;
+        const matchesSignalFocus =
+          !filters.signalFocus ||
+          (filters.signalFocus === "today" && isToday(interview.starts_at)) ||
+          (filters.signalFocus === "overdue" && isOverdueScheduledInterview(interview)) ||
+          (filters.signalFocus === "feedback_missing" && isFeedbackMissing(interview)) ||
+          (filters.signalFocus === "decision_ready" && isDecisionReady(interview)) ||
+          (filters.signalFocus === "favorable_feedback" && hasFavorableFeedback(interview)) ||
+          (filters.signalFocus === "watchout_feedback" && hasWatchoutFeedback(interview));
 
-        return matchesQuery && matchesStatus && matchesFormat && matchesJob;
+        return matchesQuery && matchesStatus && matchesFormat && matchesJob && matchesSignalFocus;
       })
       .sort((left, right) => {
+        if (filters.sort === "priority_desc") {
+          const leftScore = getInterviewPriorityScore(left);
+          const rightScore = getInterviewPriorityScore(right);
+
+          if (leftScore !== rightScore) {
+            return rightScore - leftScore;
+          }
+        }
+
         if (filters.sort === "candidate") {
           const comparison = left.candidate_name.localeCompare(right.candidate_name, "fr");
           if (comparison !== 0) {
@@ -108,9 +225,62 @@ export function InterviewsBoard({ interviews, jobs, role }: InterviewsBoardProps
           filters.sort === "recent" ? right.created_at : right.starts_at
         ).getTime();
 
+        if (filters.sort === "recent") {
+          return rightTime - leftTime;
+        }
+
         return leftTime - rightTime;
       });
-  }, [deferredQuery, filters.format, filters.jobId, filters.sort, filters.status, interviews]);
+  }, [
+    deferredQuery,
+    filters.format,
+    filters.jobId,
+    filters.signalFocus,
+    filters.sort,
+    filters.status,
+    interviews
+  ]);
+
+  const signalStats = useMemo(() => {
+    let overdue = 0;
+    let feedbackMissing = 0;
+    let decisionReady = 0;
+    let favorable = 0;
+
+    for (const interview of filteredInterviews) {
+      if (isOverdueScheduledInterview(interview)) {
+        overdue += 1;
+      }
+
+      if (isFeedbackMissing(interview)) {
+        feedbackMissing += 1;
+      }
+
+      if (isDecisionReady(interview)) {
+        decisionReady += 1;
+      }
+
+      if (hasFavorableFeedback(interview)) {
+        favorable += 1;
+      }
+    }
+
+    return {
+      overdue,
+      feedbackMissing,
+      decisionReady,
+      favorable
+    };
+  }, [filteredInterviews]);
+
+  const activeFilterCount = [
+    filters.query,
+    filters.status,
+    filters.format,
+    filters.jobId,
+    filters.signalFocus,
+    filters.sort !== "priority_desc" ? filters.sort : ""
+  ].filter(Boolean).length;
 
   const statusColumns = useMemo(
     () => [
@@ -218,6 +388,27 @@ export function InterviewsBoard({ interviews, jobs, role }: InterviewsBoardProps
           </label>
 
           <label className="field">
+            <span>Signal</span>
+            <select
+              value={filters.signalFocus}
+              onChange={(event) =>
+                setFilters((previous) => ({
+                  ...previous,
+                  signalFocus: event.target.value as Filters["signalFocus"]
+                }))
+              }
+            >
+              <option value="">Tous</option>
+              <option value="today">Entretiens du jour</option>
+              <option value="overdue">Entretiens en retard</option>
+              <option value="feedback_missing">Feedbacks manquants</option>
+              <option value="decision_ready">Decisions a appliquer</option>
+              <option value="favorable_feedback">Feedbacks favorables</option>
+              <option value="watchout_feedback">Feedbacks reserves</option>
+            </select>
+          </label>
+
+          <label className="field">
             <span>Tri</span>
             <select
               value={filters.sort}
@@ -228,12 +419,38 @@ export function InterviewsBoard({ interviews, jobs, role }: InterviewsBoardProps
                 }))
               }
             >
+              <option value="priority_desc">Priorite d'action</option>
               <option value="soonest">Plus proches</option>
               <option value="recent">Plus recents</option>
               <option value="candidate">Nom candidat</option>
             </select>
           </label>
         </div>
+
+        <div className="interviews-board__stats">
+          <article className="document-card">
+            <strong>{signalStats.feedbackMissing}</strong>
+            <p>feedback(s) manquant(s)</p>
+          </article>
+          <article className="document-card">
+            <strong>{signalStats.decisionReady}</strong>
+            <p>decision(s) a appliquer</p>
+          </article>
+          <article className="document-card">
+            <strong>{signalStats.overdue}</strong>
+            <p>entretien(s) en retard</p>
+          </article>
+          <article className="document-card">
+            <strong>{signalStats.favorable}</strong>
+            <p>feedback(s) favorable(s)</p>
+          </article>
+        </div>
+
+        <p className="jobs-board__hint">
+          {activeFilterCount > 0
+            ? `${activeFilterCount} filtre(s) actif(s) pour concentrer les rendez-vous critiques.`
+            : "Le module met en avant les feedbacks manquants, les decisions a appliquer et les entretiens du jour."}
+        </p>
       </section>
 
       <section className="interviews-board">
@@ -258,6 +475,13 @@ export function InterviewsBoard({ interviews, jobs, role }: InterviewsBoardProps
                   const proposedDecisionMeta = interview.feedback
                     ? getInterviewProposedDecisionMeta(interview.feedback.proposed_decision)
                     : null;
+                  const suggestedStatus = getSuggestedStatus(interview);
+                  const suggestedStatusMeta = suggestedStatus
+                    ? getApplicationStatusMeta(suggestedStatus)
+                    : null;
+                  const showDecisionLink = Boolean(
+                    interview.feedback && suggestedStatus && suggestedStatus !== interview.application_status
+                  );
 
                   return (
                     <article key={interview.id} className="panel list-card dashboard-card">
@@ -281,6 +505,21 @@ export function InterviewsBoard({ interviews, jobs, role }: InterviewsBoardProps
                       <p>{interview.interviewer_name}</p>
                       {interview.location ? <p className="form-caption">Lieu : {interview.location}</p> : null}
 
+                      <div className="dashboard-card__badges">
+                        {isFeedbackMissing(interview) ? (
+                          <span className="tag tag--danger">Feedback manquant</span>
+                        ) : null}
+                        {isOverdueScheduledInterview(interview) ? (
+                          <span className="tag tag--danger">En retard</span>
+                        ) : null}
+                        {showDecisionLink ? (
+                          <span className="tag tag--warning">Decision a appliquer</span>
+                        ) : null}
+                        {isToday(interview.starts_at) ? (
+                          <span className="tag tag--info">Aujourd'hui</span>
+                        ) : null}
+                      </div>
+
                       {interview.feedback ? (
                         <div className="interview-feedback-preview">
                           <div className="dashboard-card__top">
@@ -297,6 +536,11 @@ export function InterviewsBoard({ interviews, jobs, role }: InterviewsBoardProps
                             <span>{interview.feedback.author_name}</span>
                             <span>Maj {formatDateTimeDisplay(interview.feedback.updated_at)}</span>
                           </div>
+                          {suggestedStatusMeta ? (
+                            <p className="form-caption">
+                              Statut suggere apres entretien : {suggestedStatusMeta.label}
+                            </p>
+                          ) : null}
                         </div>
                       ) : interview.status === "completed" ? (
                         <p className="form-caption">Compte-rendu encore manquant pour cet entretien termine.</p>
@@ -307,6 +551,11 @@ export function InterviewsBoard({ interviews, jobs, role }: InterviewsBoardProps
                         <Link href={`${applicationsBasePath}/${interview.application_id}#interview-${interview.id}`}>
                           {interview.feedback ? "Voir le feedback" : "Saisir le feedback"}
                         </Link>
+                        {showDecisionLink ? (
+                          <Link href={`${applicationsBasePath}/${interview.application_id}#decision-post-entretien`}>
+                            Appliquer la decision
+                          </Link>
+                        ) : null}
                         {interview.job_id ? (
                           <Link href={`${jobsBasePath}/${interview.job_id}`}>Ouvrir l'offre</Link>
                         ) : null}

@@ -306,7 +306,7 @@ export function ApplicationDetailWorkspace({
             currentStatus={application.status}
           />
 
-          <div className="dashboard-form">
+          <div id="decision-post-entretien" className="dashboard-form">
             <div className="dashboard-form__head">
               <div>
                 <p className="eyebrow">Decision post-entretien</p>

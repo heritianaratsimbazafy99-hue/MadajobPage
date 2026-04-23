@@ -1,5 +1,8 @@
 import { DashboardShell } from "@/components/dashboard/shell";
 import { InterviewsBoard } from "@/components/interviews/interviews-board";
+import {
+  getSuggestedApplicationStatusFromInterviewDecision
+} from "@/lib/interviews";
 import type { InterviewScheduleItem, ManagedJob, Profile } from "@/lib/types";
 
 type InterviewsWorkspaceProps = {
@@ -19,7 +22,6 @@ export function InterviewsWorkspace({
   title,
   description
 }: InterviewsWorkspaceProps) {
-  const now = Date.now();
   const scheduled = interviews.filter((interview) => interview.status === "scheduled");
   const today = scheduled.filter((interview) => {
     const date = new Date(interview.starts_at);
@@ -31,8 +33,25 @@ export function InterviewsWorkspace({
       date.getDate() === currentDate.getDate()
     );
   });
-  const upcoming = scheduled.filter((interview) => new Date(interview.starts_at).getTime() >= now);
-  const cancelled = interviews.filter((interview) => interview.status === "cancelled");
+  const feedbackMissing = interviews.filter(
+    (interview) => interview.status === "completed" && !interview.feedback
+  );
+  const decisionReady = interviews.filter((interview) => {
+    if (!interview.feedback) {
+      return false;
+    }
+
+    return (
+      getSuggestedApplicationStatusFromInterviewDecision(
+        interview.feedback.proposed_decision,
+        interview.feedback.next_action
+      ) !== interview.application_status
+    );
+  });
+  const favorable = interviews.filter((interview) => {
+    const recommendation = interview.feedback?.recommendation;
+    return recommendation === "strong_yes" || recommendation === "yes";
+  });
 
   return (
     <DashboardShell
@@ -53,14 +72,14 @@ export function InterviewsWorkspace({
           <small>rendez-vous a suivre dans la journee</small>
         </article>
         <article className="panel metric-panel">
-          <span>A venir</span>
-          <strong>{upcoming.length}</strong>
-          <small>entretiens encore ouverts ou planifies</small>
+          <span>Feedbacks a saisir</span>
+          <strong>{feedbackMissing.length}</strong>
+          <small>entretiens termines encore sans compte-rendu</small>
         </article>
         <article className="panel metric-panel">
-          <span>Annules</span>
-          <strong>{cancelled.length}</strong>
-          <small>elements a reprogrammer ou a clarifier</small>
+          <span>Decisions a appliquer</span>
+          <strong>{decisionReady.length}</strong>
+          <small>{favorable.length} feedback(s) favorable(s) deja identifies</small>
         </article>
       </section>
 
