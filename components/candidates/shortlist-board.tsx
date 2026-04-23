@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useDeferredValue, useMemo, useState } from "react";
 
+import { MatchBreakdown } from "@/components/jobs/match-breakdown";
 import { getApplicationStatusMeta } from "@/lib/application-status";
 import { formatDateTimeDisplay, formatDisplayDate } from "@/lib/format";
 import {
@@ -195,7 +196,9 @@ export function ShortlistBoard({
             candidate?.desired_position ?? "",
             candidate?.skills_text ?? "",
             application.job_title,
-            job?.organization_name ?? ""
+            job?.organization_name ?? "",
+            match?.breakdown.map((item) => item.value).join(" ") ?? "",
+            match?.nextStep ?? ""
           ]
             .filter(Boolean)
             .some((value) => String(value).toLowerCase().includes(query));
@@ -537,7 +540,10 @@ export function ShortlistBoard({
 
                         <p>{profile?.headline || profile?.desired_position || "Profil candidat Madajob"}</p>
                         {match ? (
-                          <p className="match-caption">{match.reason}</p>
+                          <>
+                            <p className="match-caption">{match.reason}</p>
+                            <MatchBreakdown match={match} compact />
+                          </>
                         ) : (
                           <p className="match-caption">
                             Matching indisponible tant que le profil ou l&apos;offre n&apos;est pas assez renseigne.

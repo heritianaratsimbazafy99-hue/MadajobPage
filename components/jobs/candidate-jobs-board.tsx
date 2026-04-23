@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useDeferredValue, useMemo, useState } from "react";
 
 import { DashboardEmptyState } from "@/components/dashboard/empty-state";
+import { MatchBreakdown } from "@/components/jobs/match-breakdown";
 import {
   getApplicationStatusMeta,
   isFinalApplicationStatus
@@ -84,7 +85,9 @@ export function CandidateJobsBoard({ opportunities }: CandidateJobsBoardProps) {
           job.work_mode,
           job.sector,
           match.reason,
-          match.matchedKeywords.join(" ")
+          match.matchedKeywords.join(" "),
+          match.breakdown.map((item) => item.value).join(" "),
+          match.nextStep
         ]
           .filter(Boolean)
           .some((value) => value.toLowerCase().includes(query));
@@ -501,11 +504,14 @@ export function CandidateJobsBoard({ opportunities }: CandidateJobsBoardProps) {
                         ? `Candidature envoyee le ${formatDisplayDate(application.created_at)}.`
                         : match.reason}
                   </p>
+                  {!application && match.hasSignal ? (
+                    <MatchBreakdown match={match} compact />
+                  ) : null}
                   <small>
                     {application
                       ? applicationStatus?.candidateHint
                       : match.hasSignal
-                        ? `Compatibilite estimee a ${match.score}%.`
+                        ? match.nextStep
                         : "Completez votre profil pour ameliorer le matching."}
                   </small>
                 </div>

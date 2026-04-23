@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useDeferredValue, useMemo, useState } from "react";
 
 import { DashboardEmptyState } from "@/components/dashboard/empty-state";
+import { MatchBreakdown } from "@/components/jobs/match-breakdown";
 import { getApplicationStatusMeta } from "@/lib/application-status";
 import { formatDisplayDate } from "@/lib/format";
 import {
@@ -252,7 +253,9 @@ export function ManagedCandidatesBoard({
             candidate.latest_job_title,
             matchContext?.job?.title ?? "",
             priorityMeta.label,
-            priorityMeta.description
+            priorityMeta.description,
+            matchContext?.match.breakdown.map((item) => item.value).join(" ") ?? "",
+            matchContext?.match.nextStep ?? ""
           ]
             .filter(Boolean)
             .some((value) => String(value).toLowerCase().includes(query));
@@ -633,9 +636,12 @@ export function ManagedCandidatesBoard({
                 <div className="application-signal-card">
                   <strong>{signalCopy.title}</strong>
                   <p>{signalCopy.body}</p>
+                  {showMatch && matchContext ? (
+                    <MatchBreakdown match={matchContext.match} compact />
+                  ) : null}
                   <small>
                     {showMatch && matchContext
-                      ? `${matchContext.match.reason} ${selectedJob ? "Offre cible selectionnee" : "Meilleure offre detectee"}: ${matchContext.job?.title || matchTitle}.`
+                      ? `${matchContext.match.nextStep} ${selectedJob ? "Offre cible selectionnee" : "Meilleure offre detectee"}: ${matchContext.job?.title || matchTitle}.`
                       : selectedJob && matchContext
                         ? matchContext.match.reason
                         : priorityMeta.description}

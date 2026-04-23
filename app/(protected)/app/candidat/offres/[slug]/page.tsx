@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { DashboardShell } from "@/components/dashboard/shell";
 import { JobApplyForm } from "@/components/jobs/job-apply-form";
+import { MatchBreakdown } from "@/components/jobs/match-breakdown";
 import { getApplicationStatusMeta } from "@/lib/application-status";
 import { requireRole } from "@/lib/auth";
 import { getCandidateProfileInsights } from "@/lib/candidate-profile";
@@ -154,11 +155,11 @@ export default async function CandidateJobDetailPage({
                   {currentOpportunity?.match.reason ??
                     "Completez votre profil pour obtenir une lecture plus fiable de l'alignement avec ce poste."}
                 </p>
-                <small>
-                  {currentOpportunity?.match.matchedKeywords.length
-                    ? `Mots clefs detectes : ${currentOpportunity.match.matchedKeywords.join(", ")}.`
-                    : "Aucun mot clef fort detecte pour le moment."}
-                </small>
+                {currentOpportunity?.match ? (
+                  <MatchBreakdown match={currentOpportunity.match} compact showNextStep />
+                ) : (
+                  <small>Aucun mot clef fort detecte pour le moment.</small>
+                )}
               </article>
 
               <article className="document-card candidate-jobs-summary-card">
@@ -264,6 +265,7 @@ export default async function CandidateJobDetailPage({
                       <span className={`tag tag--${entry.match.tone}`}>{entry.match.label}</span>
                     </div>
                     <p>{entry.match.reason}</p>
+                    <MatchBreakdown match={entry.match} compact />
                     <div className="job-card__meta">
                       <span>{entry.job.location}</span>
                       <span>{entry.job.contract_type}</span>

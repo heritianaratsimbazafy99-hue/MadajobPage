@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { getApplicationStatusMeta } from "@/lib/application-status";
+import { MatchBreakdown } from "@/components/jobs/match-breakdown";
 import { DashboardShell } from "@/components/dashboard/shell";
 import { formatDateTimeDisplay, formatDisplayDate, formatFileSize } from "@/lib/format";
 import {
@@ -322,6 +323,7 @@ export function CandidateDetailWorkspace({
                       </div>
                     </div>
                     <p>{match.reason}</p>
+                    <MatchBreakdown match={match} compact />
                     <div className="job-card__meta">
                       <span>{job.location}</span>
                       <span>{job.contract_type}</span>
@@ -329,7 +331,7 @@ export function CandidateDetailWorkspace({
                       <span>{job.sector}</span>
                     </div>
                     <div className="job-card__footer">
-                      <small>{match.matchedKeywords.join(", ") || "Matching actif"}</small>
+                      <small>{match.nextStep}</small>
                       <Link href={`${offersBasePath}/${job.id}`}>Ouvrir l'offre</Link>
                     </div>
                   </article>

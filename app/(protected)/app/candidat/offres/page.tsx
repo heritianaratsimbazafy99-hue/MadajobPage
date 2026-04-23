@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { DashboardShell } from "@/components/dashboard/shell";
 import { CandidateJobsBoard } from "@/components/jobs/candidate-jobs-board";
+import { MatchBreakdown } from "@/components/jobs/match-breakdown";
 import { getApplicationStatusMeta } from "@/lib/application-status";
 import {
   buildCandidateJobOpportunities,
@@ -80,11 +81,11 @@ export default async function CandidateJobsPage() {
                 ? topAvailable.match.reason
                 : "De nouvelles offres apparaitront ici automatiquement des qu'elles seront publiees."}
             </p>
-            <small>
-              {topAvailable
-                ? `${topAvailable.job.location} · ${topAvailable.job.contract_type} · ${topAvailable.job.work_mode}`
-                : "Continuez a completer votre profil pour renforcer le matching."}
-            </small>
+            {topAvailable ? (
+              <MatchBreakdown match={topAvailable.match} compact showNextStep />
+            ) : (
+              <small>Continuez a completer votre profil pour renforcer le matching.</small>
+            )}
             <div className="notification-card__actions">
               {topAvailable ? (
                 <Link href={`/app/candidat/offres/${topAvailable.job.slug}`}>Voir l'offre</Link>

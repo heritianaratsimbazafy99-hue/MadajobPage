@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { DashboardInterviewSignalCard } from "@/components/dashboard/interview-signal-card";
+import { MatchBreakdown } from "@/components/jobs/match-breakdown";
 import { DashboardShell } from "@/components/dashboard/shell";
 import { JobEditForm } from "@/components/jobs/job-edit-form";
 import { JobHistoryPanel } from "@/components/jobs/job-history-panel";
@@ -252,13 +253,14 @@ export function JobManagementWorkspace({
                       </div>
                     </div>
                     <p>{match.reason}</p>
+                    <MatchBreakdown match={match} compact />
                     <div className="job-card__meta">
                       <span>{candidate.city || "Ville non renseignee"}</span>
                       <span>{candidate.profile_completion}% profil</span>
                       <span>{candidate.has_primary_cv ? "CV principal" : "Sans CV principal"}</span>
                     </div>
                     <div className="job-card__footer">
-                      <small>{match.matchedKeywords.join(", ") || "Matching actif"}</small>
+                      <small>{match.nextStep}</small>
                       <Link href={`${candidatesBasePath}/${candidate.id}`}>Ouvrir le profil</Link>
                     </div>
                   </article>
