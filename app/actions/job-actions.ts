@@ -39,6 +39,59 @@ async function getJobMutationClient() {
   return createAdminClient() ?? (await createClient());
 }
 
+async function getAdminJobOrganizationId(requestedOrganizationId: string, fallbackOrganizationId: string | null) {
+  const supabase = await getJobMutationClient();
+
+  if (requestedOrganizationId) {
+    const { data } = await supabase
+      .from("organizations")
+      .select("id")
+      .eq("id", requestedOrganizationId)
+      .eq("is_active", true)
+      .maybeSingle();
+
+    if (data?.id) {
+      return String(data.id);
+    }
+  }
+
+  if (fallbackOrganizationId) {
+    return fallbackOrganizationId;
+  }
+
+  const { data: madajobOrganization } = await supabase
+    .from("organizations")
+    .select("id")
+    .eq("slug", "madajob")
+    .maybeSingle();
+
+  if (madajobOrganization?.id) {
+    return String(madajobOrganization.id);
+  }
+
+  const adminClient = createAdminClient();
+
+  if (!adminClient) {
+    return null;
+  }
+
+  const { data: createdOrganization } = await adminClient
+    .from("organizations")
+    .upsert(
+      {
+        name: "Madajob",
+        slug: "madajob",
+        kind: "internal",
+        is_active: true
+      },
+      { onConflict: "slug" }
+    )
+    .select("id")
+    .single();
+
+  return createdOrganization?.id ? String(createdOrganization.id) : null;
+}
+
 function slugify(value: string) {
   return value
     .normalize("NFD")
@@ -220,10 +273,19 @@ export async function createJobAction(
 ): Promise<JobActionState> {
   const profile = await requireRole(["recruteur", "admin"]);
 
-  if (!profile.organization_id) {
+  const requestedOrganizationId = getTrimmedValue(formData, "organization_id");
+  const organizationId =
+    profile.role === "admin"
+      ? await getAdminJobOrganizationId(requestedOrganizationId, profile.organization_id)
+      : profile.organization_id;
+
+  if (!organizationId) {
     return {
       status: "error",
-      message: "Aucune organisation n'est rattachee a ce compte. Verifie le profil Supabase avant de creer une offre."
+      message:
+        profile.role === "admin"
+          ? "Aucune organisation active n'est disponible pour publier cette offre admin."
+          : "Aucune organisation n'est rattachee a ce compte. Verifie le profil Supabase avant de creer une offre."
     };
   }
 
@@ -252,7 +314,7 @@ export async function createJobAction(
   const supabase = await getJobMutationClient();
 
   const { error } = await supabase.from("job_posts").insert({
-    organization_id: profile.organization_id,
+    organization_id: organizationId,
     created_by: profile.id,
     title,
     slug,
@@ -296,7 +358,7 @@ export async function createJobAction(
       title,
       status,
       is_featured: isFeatured,
-      organization_id: profile.organization_id
+      organization_id: organizationId
     });
     revalidateJobViews(slug, String(createdJob.id));
   }

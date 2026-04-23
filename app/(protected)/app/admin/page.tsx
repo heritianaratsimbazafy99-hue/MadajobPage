@@ -5,6 +5,7 @@ import {
   getAdminAuditEvents,
   getAdminSnapshot,
   getAdminUsers,
+  getAdminOrganizations,
   getManagedCandidates,
   getManagedJobs,
   getManagedOrganizations
@@ -21,6 +22,7 @@ export default async function AdminDashboardPage() {
     candidates,
     users,
     organizations,
+    organizationOptions,
     emails,
     notifications,
     auditEvents
@@ -31,6 +33,7 @@ export default async function AdminDashboardPage() {
     getManagedCandidates(profile, { limit: 200 }),
     getAdminUsers(),
     getManagedOrganizations(),
+    getAdminOrganizations(),
     getTransactionalEmails({ limit: 80 }),
     getNotifications(profile.id, { limit: 40 }),
     getAdminAuditEvents({ limit: 18 })
@@ -45,6 +48,7 @@ export default async function AdminDashboardPage() {
       candidates={candidates}
       users={users}
       organizations={organizations}
+      organizationOptions={organizationOptions}
       emails={emails}
       notifications={notifications}
       auditEvents={auditEvents}

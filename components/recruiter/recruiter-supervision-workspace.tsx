@@ -218,7 +218,7 @@ export function RecruiterSupervisionWorkspace({
         </article>
       </section>
 
-      <section className="dashboard-workspace">
+      <section className="dashboard-workspace dashboard-workspace--overview">
         <div className="dashboard-column">
           <div className="dashboard-section">
             <div className="dashboard-section__head">

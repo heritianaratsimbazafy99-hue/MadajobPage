@@ -466,7 +466,12 @@ export function ManagedJobsBoard({ jobs, basePath }: ManagedJobsBoardProps) {
                   <small>
                     Publiee le {formatDisplayDate(job.published_at)}{job.department ? ` · ${job.department}` : ""}
                   </small>
-                  <Link href={`${basePath}/${job.id}`}>Gerer l'offre</Link>
+                  <div className="notification-card__actions">
+                    {job.status === "published" ? (
+                      <Link href={`/carrieres/${job.slug}`}>Voir sur carriere</Link>
+                    ) : null}
+                    <Link href={`${basePath}/${job.id}`}>Gerer l'offre</Link>
+                  </div>
                 </div>
 
                 <div className="job-quick-actions">

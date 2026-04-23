@@ -1085,6 +1085,30 @@ code {
   margin-top: 26px;
 }
 
+.dashboard-workspace--overview {
+  grid-template-columns: 1fr;
+}
+
+.dashboard-workspace--overview .dashboard-column--aside {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.dashboard-workspace--overview .dashboard-column--aside > .job-create-form,
+.dashboard-workspace--overview .dashboard-column--aside > .dashboard-form {
+  min-height: 100%;
+}
+
+.dashboard-workspace--overview .dashboard-column--aside > .job-create-form {
+  grid-column: 1 / -1;
+}
+
+.dashboard-workspace--overview .dashboard-column--aside .dashboard-action-stack {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
 .dashboard-column {
   min-width: 0;
 }
@@ -1561,6 +1585,23 @@ code {
   gap: 14px;
 }
 
+.admin-jobs-command-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  gap: 18px;
+  align-items: start;
+  margin-top: 18px;
+}
+
+.admin-jobs-command-grid .job-create-form {
+  position: sticky;
+  top: 18px;
+}
+
+.managed-jobs-summary-grid--compact {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .managed-jobs-summary-card {
   display: grid;
   gap: 12px;
@@ -1682,6 +1723,117 @@ code {
 
 .jobs-result-card__head small {
   color: var(--muted);
+}
+
+.career-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(300px, 0.55fr);
+  gap: 28px;
+  align-items: end;
+  min-height: 420px;
+  padding: 56px 0 28px;
+}
+
+.career-hero__copy {
+  max-width: 780px;
+}
+
+.career-hero h1 {
+  margin: 14px 0 18px;
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(2.8rem, 7vw, 5.4rem);
+  line-height: 0.92;
+}
+
+.career-hero p {
+  max-width: 62ch;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.career-hero__panel {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.career-hero__panel article {
+  display: grid;
+  gap: 6px;
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: var(--shadow);
+}
+
+.career-hero__panel strong {
+  font-family: var(--font-display), sans-serif;
+  font-size: 2rem;
+}
+
+.career-hero__panel span {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.career-section {
+  padding-top: 36px;
+}
+
+.career-board {
+  display: grid;
+  gap: 18px;
+}
+
+.career-filter-panel {
+  display: grid;
+  gap: 16px;
+  padding: 22px;
+}
+
+.career-filter-panel__head,
+.career-filter-panel__actions,
+.career-job-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.career-filter-panel__head h2 {
+  margin: 8px 0 0;
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(1.35rem, 2.6vw, 2rem);
+}
+
+.career-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.career-results-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.career-job-card {
+  display: grid;
+  gap: 14px;
+}
+
+.career-job-card h2 {
+  margin: 0;
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(1.35rem, 2.5vw, 1.9rem);
+  line-height: 1.05;
+}
+
+.career-job-card p {
+  color: var(--muted);
+  line-height: 1.65;
 }
 
 .pipeline-board {
@@ -2050,6 +2202,20 @@ code {
     grid-template-columns: 1fr;
   }
 
+  .admin-jobs-command-grid,
+  .career-hero,
+  .career-results-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .career-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-jobs-command-grid .job-create-form {
+    position: static;
+  }
+
   .reporting-grid {
     grid-template-columns: 1fr;
   }
@@ -2182,6 +2348,19 @@ code {
 
   .candidate-documents-summary-grid {
     grid-template-columns: 1fr;
+  }
+
+  .career-filter-grid,
+  .career-hero__panel,
+  .managed-jobs-summary-grid--compact {
+    grid-template-columns: 1fr;
+  }
+
+  .career-filter-panel__head,
+  .career-filter-panel__actions,
+  .career-job-card__head {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .candidate-cv-analysis-grid {

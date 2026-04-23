@@ -21,6 +21,7 @@ import type {
   ManagedCandidateSummary,
   ManagedJob,
   ManagedOrganizationSummary,
+  OrganizationOption,
   ManagedUserSummary,
   Profile,
   RecruiterApplication,
@@ -45,6 +46,7 @@ type AdminSupervisionWorkspaceProps = {
   candidates: ManagedCandidateSummary[];
   users: ManagedUserSummary[];
   organizations: ManagedOrganizationSummary[];
+  organizationOptions: OrganizationOption[];
   emails: TransactionalEmail[];
   notifications: AppNotification[];
   auditEvents: AdminAuditEvent[];
@@ -161,6 +163,7 @@ export function AdminSupervisionWorkspace({
   candidates,
   users,
   organizations,
+  organizationOptions,
   emails,
   notifications,
   auditEvents
@@ -219,7 +222,7 @@ export function AdminSupervisionWorkspace({
         </article>
       </section>
 
-      <section className="dashboard-workspace">
+      <section className="dashboard-workspace dashboard-workspace--overview">
         <div className="dashboard-column">
           <div className="dashboard-section">
             <div className="dashboard-section__head">
@@ -398,7 +401,11 @@ export function AdminSupervisionWorkspace({
         </div>
 
         <aside className="dashboard-column dashboard-column--aside">
-          <JobCreateForm roleLabel="Admin" />
+          <JobCreateForm
+            roleLabel="Admin"
+            organizationOptions={organizationOptions}
+            defaultOrganizationId={profile.organization_id}
+          />
 
           <div className="dashboard-form">
             <div className="dashboard-form__head">

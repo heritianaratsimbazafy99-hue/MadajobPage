@@ -1,17 +1,24 @@
 import Link from "next/link";
 
 import { DashboardShell } from "@/components/dashboard/shell";
+import { JobCreateForm } from "@/components/jobs/job-create-form";
 import { ManagedJobsBoard } from "@/components/jobs/managed-jobs-board";
 import { summarizeManagedJobs } from "@/lib/managed-job-insights";
 import { requireRole } from "@/lib/auth";
 import { formatDisplayDate } from "@/lib/format";
-import { getManagedJobs } from "@/lib/jobs";
+import { getAdminOrganizations, getManagedJobs } from "@/lib/jobs";
 
 export default async function AdminJobsPage() {
   const profile = await requireRole(["admin"]);
-  const jobs = await getManagedJobs(profile);
+  const [jobs, organizationOptions] = await Promise.all([
+    getManagedJobs(profile),
+    getAdminOrganizations()
+  ]);
   const summary = summarizeManagedJobs(jobs);
   const topPriorityJob = summary.topPriorityJob;
+  const madajobPublishedCount = jobs.filter(
+    (job) => job.status === "published" && (job.organization_name ?? "").toLowerCase() === "madajob"
+  ).length;
 
   return (
     <DashboardShell
@@ -37,60 +44,67 @@ export default async function AdminJobsPage() {
           <small>{summary.withoutApplicationsCount} sans candidature</small>
         </article>
         <article className="panel metric-panel">
-          <span>Mises en avant</span>
-          <strong>{summary.featuredCount}</strong>
-          <small>{summary.closingSoonCount} cloture(s) proche(s)</small>
+          <span>Diffusion Madajob</span>
+          <strong>{madajobPublishedCount}</strong>
+          <small>{summary.featuredCount} mise(s) en avant, {summary.closingSoonCount} cloture(s) proche(s)</small>
         </article>
       </section>
 
-      <section className="dashboard-form">
-        <div className="dashboard-form__head">
-          <div>
-            <p className="eyebrow">Centre d'action</p>
-            <h2>Ou arbitrer la diffusion maintenant</h2>
-          </div>
-          <span className="tag">{summary.activePipelineCount} pipeline(s) actif(s)</span>
-        </div>
+      <section className="admin-jobs-command-grid">
+        <JobCreateForm
+          roleLabel="Admin"
+          organizationOptions={organizationOptions}
+          defaultOrganizationId={profile.organization_id}
+        />
 
-        <div className="managed-jobs-summary-grid">
-          <article className="document-card managed-jobs-summary-card">
-            <strong>Offre prioritaire</strong>
-            <p>{topPriorityJob?.title ?? "Aucune offre prioritaire pour le moment"}</p>
-            <small>
-              {topPriorityJob
-                ? `Derniere mise a jour le ${formatDisplayDate(topPriorityJob.updated_at)}.`
-                : "Le cockpit admin remontera ici l'annonce qui demande un arbitrage rapide."}
-            </small>
-            <div className="notification-card__actions">
-              {topPriorityJob ? (
-                <Link href={`/app/admin/offres/${topPriorityJob.id}`}>Ouvrir l'offre prioritaire</Link>
-              ) : null}
+        <div className="dashboard-section">
+          <section className="dashboard-form">
+            <div className="dashboard-form__head">
+              <div>
+                <p className="eyebrow">Centre d'action</p>
+                <h2>Ou arbitrer la diffusion maintenant</h2>
+              </div>
+              <span className="tag">{summary.activePipelineCount} pipeline(s) actif(s)</span>
             </div>
-          </article>
 
-          <article className="document-card managed-jobs-summary-card">
-            <strong>Diffusion a relancer</strong>
-            <p>
-              {summary.withoutApplicationsCount} annonce(s) publiee(s) n'ont pas encore converti en
-              candidatures.
-            </p>
-            <small>
-              Utilisez le focus `Publiees sans candidatures` pour isoler vite les annonces a revoir,
-              republier ou requalifier.
-            </small>
-          </article>
+            <div className="managed-jobs-summary-grid managed-jobs-summary-grid--compact">
+              <article className="document-card managed-jobs-summary-card">
+                <strong>Offre prioritaire</strong>
+                <p>{topPriorityJob?.title ?? "Aucune offre prioritaire pour le moment"}</p>
+                <small>
+                  {topPriorityJob
+                    ? `Derniere mise a jour le ${formatDisplayDate(topPriorityJob.updated_at)}.`
+                    : "Le cockpit admin remontera ici l'annonce qui demande un arbitrage rapide."}
+                </small>
+                <div className="notification-card__actions">
+                  {topPriorityJob ? (
+                    <Link href={`/app/admin/offres/${topPriorityJob.id}`}>Ouvrir l'offre prioritaire</Link>
+                  ) : null}
+                </div>
+              </article>
 
-          <article className="document-card managed-jobs-summary-card">
-            <strong>Moderation a arbitrer</strong>
-            <p>
-              {summary.draftCount} brouillon(s) et {summary.closingSoonCount} cloture(s) proche(s)
-              demandent une decision plus rapide.
-            </p>
-            <small>
-              La fiche detaillee offre ensuite le pilotage fin du contenu, du statut et du pipeline
-              rattache.
-            </small>
-          </article>
+              <article className="document-card managed-jobs-summary-card">
+                <strong>Diffusion publique</strong>
+                <p>{madajobPublishedCount} offre(s) Madajob publiee(s) visibles sur la page carriere.</p>
+                <small>Les offres au statut publie alimentent automatiquement la vitrine institutionnelle.</small>
+                <div className="notification-card__actions">
+                  <Link href="/carrieres">Voir la page carriere</Link>
+                </div>
+              </article>
+
+              <article className="document-card managed-jobs-summary-card">
+                <strong>Diffusion a relancer</strong>
+                <p>{summary.withoutApplicationsCount} annonce(s) publiee(s) sans candidature.</p>
+                <small>Isolez-les avec le focus `Publiees sans candidatures` pour revoir le contenu ou la mise en avant.</small>
+              </article>
+
+              <article className="document-card managed-jobs-summary-card">
+                <strong>Moderation a arbitrer</strong>
+                <p>{summary.draftCount} brouillon(s) et {summary.closingSoonCount} cloture(s) proche(s).</p>
+                <small>La fiche detaillee pilote ensuite contenu, statut, diffusion et pipeline rattache.</small>
+              </article>
+            </div>
+          </section>
         </div>
       </section>
 

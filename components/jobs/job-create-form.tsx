@@ -11,6 +11,7 @@ import {
   JOB_SECTOR_OPTIONS,
   JOB_WORK_MODE_OPTIONS
 } from "@/lib/job-options";
+import type { OrganizationOption } from "@/lib/types";
 
 const initialState: JobActionState = {
   status: "idle",
@@ -19,11 +20,23 @@ const initialState: JobActionState = {
 
 type JobCreateFormProps = {
   roleLabel: string;
+  organizationOptions?: OrganizationOption[];
+  defaultOrganizationId?: string | null;
 };
 
-export function JobCreateForm({ roleLabel }: JobCreateFormProps) {
+export function JobCreateForm({
+  roleLabel,
+  organizationOptions = [],
+  defaultOrganizationId = null
+}: JobCreateFormProps) {
   const formRef = useRef<HTMLFormElement>(null);
   const [state, formAction] = useActionState(createJobAction, initialState);
+  const activeOrganizations = organizationOptions.filter((organization) => organization.is_active);
+  const defaultSelectedOrganizationId =
+    defaultOrganizationId ||
+    activeOrganizations.find((organization) => organization.slug === "madajob")?.id ||
+    activeOrganizations[0]?.id ||
+    "";
 
   useEffect(() => {
     if (state.status === "success") {
@@ -32,7 +45,7 @@ export function JobCreateForm({ roleLabel }: JobCreateFormProps) {
   }, [state.status]);
 
   return (
-    <form ref={formRef} action={formAction} className="dashboard-form">
+    <form ref={formRef} action={formAction} className="dashboard-form job-create-form">
       <div className="dashboard-form__head">
         <div>
           <p className="eyebrow">Creation d'offre</p>
@@ -42,6 +55,20 @@ export function JobCreateForm({ roleLabel }: JobCreateFormProps) {
       </div>
 
       <div className="form-grid">
+        {activeOrganizations.length > 0 ? (
+          <label className="field field--full">
+            <span>Organisation de publication</span>
+            <select name="organization_id" defaultValue={defaultSelectedOrganizationId} required>
+              {activeOrganizations.map((organization) => (
+                <option key={organization.id} value={organization.id}>
+                  {organization.name}
+                  {organization.kind === "internal" ? " - Madajob" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+
         <label className="field">
           <span>Titre du poste</span>
           <input name="title" placeholder="Ex. Responsable commercial B2B" required />
@@ -155,7 +182,7 @@ export function JobCreateForm({ roleLabel }: JobCreateFormProps) {
 
       <label className="checkbox-field">
         <input type="checkbox" name="is_featured" />
-        <span>Mettre cette offre en avant sur le site carriere</span>
+        <span>Mettre cette offre en avant sur le site carriere institutionnel</span>
       </label>
 
       {state.message ? (
