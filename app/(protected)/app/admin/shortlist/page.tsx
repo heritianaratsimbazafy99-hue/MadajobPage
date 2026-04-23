@@ -18,15 +18,16 @@ export default async function AdminShortlistPage() {
   const shortlistApplications = applications.filter((application) =>
     ["shortlist", "interview", "hired"].includes(application.status)
   );
-  const shortlistCount = shortlistApplications.filter(
-    (application) => application.status === "shortlist"
+  const upcomingInterviewCount = shortlistApplications.filter(
+    (application) => Boolean(application.interview_signal.next_interview_at)
   ).length;
-  const interviewCount = shortlistApplications.filter(
-    (application) => application.status === "interview"
+  const pendingFeedbackCount = shortlistApplications.filter(
+    (application) => application.interview_signal.pending_feedback
   ).length;
-  const hiredCount = shortlistApplications.filter(
-    (application) => application.status === "hired"
-  ).length;
+  const favorableFeedbackCount = shortlistApplications.filter((application) => {
+    const recommendation = application.interview_signal.latest_feedback?.recommendation;
+    return recommendation === "strong_yes" || recommendation === "yes";
+  }).length;
 
   return (
     <DashboardShell
@@ -42,19 +43,19 @@ export default async function AdminShortlistPage() {
           <small>shortlist, entretiens et profils retenus</small>
         </article>
         <article className="panel metric-panel">
-          <span>Shortlist</span>
-          <strong>{shortlistCount}</strong>
-          <small>profils a arbitrer cote plateforme</small>
+          <span>Entretiens a venir</span>
+          <strong>{upcomingInterviewCount}</strong>
+          <small>dossiers a coordonner rapidement</small>
         </article>
         <article className="panel metric-panel">
-          <span>Entretiens</span>
-          <strong>{interviewCount}</strong>
-          <small>dossiers en phase de coordination</small>
+          <span>Feedbacks a saisir</span>
+          <strong>{pendingFeedbackCount}</strong>
+          <small>comptes-rendus encore attendus</small>
         </article>
         <article className="panel metric-panel">
-          <span>Retenus</span>
-          <strong>{hiredCount}</strong>
-          <small>profils finalises sur la plateforme</small>
+          <span>Feedbacks favorables</span>
+          <strong>{favorableFeedbackCount}</strong>
+          <small>recommandations positives deja journalisees</small>
         </article>
       </section>
 

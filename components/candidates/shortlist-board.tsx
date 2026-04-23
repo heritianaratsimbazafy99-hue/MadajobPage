@@ -4,7 +4,13 @@ import Link from "next/link";
 import { useDeferredValue, useMemo, useState } from "react";
 
 import { getApplicationStatusMeta } from "@/lib/application-status";
-import { formatDisplayDate } from "@/lib/format";
+import { formatDateTimeDisplay, formatDisplayDate } from "@/lib/format";
+import {
+  getInterviewNextActionLabel,
+  getInterviewProposedDecisionMeta,
+  getInterviewRecommendationMeta,
+  getInterviewStatusMeta
+} from "@/lib/interviews";
 import {
   getCandidateJobMatch,
   type JobMatchResult,
@@ -24,7 +30,14 @@ type Filters = {
   query: string;
   jobId: string;
   matchMode: "" | "with_signal" | "good" | "strong";
-  sort: "updated_desc" | "match_desc" | "completion_desc" | "name_asc";
+  signalFocus:
+    | ""
+    | "upcoming_interview"
+    | "feedback_ready"
+    | "feedback_missing"
+    | "favorable_feedback"
+    | "watchout_feedback";
+  sort: "priority_desc" | "updated_desc" | "match_desc" | "completion_desc" | "name_asc";
   withCvOnly: boolean;
 };
 
@@ -41,7 +54,8 @@ const initialFilters: Filters = {
   query: "",
   jobId: "",
   matchMode: "",
-  sort: "match_desc",
+  signalFocus: "",
+  sort: "priority_desc",
   withCvOnly: false
 };
 
@@ -58,6 +72,56 @@ function buildMatchingProfile(candidate: ManagedCandidateSummary): MatchingCandi
 
 function getJobOptionLabel(job: MatchableJob) {
   return [job.title, job.location, job.organization_name].filter(Boolean).join(" · ");
+}
+
+function hasFavorableFeedback(application: RecruiterApplication) {
+  const recommendation = application.interview_signal.latest_feedback?.recommendation;
+  return recommendation === "strong_yes" || recommendation === "yes";
+}
+
+function hasWatchoutFeedback(application: RecruiterApplication) {
+  const recommendation = application.interview_signal.latest_feedback?.recommendation;
+  return recommendation === "mixed" || recommendation === "no";
+}
+
+function getShortlistPriorityScore(row: ShortlistRow) {
+  let score = row.match?.score ?? 0;
+
+  if (row.application.interview_signal.pending_feedback) {
+    score += 220;
+  }
+
+  if (row.application.interview_signal.next_interview_at) {
+    score += 140;
+  }
+
+  const latestFeedback = row.application.interview_signal.latest_feedback;
+
+  if (latestFeedback?.proposed_decision === "hire") {
+    score += 110;
+  }
+
+  if (latestFeedback?.proposed_decision === "advance") {
+    score += 90;
+  }
+
+  if (latestFeedback?.recommendation === "strong_yes") {
+    score += 80;
+  }
+
+  if (latestFeedback?.recommendation === "yes") {
+    score += 60;
+  }
+
+  if (latestFeedback?.recommendation === "mixed") {
+    score += 20;
+  }
+
+  if (latestFeedback?.recommendation === "no") {
+    score -= 30;
+  }
+
+  return score;
 }
 
 export function ShortlistBoard({
@@ -143,14 +207,35 @@ export function ShortlistBoard({
           (filters.matchMode === "with_signal" && Boolean(match?.hasSignal)) ||
           (filters.matchMode === "good" && Boolean(match?.hasSignal && match.score >= 60)) ||
           (filters.matchMode === "strong" && Boolean(match?.hasSignal && match.score >= 78));
+        const matchesSignalFocus =
+          !filters.signalFocus ||
+          (filters.signalFocus === "upcoming_interview" &&
+            Boolean(application.interview_signal.next_interview_at)) ||
+          (filters.signalFocus === "feedback_ready" &&
+            Boolean(application.interview_signal.latest_feedback)) ||
+          (filters.signalFocus === "feedback_missing" &&
+            application.interview_signal.pending_feedback) ||
+          (filters.signalFocus === "favorable_feedback" &&
+            hasFavorableFeedback(application)) ||
+          (filters.signalFocus === "watchout_feedback" &&
+            hasWatchoutFeedback(application));
 
-        return matchesQuery && matchesJob && matchesCv && matchesMatchMode;
+        return matchesQuery && matchesJob && matchesCv && matchesMatchMode && matchesSignalFocus;
       })
       .sort((left, right) => {
         const leftUpdatedAt = left.application.updated_at ?? left.application.created_at;
         const rightUpdatedAt = right.application.updated_at ?? right.application.created_at;
         const leftTime = new Date(leftUpdatedAt).getTime();
         const rightTime = new Date(rightUpdatedAt).getTime();
+
+        if (filters.sort === "priority_desc") {
+          const leftScore = getShortlistPriorityScore(left);
+          const rightScore = getShortlistPriorityScore(right);
+
+          if (leftScore !== rightScore) {
+            return rightScore - leftScore;
+          }
+        }
 
         if (filters.sort === "match_desc") {
           const leftScore = left.match?.score ?? 0;
@@ -187,6 +272,7 @@ export function ShortlistBoard({
     deferredQuery,
     filters.jobId,
     filters.matchMode,
+    filters.signalFocus,
     filters.sort,
     filters.withCvOnly,
     shortlistRows
@@ -196,32 +282,46 @@ export function ShortlistBoard({
     filters.query,
     filters.jobId,
     filters.matchMode,
+    filters.signalFocus,
     filters.withCvOnly ? "cv" : "",
-    filters.sort !== "match_desc" ? filters.sort : ""
+    filters.sort !== "priority_desc" ? filters.sort : ""
   ].filter(Boolean).length;
 
   const stats = useMemo(() => {
     let withSignal = 0;
     let good = 0;
     let strong = 0;
+    let upcoming = 0;
+    let pendingFeedback = 0;
+    let favorable = 0;
 
     for (const row of filteredRows) {
-      if (!row.match?.hasSignal) {
-        continue;
+      if (row.match?.hasSignal) {
+        withSignal += 1;
       }
 
-      withSignal += 1;
-
-      if ((row.match.score ?? 0) >= 60) {
+      if ((row.match?.score ?? 0) >= 60) {
         good += 1;
       }
 
-      if ((row.match.score ?? 0) >= 78) {
+      if ((row.match?.score ?? 0) >= 78) {
         strong += 1;
+      }
+
+      if (row.application.interview_signal.next_interview_at) {
+        upcoming += 1;
+      }
+
+      if (row.application.interview_signal.pending_feedback) {
+        pendingFeedback += 1;
+      }
+
+      if (hasFavorableFeedback(row.application)) {
+        favorable += 1;
       }
     }
 
-    return { withSignal, good, strong };
+    return { withSignal, good, strong, upcoming, pendingFeedback, favorable };
   }, [filteredRows]);
 
   const columns = useMemo(
@@ -240,7 +340,7 @@ export function ShortlistBoard({
         <div className="dashboard-form__head">
           <div>
             <p className="eyebrow">Shortlist recrutement</p>
-            <h2>Travaillez les meilleurs dossiers sans repasser par toute la pile</h2>
+            <h2>Priorisez les dossiers avances avec le niveau de signal metier, entretien et feedback</h2>
           </div>
           <span className="tag">{filteredRows.length} dossier(s)</span>
         </div>
@@ -299,6 +399,26 @@ export function ShortlistBoard({
           </label>
 
           <label className="field">
+            <span>Signal entretien</span>
+            <select
+              value={filters.signalFocus}
+              onChange={(event) =>
+                setFilters((previous) => ({
+                  ...previous,
+                  signalFocus: event.target.value as Filters["signalFocus"]
+                }))
+              }
+            >
+              <option value="">Tous les signaux</option>
+              <option value="upcoming_interview">Entretien a venir</option>
+              <option value="feedback_ready">Feedback deja saisi</option>
+              <option value="feedback_missing">Feedback a saisir</option>
+              <option value="favorable_feedback">Feedback favorable</option>
+              <option value="watchout_feedback">Feedback avec reserves</option>
+            </select>
+          </label>
+
+          <label className="field">
             <span>Tri</span>
             <select
               value={filters.sort}
@@ -309,6 +429,7 @@ export function ShortlistBoard({
                 }))
               }
             >
+              <option value="priority_desc">Priorite shortlist</option>
               <option value="match_desc">Compatibilite sur le dossier</option>
               <option value="updated_desc">Dernier mouvement</option>
               <option value="completion_desc">Profil le plus complet</option>
@@ -334,7 +455,9 @@ export function ShortlistBoard({
         <div className="jobs-board__actions">
           <div className="dashboard-card__badges">
             <span className="tag tag--muted">{stats.withSignal} dossier(s) matchables</span>
-            <span className="tag tag--info">{stats.good} bon(s) match(s)</span>
+            <span className="tag tag--info">{stats.upcoming} entretien(s) a venir</span>
+            <span className="tag tag--danger">{stats.pendingFeedback} feedback(s) a saisir</span>
+            <span className="tag tag--success">{stats.favorable} feedback(s) favorables</span>
             <span className="tag tag--success">{stats.strong} fort(s) match(s)</span>
           </div>
 
@@ -350,7 +473,7 @@ export function ShortlistBoard({
         </div>
 
         <p className="form-caption">
-          Chaque score de match est calcule sur l&apos;offre du dossier pour aider a prioriser la shortlist, pas sur la meilleure offre globale du candidat.
+          La priorisation croise le matching, les rendez-vous a venir, les feedbacks saisis et les comptes-rendus encore attendus.
         </p>
       </section>
 
@@ -374,6 +497,17 @@ export function ShortlistBoard({
                     const profile = row.candidate;
                     const job = row.job;
                     const match = row.match;
+                    const interviewSignal = row.application.interview_signal;
+                    const latestFeedback = interviewSignal.latest_feedback;
+                    const recommendation = latestFeedback
+                      ? getInterviewRecommendationMeta(latestFeedback.recommendation)
+                      : null;
+                    const proposedDecision = latestFeedback
+                      ? getInterviewProposedDecisionMeta(latestFeedback.proposed_decision)
+                      : null;
+                    const latestInterviewStatus = interviewSignal.latest_interview_status
+                      ? getInterviewStatusMeta(interviewSignal.latest_interview_status)
+                      : null;
 
                     return (
                       <article key={row.application.id} className="document-card pipeline-card">
@@ -383,6 +517,9 @@ export function ShortlistBoard({
                             <p>{row.application.job_title}</p>
                           </div>
                           <div className="dashboard-card__badges">
+                            {recommendation ? (
+                              <span className={`tag tag--${recommendation.tone}`}>{recommendation.label}</span>
+                            ) : null}
                             {match?.hasSignal ? (
                               <span className={`tag tag--${match.tone}`}>{match.label}</span>
                             ) : null}
@@ -407,9 +544,46 @@ export function ShortlistBoard({
                           </p>
                         )}
 
+                        <div className="shortlist-signal-card">
+                          <div className="document-meta">
+                            <span>{interviewSignal.interviews_count} entretien(s)</span>
+                            {latestInterviewStatus ? (
+                              <span>{latestInterviewStatus.label}</span>
+                            ) : (
+                              <span>Aucun entretien</span>
+                            )}
+                            {interviewSignal.next_interview_at ? (
+                              <span>Prochain le {formatDateTimeDisplay(interviewSignal.next_interview_at)}</span>
+                            ) : null}
+                          </div>
+
+                          {latestFeedback ? (
+                            <>
+                              <p>{latestFeedback.summary}</p>
+                              <small>
+                                {proposedDecision?.label ?? "Decision"} ·{" "}
+                                {getInterviewNextActionLabel(latestFeedback.next_action)}
+                              </small>
+                            </>
+                          ) : interviewSignal.pending_feedback ? (
+                            <p className="form-caption">
+                              Un entretien termine attend encore son compte-rendu structure.
+                            </p>
+                          ) : interviewSignal.next_interview_at ? (
+                            <p className="form-caption">
+                              Rendez-vous planifie : pensez a preparer le dossier et la prochaine decision.
+                            </p>
+                          ) : (
+                            <p className="form-caption">
+                              Aucun signal entretien structure sur ce dossier pour le moment.
+                            </p>
+                          )}
+                        </div>
+
                         <div className="job-card__footer">
                           <small>
-                            Dernier mouvement le {formatDisplayDate(row.application.updated_at ?? row.application.created_at)}
+                            Dernier mouvement le{" "}
+                            {formatDisplayDate(row.application.updated_at ?? row.application.created_at)}
                           </small>
                           <Link href={`${applicationsBasePath}/${row.application.id}`}>
                             Ouvrir le dossier

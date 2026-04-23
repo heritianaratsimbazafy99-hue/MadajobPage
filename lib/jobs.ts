@@ -33,7 +33,8 @@ import type {
   ManagedUserSummary,
   OrganizationOption,
   Profile,
-  RecruiterApplication
+  RecruiterApplication,
+  RecruiterApplicationInterviewSignal
 } from "@/lib/types";
 
 const fallbackJobs: Job[] = [
@@ -119,7 +120,7 @@ const fallbackApplications: CandidateApplication[] = [
 const fallbackRecruiterApplications: RecruiterApplication[] = [
   {
     id: "recruiter-app-1",
-    status: "screening",
+    status: "interview",
     created_at: "2026-04-18T12:30:00.000Z",
     updated_at: "2026-04-18T12:30:00.000Z",
     candidate_id: "candidate-1",
@@ -129,7 +130,31 @@ const fallbackRecruiterApplications: RecruiterApplication[] = [
     candidate_name: "Miora Randriam",
     candidate_email: "miora@example.com",
     job_title: "Commercial B2B grands comptes",
-    job_location: "Antananarivo"
+    job_location: "Antananarivo",
+    interview_signal: {
+      interviews_count: 1,
+      feedback_count: 1,
+      latest_interview_at: "2026-04-25T06:00:00.000Z",
+      latest_interview_status: "scheduled",
+      next_interview_at: "2026-04-25T06:00:00.000Z",
+      pending_feedback: false,
+      latest_feedback: {
+        id: "interview-feedback-1",
+        interview_id: "interview-1",
+        application_id: "recruiter-app-1",
+        summary:
+          "Echange fluide, bonne maitrise du cycle commercial B2B et capacite a structurer un pipe grands comptes.",
+        strengths: "Prospection structuree, ecoute active, exemples concrets de closing.",
+        concerns: "Besoin d'aligner davantage le discours sur les KPI de pilotage d'equipe.",
+        recommendation: "yes",
+        proposed_decision: "advance",
+        next_action: "schedule_next_interview",
+        author_name: "Admin Madajob",
+        author_email: "admin@madajob.com",
+        created_at: "2026-04-25T07:10:00.000Z",
+        updated_at: "2026-04-25T07:10:00.000Z"
+      }
+    }
   },
   {
     id: "recruiter-app-2",
@@ -143,7 +168,16 @@ const fallbackRecruiterApplications: RecruiterApplication[] = [
     candidate_name: "Hery Ranaivo",
     candidate_email: "hery@example.com",
     job_title: "Charge(e) relation candidat",
-    job_location: "Antananarivo"
+    job_location: "Antananarivo",
+    interview_signal: {
+      interviews_count: 0,
+      feedback_count: 0,
+      latest_interview_at: null,
+      latest_interview_status: null,
+      next_interview_at: null,
+      pending_feedback: false,
+      latest_feedback: null
+    }
   }
 ];
 
@@ -322,6 +356,76 @@ function mapApplicationInterviewRecord(
     updated_at: String(record.updated_at ?? ""),
     feedback: feedbackRecord ? mapApplicationInterviewFeedbackRecord(feedbackRecord) : null
   };
+}
+
+function createEmptyRecruiterApplicationInterviewSignal(): RecruiterApplicationInterviewSignal {
+  return {
+    interviews_count: 0,
+    feedback_count: 0,
+    latest_interview_at: null,
+    latest_interview_status: null,
+    next_interview_at: null,
+    pending_feedback: false,
+    latest_feedback: null
+  };
+}
+
+function buildRecruiterApplicationInterviewSignalMap(
+  interviewRows: Record<string, unknown>[]
+): Map<string, RecruiterApplicationInterviewSignal> {
+  const signalMap = new Map<string, RecruiterApplicationInterviewSignal>();
+  const now = Date.now();
+
+  for (const row of interviewRows) {
+    const interview = mapApplicationInterviewRecord(row);
+    const applicationId = interview.application_id;
+
+    if (!applicationId) {
+      continue;
+    }
+
+    const current = signalMap.get(applicationId) ?? createEmptyRecruiterApplicationInterviewSignal();
+    current.interviews_count += 1;
+
+    const interviewTime = interview.starts_at ? new Date(interview.starts_at).getTime() : 0;
+    const latestInterviewTime = current.latest_interview_at
+      ? new Date(current.latest_interview_at).getTime()
+      : 0;
+
+    if (!current.latest_interview_at || interviewTime >= latestInterviewTime) {
+      current.latest_interview_at = interview.starts_at || null;
+      current.latest_interview_status = interview.status;
+    }
+
+    if (interview.status === "scheduled" && interviewTime >= now) {
+      const nextInterviewTime = current.next_interview_at
+        ? new Date(current.next_interview_at).getTime()
+        : Number.POSITIVE_INFINITY;
+
+      if (!current.next_interview_at || interviewTime < nextInterviewTime) {
+        current.next_interview_at = interview.starts_at || null;
+      }
+    }
+
+    if (interview.feedback) {
+      current.feedback_count += 1;
+
+      const currentFeedbackTime = current.latest_feedback
+        ? new Date(current.latest_feedback.updated_at).getTime()
+        : 0;
+      const interviewFeedbackTime = new Date(interview.feedback.updated_at).getTime();
+
+      if (!current.latest_feedback || interviewFeedbackTime >= currentFeedbackTime) {
+        current.latest_feedback = interview.feedback;
+      }
+    } else if (interview.status === "completed") {
+      current.pending_feedback = true;
+    }
+
+    signalMap.set(applicationId, current);
+  }
+
+  return signalMap;
 }
 
 async function createSignedUrlForDocument(
@@ -2245,12 +2349,29 @@ export async function getRecruiterApplications(
     return [] as RecruiterApplication[];
   }
 
+  const applicationIds = data.map((item) => String(item.id ?? "")).filter(Boolean);
+  let interviewRows: Record<string, unknown>[] = [];
+
+  if (applicationIds.length) {
+    const { data: fetchedInterviewRows } = await supabase
+      .from("application_interviews")
+      .select(
+        "id, application_id, status, format, starts_at, ends_at, timezone, location, meeting_url, notes, interviewer_name, interviewer_email, created_at, updated_at, feedback:application_interview_feedback(id, interview_id, application_id, summary, strengths, concerns, recommendation, proposed_decision, next_action, created_at, updated_at, author:profiles!application_interview_feedback_author_id_fkey(full_name, email))"
+      )
+      .in("application_id", applicationIds);
+
+    interviewRows = (fetchedInterviewRows ?? []) as Record<string, unknown>[];
+  }
+
+  const interviewSignalMap = buildRecruiterApplicationInterviewSignalMap(interviewRows);
+
   return data.map((item: Record<string, unknown>) => {
     const candidate = (item.candidate as { full_name?: string | null; email?: string | null } | null) ?? null;
     const job = (item.job_posts as { title?: string | null; location?: string | null } | null) ?? null;
+    const applicationId = String(item.id);
 
     return {
-      id: String(item.id),
+      id: applicationId,
       status: String(item.status ?? "submitted"),
       created_at: String(item.created_at ?? ""),
       updated_at: typeof item.updated_at === "string" ? item.updated_at : null,
@@ -2261,7 +2382,9 @@ export async function getRecruiterApplications(
       candidate_name: candidate?.full_name || candidate?.email || "Candidat Madajob",
       candidate_email: candidate?.email || "email non renseigne",
       job_title: job?.title || "Offre Madajob",
-      job_location: job?.location || "Lieu a definir"
+      job_location: job?.location || "Lieu a definir",
+      interview_signal:
+        interviewSignalMap.get(applicationId) ?? createEmptyRecruiterApplicationInterviewSignal()
     } satisfies RecruiterApplication;
   });
 }
@@ -2301,12 +2424,29 @@ export async function getAdminApplications(options: { limit?: number } = {}) {
     return fallbackRecruiterApplications;
   }
 
+  const applicationIds = data.map((item) => String(item.id ?? "")).filter(Boolean);
+  let interviewRows: Record<string, unknown>[] = [];
+
+  if (applicationIds.length) {
+    const { data: fetchedInterviewRows } = await supabase
+      .from("application_interviews")
+      .select(
+        "id, application_id, status, format, starts_at, ends_at, timezone, location, meeting_url, notes, interviewer_name, interviewer_email, created_at, updated_at, feedback:application_interview_feedback(id, interview_id, application_id, summary, strengths, concerns, recommendation, proposed_decision, next_action, created_at, updated_at, author:profiles!application_interview_feedback_author_id_fkey(full_name, email))"
+      )
+      .in("application_id", applicationIds);
+
+    interviewRows = (fetchedInterviewRows ?? []) as Record<string, unknown>[];
+  }
+
+  const interviewSignalMap = buildRecruiterApplicationInterviewSignalMap(interviewRows);
+
   return data.map((item: Record<string, unknown>) => {
     const candidate = (item.candidate as { full_name?: string | null; email?: string | null } | null) ?? null;
     const job = (item.job_posts as { title?: string | null; location?: string | null } | null) ?? null;
+    const applicationId = String(item.id);
 
     return {
-      id: String(item.id),
+      id: applicationId,
       status: String(item.status ?? "submitted"),
       created_at: String(item.created_at ?? ""),
       updated_at: typeof item.updated_at === "string" ? item.updated_at : null,
@@ -2317,7 +2457,9 @@ export async function getAdminApplications(options: { limit?: number } = {}) {
       candidate_name: candidate?.full_name || candidate?.email || "Candidat Madajob",
       candidate_email: candidate?.email || "email non renseigne",
       job_title: job?.title || "Offre Madajob",
-      job_location: job?.location || "Lieu a definir"
+      job_location: job?.location || "Lieu a definir",
+      interview_signal:
+        interviewSignalMap.get(applicationId) ?? createEmptyRecruiterApplicationInterviewSignal()
     } satisfies RecruiterApplication;
   });
 }
@@ -2807,7 +2949,8 @@ export async function getAdminOrganizationDetail(organizationId: string) {
       candidate_name: candidate?.full_name || candidate?.email || "Candidat Madajob",
       candidate_email: candidate?.email || "email non renseigne",
       job_title: job?.title || "Offre Madajob",
-      job_location: job?.location || "Lieu a definir"
+      job_location: job?.location || "Lieu a definir",
+      interview_signal: createEmptyRecruiterApplicationInterviewSignal()
     } satisfies RecruiterApplication;
   });
 

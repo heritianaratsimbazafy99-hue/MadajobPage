@@ -1454,6 +1454,18 @@ code {
     background 160ms ease;
 }
 
+.shortlist-signal-card {
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(22, 49, 74, 0.12);
+}
+
+.shortlist-signal-card p,
+.shortlist-signal-card small {
+  margin: 0;
+}
+
 .pipeline-card:hover {
   border-color: rgba(20, 94, 76, 0.18);
   box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);

@@ -162,6 +162,17 @@ export type RecruiterApplication = {
   candidate_email: string;
   job_title: string;
   job_location: string;
+  interview_signal: RecruiterApplicationInterviewSignal;
+};
+
+export type RecruiterApplicationInterviewSignal = {
+  interviews_count: number;
+  feedback_count: number;
+  latest_interview_at: string | null;
+  latest_interview_status: InterviewStatus | null;
+  next_interview_at: string | null;
+  pending_feedback: boolean;
+  latest_feedback: ApplicationInterviewFeedback | null;
 };
 
 export type InternalApplicationNote = {
