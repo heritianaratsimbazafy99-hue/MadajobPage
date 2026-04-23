@@ -1,8 +1,14 @@
 import Link from "next/link";
 
+import { DashboardInterviewSignalCard } from "@/components/dashboard/interview-signal-card";
 import { DashboardShell } from "@/components/dashboard/shell";
 import { JobCreateForm } from "@/components/jobs/job-create-form";
 import { getApplicationStatusMeta } from "@/lib/application-status";
+import {
+  getInterviewDashboardActionItems,
+  getInterviewDashboardStats,
+  type DashboardPriorityTone
+} from "@/lib/dashboard-interviews";
 import { formatDisplayDate } from "@/lib/format";
 import type {
   AppNotification,
@@ -48,7 +54,7 @@ type PriorityCard = {
   value: number;
   hint: string;
   href: string;
-  tone: "primary" | "warning" | "neutral";
+  tone: DashboardPriorityTone;
 };
 
 function getToneClass(tone: PriorityCard["tone"]) {
@@ -83,29 +89,42 @@ function getApplicationStatusCounts(applications: RecruiterApplication[]) {
 function getPriorityCards(
   jobs: ManagedJob[],
   applications: RecruiterApplication[],
-  candidates: ManagedCandidateSummary[],
   notifications: AppNotification[]
 ) {
-  const draftJobs = jobs.filter((job) => job.status === "draft").length;
+  const interviewStats = getInterviewDashboardStats(applications);
   const publishedWithoutApplications = jobs.filter(
     (job) => job.status === "published" && job.applications_count === 0
-  ).length;
-  const shortlistApplications = applications.filter((application) =>
-    ["shortlist", "interview"].includes(application.status)
-  ).length;
-  const applicationsWithoutCv = applications.filter((application) => !application.has_cv).length;
-  const incompleteCandidates = candidates.filter(
-    (candidate) => candidate.profile_completion < 70
   ).length;
   const unreadNotifications = notifications.filter((notification) => !notification.is_read).length;
 
   return [
     {
-      title: "Offres a publier",
-      value: draftJobs,
-      hint: "brouillons prets a etre arbitres ou publies",
-      href: "/app/recruteur/offres",
-      tone: draftJobs > 0 ? "warning" : "neutral"
+      title: "Feedbacks a saisir",
+      value: interviewStats.pendingFeedback,
+      hint: "entretiens termines sans compte-rendu structure",
+      href: "/app/recruteur/entretiens",
+      tone: interviewStats.pendingFeedback > 0 ? "warning" : "neutral"
+    },
+    {
+      title: "Entretiens a preparer",
+      value: interviewStats.upcoming,
+      hint: "rendez-vous planifies a cadrer avec votre equipe",
+      href: "/app/recruteur/entretiens",
+      tone: interviewStats.upcoming > 0 ? "primary" : "neutral"
+    },
+    {
+      title: "Decisions favorables",
+      value: interviewStats.favorable,
+      hint: "feedbacks positifs a faire avancer rapidement",
+      href: "/app/recruteur/shortlist",
+      tone: interviewStats.favorable > 0 ? "primary" : "neutral"
+    },
+    {
+      title: "Debriefs reserves",
+      value: interviewStats.watchout,
+      hint: "dossiers a arbitrer apres retour nuance ou defavorable",
+      href: "/app/recruteur/candidatures",
+      tone: interviewStats.watchout > 0 ? "warning" : "neutral"
     },
     {
       title: "Offres sans candidatures",
@@ -113,27 +132,6 @@ function getPriorityCards(
       hint: "annonces actives encore sans retour candidat",
       href: "/app/recruteur/offres",
       tone: publishedWithoutApplications > 0 ? "warning" : "neutral"
-    },
-    {
-      title: "Dossiers avances",
-      value: shortlistApplications,
-      hint: "shortlist et entretiens a suivre",
-      href: "/app/recruteur/shortlist",
-      tone: shortlistApplications > 0 ? "primary" : "neutral"
-    },
-    {
-      title: "Candidatures sans CV",
-      value: applicationsWithoutCv,
-      hint: "dossiers a verifier avant analyse",
-      href: "/app/recruteur/candidatures",
-      tone: applicationsWithoutCv > 0 ? "warning" : "neutral"
-    },
-    {
-      title: "Profils a completer",
-      value: incompleteCandidates,
-      hint: "candidats avec signal encore faible",
-      href: "/app/recruteur/candidats",
-      tone: incompleteCandidates > 0 ? "primary" : "neutral"
     },
     {
       title: "Alertes internes",
@@ -153,13 +151,15 @@ export function RecruiterSupervisionWorkspace({
   candidates,
   notifications
 }: RecruiterSupervisionWorkspaceProps) {
+  const draftJobs = jobs.filter((job) => job.status === "draft").length;
   const advancedApplications = applications.filter((application) =>
     ["shortlist", "interview", "hired"].includes(application.status)
   ).length;
   const applicationsWithCv = applications.filter((application) => application.has_cv).length;
-  const unreadNotifications = notifications.filter((notification) => !notification.is_read).length;
-  const priorityCards = getPriorityCards(jobs, applications, candidates, notifications);
+  const interviewStats = getInterviewDashboardStats(applications);
+  const priorityCards = getPriorityCards(jobs, applications, notifications);
   const applicationStatusCounts = getApplicationStatusCounts(applications);
+  const interviewActionItems = getInterviewDashboardActionItems(applications).slice(0, 6);
   const recentApplications = applications.slice(0, 6);
   const recentJobs = jobs.slice(0, 6);
   const topCandidates = candidates
@@ -185,22 +185,22 @@ export function RecruiterSupervisionWorkspace({
         <article className="panel metric-panel">
           <span>Offres actives</span>
           <strong>{snapshot.metrics.activeJobs}</strong>
-          <small>{jobs.filter((job) => job.status === "draft").length} brouillon(s) a publier</small>
+          <small>{draftJobs} brouillon(s) a publier</small>
         </article>
         <article className="panel metric-panel">
           <span>Candidatures</span>
           <strong>{snapshot.metrics.applications}</strong>
-          <small>{applicationsWithCv} dossier(s) avec CV joint</small>
+          <small>{applicationsWithCv} dossier(s) avec CV joint, {advancedApplications} avance(s)</small>
         </article>
         <article className="panel metric-panel">
-          <span>Pipeline</span>
-          <strong>{snapshot.metrics.pipeline}</strong>
-          <small>{advancedApplications} dossier(s) avance(s)</small>
+          <span>Entretiens a venir</span>
+          <strong>{interviewStats.upcoming}</strong>
+          <small>{interviewStats.ready} feedback(s) deja saisi(s)</small>
         </article>
         <article className="panel metric-panel">
-          <span>Alertes</span>
-          <strong>{unreadNotifications}</strong>
-          <small>notification(s) interne(s) non lue(s)</small>
+          <span>Feedbacks a saisir</span>
+          <strong>{interviewStats.pendingFeedback}</strong>
+          <small>{interviewStats.favorable} dossier(s) favorables a pousser</small>
         </article>
       </section>
 
@@ -238,6 +238,58 @@ export function RecruiterSupervisionWorkspace({
           <div className="dashboard-section">
             <div className="dashboard-section__head">
               <div>
+                <p className="eyebrow">Actions entretien</p>
+                <h2>Les dossiers a faire bouger maintenant</h2>
+              </div>
+              <Link className="text-link" href="/app/recruteur/entretiens">
+                Ouvrir le module entretiens
+              </Link>
+            </div>
+
+            <div className="dashboard-list">
+              {interviewActionItems.length > 0 ? (
+                interviewActionItems.map((item) => (
+                  <article key={item.application.id} className="panel list-card dashboard-card">
+                    <div className="dashboard-card__top">
+                      <div>
+                        <p className="eyebrow">Action prioritaire</p>
+                        <h3>{item.application.candidate_name}</h3>
+                      </div>
+                      <span className={getToneClass(item.tone)}>{item.badge}</span>
+                    </div>
+                    <p>{item.title}</p>
+                    <small>{item.hint}</small>
+                    <div className="job-card__meta">
+                      <span>{item.application.job_title}</span>
+                      <span>{item.application.job_location}</span>
+                      <span>{getApplicationStatusMeta(item.application.status).label}</span>
+                    </div>
+                    <DashboardInterviewSignalCard
+                      application={item.application}
+                      emptyMessage="Ajoutez un retour structure des que le premier entretien aura eu lieu."
+                    />
+                    <div className="dashboard-action-stack">
+                      <Link
+                        className="btn btn-ghost btn-block"
+                        href={`/app/recruteur/candidatures/${item.application.id}`}
+                      >
+                        Ouvrir le dossier complet
+                      </Link>
+                    </div>
+                  </article>
+                ))
+              ) : (
+                <article className="panel list-card dashboard-card dashboard-card--empty">
+                  <h3>Aucune action entretien immediate</h3>
+                  <p>Les dossiers prioritaires remonteront ici des qu'un signal apparaitra.</p>
+                </article>
+              )}
+            </div>
+          </div>
+
+          <div className="dashboard-section">
+            <div className="dashboard-section__head">
+              <div>
                 <p className="eyebrow">Dossiers recents</p>
                 <h2>Les candidatures qui viennent d'arriver dans votre perimetre</h2>
               </div>
@@ -264,6 +316,7 @@ export function RecruiterSupervisionWorkspace({
                       <span>{application.has_cv ? "CV joint" : "CV manquant"}</span>
                       <span>Soumis le {formatDisplayDate(application.created_at)}</span>
                     </div>
+                    <DashboardInterviewSignalCard application={application} />
                     <div className="dashboard-action-stack">
                       <Link
                         className="btn btn-ghost btn-block"
@@ -332,6 +385,50 @@ export function RecruiterSupervisionWorkspace({
 
         <aside className="dashboard-column dashboard-column--aside">
           <JobCreateForm roleLabel="Recruteur" />
+
+          <div className="dashboard-form">
+            <div className="dashboard-form__head">
+              <div>
+                <p className="eyebrow">Signal entretien</p>
+                <h2>Les marqueurs qui doivent guider votre journee</h2>
+              </div>
+              <span className="tag">{interviewStats.upcoming + interviewStats.pendingFeedback} priorite(s)</span>
+            </div>
+
+            <div className="reporting-breakdown">
+              <div className="document-card reporting-list__item">
+                <div className="reporting-list__head">
+                  <strong>Entretiens planifies</strong>
+                  <span className="tag tag--info">{interviewStats.upcoming}</span>
+                </div>
+                <p>dossiers avec rendez-vous deja programme</p>
+              </div>
+
+              <div className="document-card reporting-list__item">
+                <div className="reporting-list__head">
+                  <strong>Feedbacks a saisir</strong>
+                  <span className="tag tag--danger">{interviewStats.pendingFeedback}</span>
+                </div>
+                <p>compte-rendus a enregistrer pour ne pas bloquer la suite</p>
+              </div>
+
+              <div className="document-card reporting-list__item">
+                <div className="reporting-list__head">
+                  <strong>Feux verts entretien</strong>
+                  <span className="tag tag--success">{interviewStats.favorable}</span>
+                </div>
+                <p>dossiers favorables a pousser vers la prochaine etape</p>
+              </div>
+
+              <div className="document-card reporting-list__item">
+                <div className="reporting-list__head">
+                  <strong>Debriefs reserves</strong>
+                  <span className="tag tag--warning">{interviewStats.watchout}</span>
+                </div>
+                <p>retours nuancés ou defavorables a arbitrer en equipe</p>
+              </div>
+            </div>
+          </div>
 
           <div className="dashboard-form">
             <div className="dashboard-form__head">
@@ -445,6 +542,9 @@ export function RecruiterSupervisionWorkspace({
             <div className="dashboard-action-stack">
               <Link className="btn btn-primary btn-block" href="/app/recruteur/offres">
                 Gerer toutes mes offres
+              </Link>
+              <Link className="btn btn-secondary btn-block" href="/app/recruteur/entretiens">
+                Ouvrir les entretiens
               </Link>
               <Link className="btn btn-secondary btn-block" href="/app/recruteur/candidatures">
                 Ouvrir toutes les candidatures

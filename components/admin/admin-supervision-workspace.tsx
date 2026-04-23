@@ -1,8 +1,14 @@
 import Link from "next/link";
 
+import { DashboardInterviewSignalCard } from "@/components/dashboard/interview-signal-card";
 import { DashboardShell } from "@/components/dashboard/shell";
 import { JobCreateForm } from "@/components/jobs/job-create-form";
 import { getApplicationStatusMeta } from "@/lib/application-status";
+import {
+  getInterviewDashboardActionItems,
+  getInterviewDashboardStats,
+  type DashboardPriorityTone
+} from "@/lib/dashboard-interviews";
 import { formatDisplayDate } from "@/lib/format";
 import type {
   AdminAuditEvent,
@@ -42,7 +48,7 @@ type PriorityCard = {
   value: number;
   hint: string;
   href: string;
-  tone: "primary" | "warning" | "neutral";
+  tone: DashboardPriorityTone;
 };
 
 function getToneClass(tone: PriorityCard["tone"]) {
@@ -75,26 +81,16 @@ function getApplicationStatusCounts(applications: RecruiterApplication[]) {
 }
 
 function getPriorityCards(
-  jobs: Job[],
   applications: RecruiterApplication[],
   users: ManagedUserSummary[],
-  organizations: ManagedOrganizationSummary[],
   emails: TransactionalEmail[]
 ) {
-  const draftJobs = jobs.filter((job) => job.status === "draft").length;
-  const publishedWithoutApplications = jobs.filter(
-    (job) =>
-      job.status === "published" &&
-      !applications.some((application) => application.job_id === job.id)
-  ).length;
+  const interviewStats = getInterviewDashboardStats(applications);
   const inactiveInternalUsers = users.filter(
     (user) => user.role !== "candidat" && !user.is_active
   ).length;
   const recruitersWithoutOrganization = users.filter(
     (user) => user.role === "recruteur" && !user.organization_id
-  ).length;
-  const organizationsWithoutRecruiters = organizations.filter(
-    (organization) => organization.recruiters_count === 0
   ).length;
   const queuedOrFailedEmails = emails.filter((email) =>
     ["queued", "failed"].includes(email.status)
@@ -102,39 +98,39 @@ function getPriorityCards(
 
   return [
     {
-      title: "Offres a publier",
-      value: draftJobs,
-      hint: "brouillons encore en attente d'arbitrage",
-      href: "/app/admin/offres",
-      tone: draftJobs > 0 ? "warning" : "neutral"
+      title: "Feedbacks a arbitrer",
+      value: interviewStats.pendingFeedback,
+      hint: "entretiens termines sans synthese exploitable",
+      href: "/app/admin/entretiens",
+      tone: interviewStats.pendingFeedback > 0 ? "warning" : "neutral"
     },
     {
-      title: "Offres sans retour",
-      value: publishedWithoutApplications,
-      hint: "annonces publiees sans candidature recente",
-      href: "/app/admin/offres",
-      tone: publishedWithoutApplications > 0 ? "warning" : "neutral"
+      title: "Entretiens a superviser",
+      value: interviewStats.upcoming,
+      hint: "rendez-vous planifies a suivre au niveau plateforme",
+      href: "/app/admin/entretiens",
+      tone: interviewStats.upcoming > 0 ? "primary" : "neutral"
+    },
+    {
+      title: "Decisions favorables",
+      value: interviewStats.favorable,
+      hint: "dossiers prets a avancer ou a convertir",
+      href: "/app/admin/shortlist",
+      tone: interviewStats.favorable > 0 ? "primary" : "neutral"
+    },
+    {
+      title: "Debriefs reserves",
+      value: interviewStats.watchout,
+      hint: "dossiers a trancher apres retour nuance ou negatif",
+      href: "/app/admin/candidatures",
+      tone: interviewStats.watchout > 0 ? "warning" : "neutral"
     },
     {
       title: "Comptes internes inactifs",
-      value: inactiveInternalUsers,
-      hint: "recruteurs ou admins a revalider",
+      value: inactiveInternalUsers + recruitersWithoutOrganization,
+      hint: "comptes recruteur ou admin a regulariser",
       href: "/app/admin/utilisateurs",
-      tone: inactiveInternalUsers > 0 ? "warning" : "neutral"
-    },
-    {
-      title: "Recruteurs sans organisation",
-      value: recruitersWithoutOrganization,
-      hint: "comptes incomplets a corriger",
-      href: "/app/admin/utilisateurs",
-      tone: recruitersWithoutOrganization > 0 ? "warning" : "neutral"
-    },
-    {
-      title: "Organisations sans recruteur",
-      value: organizationsWithoutRecruiters,
-      hint: "entites a rattacher a une equipe",
-      href: "/app/admin/organisations",
-      tone: organizationsWithoutRecruiters > 0 ? "primary" : "neutral"
+      tone: inactiveInternalUsers + recruitersWithoutOrganization > 0 ? "warning" : "neutral"
     },
     {
       title: "Flux email a surveiller",
@@ -160,18 +156,13 @@ export function AdminSupervisionWorkspace({
   const unreadNotifications = notifications.filter((notification) => !notification.is_read).length;
   const queuedEmails = emails.filter((email) => email.status === "queued").length;
   const failedEmails = emails.filter((email) => email.status === "failed").length;
-  const applicationsWithoutCv = applications.filter((application) => !application.has_cv).length;
   const advancedApplications = applications.filter((application) =>
     ["shortlist", "interview", "hired"].includes(application.status)
   ).length;
-  const priorityCards = getPriorityCards(
-    jobs,
-    applications,
-    users,
-    organizations,
-    emails
-  );
+  const interviewStats = getInterviewDashboardStats(applications);
+  const priorityCards = getPriorityCards(applications, users, emails);
   const applicationStatusCounts = getApplicationStatusCounts(applications);
+  const interviewActionItems = getInterviewDashboardActionItems(applications).slice(0, 6);
   const recentApplications = applications.slice(0, 6);
   const recentJobs = jobs.slice(0, 6);
   const recentNotifications = notifications.slice(0, 5);
@@ -186,24 +177,24 @@ export function AdminSupervisionWorkspace({
     >
       <section className="dashboard-grid dashboard-grid--four">
         <article className="panel metric-panel">
-          <span>Candidats</span>
-          <strong>{snapshot.metrics.candidates}</strong>
-          <small>profils suivis dans l'ecosysteme</small>
-        </article>
-        <article className="panel metric-panel">
-          <span>Recruteurs</span>
-          <strong>{snapshot.metrics.recruiters}</strong>
-          <small>comptes recruteur actifs</small>
-        </article>
-        <article className="panel metric-panel">
-          <span>Offres actives</span>
-          <strong>{snapshot.metrics.activeJobs}</strong>
-          <small>{jobs.filter((job) => job.status === "draft").length} brouillon(s) en attente</small>
-        </article>
-        <article className="panel metric-panel">
           <span>Candidatures</span>
           <strong>{snapshot.metrics.applications}</strong>
-          <small>{advancedApplications} dossier(s) avance(s)</small>
+          <small>{snapshot.metrics.candidates} candidat(s) et {snapshot.metrics.recruiters} recruteur(s)</small>
+        </article>
+        <article className="panel metric-panel">
+          <span>Entretiens a venir</span>
+          <strong>{interviewStats.upcoming}</strong>
+          <small>{advancedApplications} dossier(s) deja en phase avancee</small>
+        </article>
+        <article className="panel metric-panel">
+          <span>Feedbacks a arbitrer</span>
+          <strong>{interviewStats.pendingFeedback}</strong>
+          <small>{interviewStats.favorable} favorables, {interviewStats.watchout} reserves</small>
+        </article>
+        <article className="panel metric-panel">
+          <span>Flux sensibles</span>
+          <strong>{unreadNotifications + queuedEmails + failedEmails}</strong>
+          <small>{queuedEmails} email(s) en file, {failedEmails} en echec</small>
         </article>
       </section>
 
@@ -241,6 +232,58 @@ export function AdminSupervisionWorkspace({
           <div className="dashboard-section">
             <div className="dashboard-section__head">
               <div>
+                <p className="eyebrow">Actions entretien</p>
+                <h2>Les dossiers RH qui demandent un arbitrage rapide</h2>
+              </div>
+              <Link className="text-link" href="/app/admin/entretiens">
+                Ouvrir la supervision des entretiens
+              </Link>
+            </div>
+
+            <div className="dashboard-list">
+              {interviewActionItems.length > 0 ? (
+                interviewActionItems.map((item) => (
+                  <article key={item.application.id} className="panel list-card dashboard-card">
+                    <div className="dashboard-card__top">
+                      <div>
+                        <p className="eyebrow">Dossier a arbitrer</p>
+                        <h3>{item.application.candidate_name}</h3>
+                      </div>
+                      <span className={getToneClass(item.tone)}>{item.badge}</span>
+                    </div>
+                    <p>{item.title}</p>
+                    <small>{item.hint}</small>
+                    <div className="job-card__meta">
+                      <span>{item.application.job_title}</span>
+                      <span>{item.application.job_location}</span>
+                      <span>{getApplicationStatusMeta(item.application.status).label}</span>
+                    </div>
+                    <DashboardInterviewSignalCard
+                      application={item.application}
+                      emptyMessage="Le cockpit admin affichera ici les premiers retours structures des que les equipes les saisissent."
+                    />
+                    <div className="dashboard-action-stack">
+                      <Link
+                        className="btn btn-ghost btn-block"
+                        href={`/app/admin/candidatures/${item.application.id}`}
+                      >
+                        Ouvrir le dossier complet
+                      </Link>
+                    </div>
+                  </article>
+                ))
+              ) : (
+                <article className="panel list-card dashboard-card dashboard-card--empty">
+                  <h3>Aucun arbitrage entretien immediat</h3>
+                  <p>Les priorites remonteront ici des qu'un signal d'entretien apparaitra.</p>
+                </article>
+              )}
+            </div>
+          </div>
+
+          <div className="dashboard-section">
+            <div className="dashboard-section__head">
+              <div>
                 <p className="eyebrow">Dossiers recents</p>
                 <h2>Les candidatures qui viennent d'entrer dans le radar admin</h2>
               </div>
@@ -267,6 +310,7 @@ export function AdminSupervisionWorkspace({
                       <span>{application.has_cv ? "CV joint" : "CV manquant"}</span>
                       <span>Soumis le {formatDisplayDate(application.created_at)}</span>
                     </div>
+                    <DashboardInterviewSignalCard application={application} />
                     <div className="dashboard-action-stack">
                       <Link
                         className="btn btn-ghost btn-block"
@@ -338,6 +382,50 @@ export function AdminSupervisionWorkspace({
           <div className="dashboard-form">
             <div className="dashboard-form__head">
               <div>
+                <p className="eyebrow">Signal entretien</p>
+                <h2>Le niveau de traction RH a l'echelle plateforme</h2>
+              </div>
+              <span className="tag">{interviewStats.upcoming + interviewStats.pendingFeedback} priorite(s)</span>
+            </div>
+
+            <div className="reporting-breakdown">
+              <div className="document-card reporting-list__item">
+                <div className="reporting-list__head">
+                  <strong>Entretiens planifies</strong>
+                  <span className="tag tag--info">{interviewStats.upcoming}</span>
+                </div>
+                <p>rendez-vous a suivre ou a accompagner cote ops RH</p>
+              </div>
+
+              <div className="document-card reporting-list__item">
+                <div className="reporting-list__head">
+                  <strong>Feedbacks manquants</strong>
+                  <span className="tag tag--danger">{interviewStats.pendingFeedback}</span>
+                </div>
+                <p>compte-rendus a recuperer avant que le pipeline ne se fige</p>
+              </div>
+
+              <div className="document-card reporting-list__item">
+                <div className="reporting-list__head">
+                  <strong>Retours favorables</strong>
+                  <span className="tag tag--success">{interviewStats.favorable}</span>
+                </div>
+                <p>dossiers avec avis positif a faire progresser</p>
+              </div>
+
+              <div className="document-card reporting-list__item">
+                <div className="reporting-list__head">
+                  <strong>Retours reserves</strong>
+                  <span className="tag tag--warning">{interviewStats.watchout}</span>
+                </div>
+                <p>situations a arbitrer avec les recruteurs ou l'admin RH</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="dashboard-form">
+            <div className="dashboard-form__head">
+              <div>
                 <p className="eyebrow">Flux sensibles</p>
                 <h2>Notifications, emails et audit a surveiller de pres</h2>
               </div>
@@ -365,10 +453,10 @@ export function AdminSupervisionWorkspace({
 
               <div className="document-card reporting-list__item">
                 <div className="reporting-list__head">
-                  <strong>Dossiers sans CV</strong>
-                  <span className="tag tag--danger">{applicationsWithoutCv}</span>
+                  <strong>Offres actives</strong>
+                  <span className="tag tag--muted">{snapshot.metrics.activeJobs}</span>
                 </div>
-                <p>candidatures recues sans CV joint exploitable</p>
+                <p>{jobs.filter((job) => job.status === "draft").length} brouillon(s) en attente d'arbitrage</p>
               </div>
             </div>
           </div>
@@ -444,6 +532,9 @@ export function AdminSupervisionWorkspace({
             <div className="dashboard-action-stack">
               <Link className="btn btn-primary btn-block" href="/app/admin/offres">
                 Piloter toutes les offres
+              </Link>
+              <Link className="btn btn-secondary btn-block" href="/app/admin/entretiens">
+                Superviser les entretiens
               </Link>
               <Link className="btn btn-secondary btn-block" href="/app/admin/candidatures">
                 Ouvrir toutes les candidatures
