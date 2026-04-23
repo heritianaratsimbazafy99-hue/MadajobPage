@@ -145,3 +145,26 @@ export function getInterviewProposedDecisionMeta(decision: string) {
 export function getInterviewNextActionLabel(nextAction: string) {
   return interviewNextActionOptions.find((option) => option.value === nextAction)?.label ?? nextAction ?? "Action libre";
 }
+
+export function getSuggestedApplicationStatusFromInterviewDecision(
+  proposedDecision: string,
+  nextAction?: string | null
+) {
+  if (proposedDecision === "hire" || nextAction === "send_offer") {
+    return "hired";
+  }
+
+  if (proposedDecision === "reject" || nextAction === "reject_candidate") {
+    return "rejected";
+  }
+
+  if (proposedDecision === "hold") {
+    return "shortlist";
+  }
+
+  if (proposedDecision === "advance") {
+    return nextAction === "schedule_next_interview" ? "interview" : "shortlist";
+  }
+
+  return "screening";
+}

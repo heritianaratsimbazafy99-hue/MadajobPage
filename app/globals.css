@@ -1299,6 +1299,16 @@ code {
   font-size: 0.82rem;
 }
 
+.application-decision-panel {
+  display: grid;
+  gap: 14px;
+}
+
+.application-decision-panel__summary {
+  display: grid;
+  gap: 12px;
+}
+
 .jobs-board {
   display: grid;
   gap: 18px;

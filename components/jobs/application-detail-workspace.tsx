@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { DashboardShell } from "@/components/dashboard/shell";
+import { ApplicationDecisionForm } from "@/components/jobs/application-decision-form";
 import { ApplicationInterviews } from "@/components/jobs/application-interviews";
 import { ApplicationNotes } from "@/components/jobs/application-notes";
 import { ApplicationStatusForm } from "@/components/jobs/application-status-form";
@@ -304,6 +305,20 @@ export function ApplicationDetailWorkspace({
             applicationId={application.id}
             currentStatus={application.status}
           />
+
+          <div className="dashboard-form">
+            <div className="dashboard-form__head">
+              <div>
+                <p className="eyebrow">Decision post-entretien</p>
+                <h2>Executer la suite du dossier depuis le dernier feedback</h2>
+              </div>
+            </div>
+            <ApplicationDecisionForm
+              applicationId={application.id}
+              currentStatus={application.status}
+              interviews={application.interviews}
+            />
+          </div>
 
           <div className="dashboard-form">
             <div className="dashboard-form__head">

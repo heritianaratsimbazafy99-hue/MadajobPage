@@ -9,6 +9,7 @@ import {
   getInterviewNextActionLabel,
   getInterviewProposedDecisionMeta,
   getInterviewRecommendationMeta,
+  getSuggestedApplicationStatusFromInterviewDecision,
   interviewFormatOptions,
   interviewNextActionOptions,
   interviewProposedDecisionOptions,
@@ -188,7 +189,10 @@ function extractInterviewContext(interviewRecord: Record<string, unknown>) {
 async function updateApplicationStatusInternal(
   profile: Awaited<ReturnType<typeof requireRole>>,
   applicationId: string,
-  nextStatus: string
+  nextStatus: string,
+  options?: {
+    note?: string | null;
+  }
 ): Promise<ApplicationActionState> {
   const actorRole = profile.role === "admin" ? "admin" : "recruteur";
 
@@ -269,7 +273,8 @@ async function updateApplicationStatusInternal(
     application_id: applicationId,
     from_status: currentStatus,
     to_status: nextStatus,
-    changed_by: profile.id
+    changed_by: profile.id,
+    note: options?.note?.trim() ? options.note.trim() : null
   });
 
   if (historyError) {
@@ -890,5 +895,149 @@ export async function saveInterviewFeedbackAction(
       : markCompleted && currentStatus === "scheduled"
         ? "Compte-rendu enregistre et entretien marque comme termine."
         : "Compte-rendu enregistre."
+  };
+}
+
+export async function applyInterviewDecisionAction(
+  _previousState: ApplicationActionState = defaultState,
+  formData: FormData
+): Promise<ApplicationActionState> {
+  const profile = await requireRole(["recruteur", "admin"]);
+  const actorRole = profile.role === "admin" ? "admin" : "recruteur";
+  const applicationId = getTrimmedValue(formData, "application_id");
+  const interviewId = getTrimmedValue(formData, "interview_id");
+  const requestedStatus = getTrimmedValue(formData, "status");
+  const decisionNote = getTrimmedValue(formData, "decision_note");
+
+  if (
+    !applicationId ||
+    !uuidPattern.test(applicationId) ||
+    !interviewId ||
+    !uuidPattern.test(interviewId)
+  ) {
+    return {
+      status: "error",
+      message: "Impossible de retrouver le contexte de decision."
+    };
+  }
+
+  const manageableInterview = await getManageableInterviewForActor(
+    actorRole,
+    profile.organization_id,
+    interviewId
+  );
+
+  if (!manageableInterview) {
+    return {
+      status: "error",
+      message: "Impossible de retrouver cet entretien."
+    };
+  }
+
+  const interviewContext = extractInterviewContext(manageableInterview as Record<string, unknown>);
+
+  if (!interviewContext.applicationId || interviewContext.applicationId !== applicationId) {
+    return {
+      status: "error",
+      message: "Le dossier rattache a cet entretien est incoherent."
+    };
+  }
+
+  const interviewStartsAt =
+    typeof (manageableInterview as { starts_at?: string | null }).starts_at === "string"
+      ? String((manageableInterview as { starts_at?: string | null }).starts_at)
+      : null;
+  const interviewLabel = interviewStartsAt
+    ? new Intl.DateTimeFormat("fr-FR", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      }).format(new Date(interviewStartsAt))
+    : "cet entretien";
+
+  const supabase = await getApplicationMutationClient();
+  const { data: feedbackRow, error: feedbackError } = await supabase
+    .from("application_interview_feedback")
+    .select("summary, recommendation, proposed_decision, next_action")
+    .eq("interview_id", interviewId)
+    .maybeSingle();
+
+  if (feedbackError || !feedbackRow) {
+    return {
+      status: "error",
+      message: "Aucun compte-rendu d'entretien exploitable n'a ete trouve."
+    };
+  }
+
+  const suggestedStatus = getSuggestedApplicationStatusFromInterviewDecision(
+    String(feedbackRow.proposed_decision ?? ""),
+    typeof feedbackRow.next_action === "string" ? feedbackRow.next_action : null
+  );
+  const nextStatus =
+    requestedStatus && allowedStatuses.has(requestedStatus) ? requestedStatus : suggestedStatus;
+  const recommendationLabel = getInterviewRecommendationMeta(
+    String(feedbackRow.recommendation ?? "")
+  ).label;
+  const proposedDecisionLabel = getInterviewProposedDecisionMeta(
+    String(feedbackRow.proposed_decision ?? "")
+  ).label;
+  const nextActionLabel = getInterviewNextActionLabel(String(feedbackRow.next_action ?? ""));
+  const nextStatusLabel = getApplicationStatusMeta(nextStatus).label;
+
+  const historyNote = [
+    `Decision post-entretien appliquee depuis le feedback du ${interviewLabel}.`,
+    `Recommandation : ${recommendationLabel}.`,
+    `Decision proposee : ${proposedDecisionLabel}.`,
+    `Prochaine action : ${nextActionLabel}.`,
+    decisionNote ? `Commentaire interne : ${decisionNote}` : ""
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const internalNoteBody = [
+    `Decision post-entretien sur le dossier.`,
+    `Entretien source : ${interviewLabel}.`,
+    `Statut cible : ${nextStatusLabel}.`,
+    `Recommandation : ${recommendationLabel}.`,
+    `Decision proposee : ${proposedDecisionLabel}.`,
+    `Prochaine action : ${nextActionLabel}.`,
+    `Synthese : ${String(feedbackRow.summary ?? "")}`,
+    decisionNote ? `Commentaire interne : ${decisionNote}` : ""
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const statusResult = await updateApplicationStatusInternal(profile, applicationId, nextStatus, {
+    note: historyNote
+  });
+
+  if (statusResult.status === "error") {
+    return statusResult;
+  }
+
+  const { error: noteError } = await supabase.from("internal_notes").insert({
+    application_id: applicationId,
+    author_id: profile.id,
+    body: internalNoteBody
+  });
+
+  if (statusResult.message === "Le statut est deja a jour.") {
+    revalidateApplicationSurfaces(applicationId, interviewContext.jobSlug);
+
+    return {
+      status: "success",
+      message: noteError
+        ? "Decision post-entretien journalisee. Le statut etait deja a jour, mais la note interne automatique n'a pas pu etre enregistree."
+        : "Decision post-entretien journalisee. Le statut etait deja a jour."
+    };
+  }
+
+  return {
+    status: "success",
+    message: noteError
+      ? "Decision post-entretien appliquee et statut mis a jour. La note interne automatique n'a pas pu etre enregistree."
+      : "Decision post-entretien appliquee et statut mis a jour."
   };
 }
