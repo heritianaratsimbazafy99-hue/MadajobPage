@@ -7,7 +7,8 @@ import {
   getApplicationStatusMeta,
   isFinalApplicationStatus
 } from "@/lib/application-status";
-import { formatDisplayDate } from "@/lib/format";
+import { formatDateTimeDisplay, formatDisplayDate } from "@/lib/format";
+import { getInterviewFormatLabel, getInterviewStatusMeta } from "@/lib/interviews";
 import type { CandidateApplicationSummary } from "@/lib/types";
 
 type CandidateApplicationsBoardProps = {
@@ -17,17 +18,19 @@ type CandidateApplicationsBoardProps = {
 type Filters = {
   query: string;
   status: string;
+  signalFocus: "" | "upcoming_interview" | "with_interviews" | "advanced" | "final";
   withCvOnly: boolean;
   activeOnly: boolean;
-  sort: "recent" | "oldest";
+  sort: "priority_desc" | "recent" | "oldest";
 };
 
 const initialFilters: Filters = {
   query: "",
   status: "",
+  signalFocus: "",
   withCvOnly: false,
   activeOnly: false,
-  sort: "recent"
+  sort: "priority_desc"
 };
 
 function getUniqueStatuses(applications: CandidateApplicationSummary[]) {
@@ -38,6 +41,61 @@ function getUniqueStatuses(applications: CandidateApplicationSummary[]) {
 
 function getApplicationSortDate(application: CandidateApplicationSummary) {
   return application.updated_at || application.created_at;
+}
+
+function hasUpcomingInterview(application: CandidateApplicationSummary) {
+  return Boolean(application.interview_signal.next_interview_at);
+}
+
+function hasInterviewHistory(application: CandidateApplicationSummary) {
+  return application.interview_signal.interviews_count > 0;
+}
+
+function isAdvancedStatus(status: string) {
+  return status === "shortlist" || status === "interview";
+}
+
+function getCandidateApplicationPriorityScore(application: CandidateApplicationSummary) {
+  let score = 0;
+
+  if (application.interview_signal.next_interview_at) {
+    score += 260;
+
+    const daysUntilInterview =
+      (new Date(application.interview_signal.next_interview_at).getTime() - Date.now()) / 86_400_000;
+
+    if (daysUntilInterview <= 1) {
+      score += 80;
+    } else if (daysUntilInterview <= 3) {
+      score += 40;
+    }
+  }
+
+  if (application.status === "interview") {
+    score += 180;
+  }
+
+  if (application.status === "shortlist") {
+    score += 120;
+  }
+
+  if (application.status === "screening") {
+    score += 80;
+  }
+
+  if (application.interview_signal.interviews_count > 0) {
+    score += 60;
+  }
+
+  if (application.has_cv) {
+    score += 20;
+  }
+
+  if (isFinalApplicationStatus(application.status)) {
+    score -= 100;
+  }
+
+  return score;
 }
 
 export function CandidateApplicationsBoard({
@@ -68,11 +126,26 @@ export function CandidateApplicationsBoard({
       const matchesStatus = !filters.status || application.status === filters.status;
       const matchesCv = !filters.withCvOnly || application.has_cv;
       const matchesActive = !filters.activeOnly || !isFinalApplicationStatus(application.status);
+      const matchesSignalFocus =
+        !filters.signalFocus ||
+        (filters.signalFocus === "upcoming_interview" && hasUpcomingInterview(application)) ||
+        (filters.signalFocus === "with_interviews" && hasInterviewHistory(application)) ||
+        (filters.signalFocus === "advanced" && isAdvancedStatus(application.status)) ||
+        (filters.signalFocus === "final" && isFinalApplicationStatus(application.status));
 
-      return matchesQuery && matchesStatus && matchesCv && matchesActive;
+      return matchesQuery && matchesStatus && matchesCv && matchesActive && matchesSignalFocus;
     });
 
     return matchingApplications.sort((left, right) => {
+      if (filters.sort === "priority_desc") {
+        const leftScore = getCandidateApplicationPriorityScore(left);
+        const rightScore = getCandidateApplicationPriorityScore(right);
+
+        if (leftScore !== rightScore) {
+          return rightScore - leftScore;
+        }
+      }
+
       const leftDate = new Date(getApplicationSortDate(left)).getTime();
       const rightDate = new Date(getApplicationSortDate(right)).getTime();
 
@@ -82,17 +155,49 @@ export function CandidateApplicationsBoard({
     applications,
     deferredQuery,
     filters.activeOnly,
+    filters.signalFocus,
     filters.sort,
     filters.status,
     filters.withCvOnly
   ]);
 
+  const signalStats = useMemo(() => {
+    let active = 0;
+    let withInterviews = 0;
+    let upcoming = 0;
+    let final = 0;
+
+    for (const application of filteredApplications) {
+      if (isFinalApplicationStatus(application.status)) {
+        final += 1;
+      } else {
+        active += 1;
+      }
+
+      if (application.interview_signal.interviews_count > 0) {
+        withInterviews += 1;
+      }
+
+      if (application.interview_signal.next_interview_at) {
+        upcoming += 1;
+      }
+    }
+
+    return {
+      active,
+      withInterviews,
+      upcoming,
+      final
+    };
+  }, [filteredApplications]);
+
   const activeFilterCount = [
     filters.query,
     filters.status,
+    filters.signalFocus,
     filters.withCvOnly ? "cv" : "",
     filters.activeOnly ? "active" : "",
-    filters.sort !== "recent" ? filters.sort : ""
+    filters.sort !== "priority_desc" ? filters.sort : ""
   ].filter(Boolean).length;
 
   return (
@@ -101,7 +206,7 @@ export function CandidateApplicationsBoard({
         <div className="dashboard-form__head">
           <div>
             <p className="eyebrow">Suivi detaille</p>
-            <h2>Retrouvez rapidement les dossiers encore en mouvement</h2>
+            <h2>Priorisez vos dossiers avec les entretiens et les etapes les plus importantes</h2>
           </div>
           <span className="tag">{filteredApplications.length} candidature(s)</span>
         </div>
@@ -142,6 +247,25 @@ export function CandidateApplicationsBoard({
           </label>
 
           <label className="field">
+            <span>Signal</span>
+            <select
+              value={filters.signalFocus}
+              onChange={(event) =>
+                setFilters((previous) => ({
+                  ...previous,
+                  signalFocus: event.target.value as Filters["signalFocus"]
+                }))
+              }
+            >
+              <option value="">Tous</option>
+              <option value="upcoming_interview">Entretien a venir</option>
+              <option value="with_interviews">Avec historique entretien</option>
+              <option value="advanced">Dossiers avances</option>
+              <option value="final">Dossiers finalises</option>
+            </select>
+          </label>
+
+          <label className="field">
             <span>Tri</span>
             <select
               value={filters.sort}
@@ -152,10 +276,30 @@ export function CandidateApplicationsBoard({
                 }))
               }
             >
+              <option value="priority_desc">Priorite du moment</option>
               <option value="recent">Plus recentes</option>
               <option value="oldest">Plus anciennes</option>
             </select>
           </label>
+        </div>
+
+        <div className="interviews-board__stats">
+          <article className="document-card">
+            <strong>{signalStats.active}</strong>
+            <p>dossier(s) encore actif(s)</p>
+          </article>
+          <article className="document-card">
+            <strong>{signalStats.withInterviews}</strong>
+            <p>avec au moins un entretien</p>
+          </article>
+          <article className="document-card">
+            <strong>{signalStats.upcoming}</strong>
+            <p>entretien(s) a venir</p>
+          </article>
+          <article className="document-card">
+            <strong>{signalStats.final}</strong>
+            <p>dossier(s) finalise(s)</p>
+          </article>
         </div>
 
         <div className="jobs-board__actions">
@@ -197,6 +341,12 @@ export function CandidateApplicationsBoard({
             </button>
           ) : null}
         </div>
+
+        <p className="jobs-board__hint">
+          {activeFilterCount > 0
+            ? `${activeFilterCount} filtre(s) actif(s) pour concentrer vos dossiers prioritaires.`
+            : "Les candidatures avec entretien a venir et les dossiers encore actifs remontent en priorite."}
+        </p>
       </section>
 
       <section className="jobs-results">
@@ -216,11 +366,21 @@ export function CandidateApplicationsBoard({
         ) : filteredApplications.length > 0 ? (
           filteredApplications.map((application) => {
             const status = getApplicationStatusMeta(application.status);
+            const latestInterviewStatus = application.interview_signal.latest_interview_status
+              ? getInterviewStatusMeta(application.interview_signal.latest_interview_status)
+              : null;
 
             return (
               <article key={application.id} className="panel job-card jobs-result-card">
                 <div className="jobs-result-card__head">
-                  <span className="tag">{status.label}</span>
+                  <div className="dashboard-card__badges">
+                    <span className="tag">{status.label}</span>
+                    {application.interview_signal.next_interview_format ? (
+                      <span className="tag tag--info">
+                        {getInterviewFormatLabel(application.interview_signal.next_interview_format)}
+                      </span>
+                    ) : null}
+                  </div>
                   <small>Maj le {formatDisplayDate(getApplicationSortDate(application))}</small>
                 </div>
 
@@ -234,15 +394,74 @@ export function CandidateApplicationsBoard({
                   <span>{application.has_cv ? "CV joint" : "Sans CV joint"}</span>
                 </div>
 
+                <div className="application-signal-card">
+                  <div className="document-meta">
+                    <span>{application.interview_signal.interviews_count} entretien(s)</span>
+                    {latestInterviewStatus ? (
+                      <span>{latestInterviewStatus.label}</span>
+                    ) : (
+                      <span>Aucun entretien</span>
+                    )}
+                    {application.interview_signal.next_interview_at ? (
+                      <span>
+                        Prochain le {formatDateTimeDisplay(application.interview_signal.next_interview_at)}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {application.interview_signal.next_interview_at ? (
+                    <>
+                      <p>
+                        Votre prochain entretien est deja planifie. Ouvrez le dossier pour revoir
+                        les informations utiles et vous preparer.
+                      </p>
+                      <small>
+                        {application.interview_signal.next_interview_location ||
+                          application.interview_signal.next_interview_timezone ||
+                          "Les details logistiques restent disponibles dans le suivi complet."}
+                      </small>
+                    </>
+                  ) : application.interview_signal.interviews_count > 0 ? (
+                    <>
+                      <p>
+                        Ce dossier a deja un historique d'entretien. Vous pouvez revisiter le suivi
+                        complet pour voir les rendez-vous passes.
+                      </p>
+                      <small>{status.candidateHint}</small>
+                    </>
+                  ) : (
+                    <>
+                      <p>Aucun entretien n'est encore planifie sur ce dossier pour le moment.</p>
+                      <small>{status.candidateHint}</small>
+                    </>
+                  )}
+                </div>
+
                 <div className="job-card__footer">
                   <small>
                     {application.cover_letter
                       ? "Message de candidature present"
-                      : status.candidateHint}
+                      : hasUpcomingInterview(application)
+                        ? "Gardez un oeil sur votre dossier pour preparer le prochain echange."
+                        : status.candidateHint}
                   </small>
-                  <Link href={`/app/candidat/candidatures/${application.id}`}>
-                    Ouvrir le dossier
-                  </Link>
+                  <div className="notification-card__actions">
+                    <Link href={`/app/candidat/candidatures/${application.id}`}>
+                      Ouvrir le dossier
+                    </Link>
+                    <Link href={`/app/candidat/offres/${application.job_slug}`}>
+                      Revoir l'offre
+                    </Link>
+                    {application.interview_signal.next_interview_meeting_url ? (
+                      <Link
+                        href={application.interview_signal.next_interview_meeting_url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Rejoindre l'entretien
+                      </Link>
+                    ) : null}
+                  </div>
                 </div>
               </article>
             );

@@ -13,6 +13,7 @@ import type {
   ApplicationStatusHistoryEntry,
   CandidateApplicationDetail,
   CandidateApplicationHistoryEntry,
+  CandidateApplicationInterviewSignal,
   CandidateInterviewScheduleItem,
   CandidateApplicationSummary,
   CandidateApplication,
@@ -428,6 +429,66 @@ function buildRecruiterApplicationInterviewSignalMap(
   return signalMap;
 }
 
+function createEmptyCandidateApplicationInterviewSignal(): CandidateApplicationInterviewSignal {
+  return {
+    interviews_count: 0,
+    latest_interview_at: null,
+    latest_interview_status: null,
+    next_interview_at: null,
+    next_interview_format: null,
+    next_interview_location: null,
+    next_interview_meeting_url: null,
+    next_interview_timezone: null
+  };
+}
+
+function buildCandidateApplicationInterviewSignalMap(
+  interviewRows: Record<string, unknown>[]
+): Map<string, CandidateApplicationInterviewSignal> {
+  const signalMap = new Map<string, CandidateApplicationInterviewSignal>();
+  const now = Date.now();
+
+  for (const row of interviewRows) {
+    const interview = mapApplicationInterviewRecord(row);
+    const applicationId = interview.application_id;
+
+    if (!applicationId) {
+      continue;
+    }
+
+    const current = signalMap.get(applicationId) ?? createEmptyCandidateApplicationInterviewSignal();
+    current.interviews_count += 1;
+
+    const interviewTime = interview.starts_at ? new Date(interview.starts_at).getTime() : 0;
+    const latestInterviewTime = current.latest_interview_at
+      ? new Date(current.latest_interview_at).getTime()
+      : 0;
+
+    if (!current.latest_interview_at || interviewTime >= latestInterviewTime) {
+      current.latest_interview_at = interview.starts_at || null;
+      current.latest_interview_status = interview.status;
+    }
+
+    if (interview.status === "scheduled" && interviewTime >= now) {
+      const nextInterviewTime = current.next_interview_at
+        ? new Date(current.next_interview_at).getTime()
+        : Number.POSITIVE_INFINITY;
+
+      if (!current.next_interview_at || interviewTime < nextInterviewTime) {
+        current.next_interview_at = interview.starts_at || null;
+        current.next_interview_format = interview.format;
+        current.next_interview_location = interview.location;
+        current.next_interview_meeting_url = interview.meeting_url;
+        current.next_interview_timezone = interview.timezone;
+      }
+    }
+
+    signalMap.set(applicationId, current);
+  }
+
+  return signalMap;
+}
+
 async function createSignedUrlForDocument(
   adminClient: ReturnType<typeof createAdminClient>,
   document: CandidateDocumentData | null
@@ -604,6 +665,12 @@ export async function getCandidateApplicationSummaries(candidateId: string) {
   noStore();
 
   if (!isSupabaseConfigured) {
+    const fallbackInterviewSignalMap = buildCandidateApplicationInterviewSignalMap(
+      fallbackInterviews
+        .filter((interview) => interview.candidate_id === candidateId)
+        .map((interview) => interview as unknown as Record<string, unknown>)
+    );
+
     return fallbackApplications.map((application) => {
       const fallbackJob =
         fallbackJobs.find((job) => job.title === application.job_title) ?? fallbackJobs[0];
@@ -623,7 +690,9 @@ export async function getCandidateApplicationSummaries(candidateId: string) {
         work_mode: fallbackJob?.work_mode ?? "",
         sector: fallbackJob?.sector ?? "",
         organization_name: application.organization_name ?? "Madajob",
-        notes_count: 0
+        notes_count: 0,
+        interview_signal:
+          fallbackInterviewSignalMap.get(application.id) ?? createEmptyCandidateApplicationInterviewSignal()
       } satisfies CandidateApplicationSummary;
     });
   }
@@ -666,17 +735,31 @@ export async function getCandidateApplicationSummaries(candidateId: string) {
         .filter(Boolean)
     )
   );
+  const applicationIds = data.map((row) => String(row.id ?? "")).filter(Boolean);
 
-  const organizations =
+  const [organizations, interviewRows] = await Promise.all([
     adminClient && organizationIds.length
-      ? await adminClient
+      ? adminClient
           .from("organizations")
           .select("id, name")
           .in("id", organizationIds)
-      : { data: [] as Array<{ id?: string | null; name?: string | null }> };
+      : Promise.resolve({ data: [] as Array<{ id?: string | null; name?: string | null }> }),
+    applicationIds.length
+      ? (adminClient ?? supabase)
+          .from("application_interviews")
+          .select(
+            "id, application_id, status, format, starts_at, ends_at, timezone, location, meeting_url, notes, interviewer_name, interviewer_email, created_at, updated_at"
+          )
+          .in("application_id", applicationIds)
+          .order("starts_at", { ascending: false })
+      : Promise.resolve({ data: [] as Array<Record<string, unknown>> })
+  ]);
 
   const organizationMap = new Map(
     (organizations.data ?? []).map((row) => [String(row.id ?? ""), String(row.name ?? "Madajob")])
+  );
+  const interviewSignalMap = buildCandidateApplicationInterviewSignalMap(
+    (interviewRows.data ?? []) as Record<string, unknown>[]
   );
 
   return data.map((row: Record<string, unknown>) => {
@@ -698,7 +781,9 @@ export async function getCandidateApplicationSummaries(candidateId: string) {
       work_mode: String(job?.work_mode ?? ""),
       sector: String(job?.sector ?? ""),
       organization_name: organizationMap.get(organizationId) ?? "Madajob",
-      notes_count: 0
+      notes_count: 0,
+      interview_signal:
+        interviewSignalMap.get(String(row.id)) ?? createEmptyCandidateApplicationInterviewSignal()
     } satisfies CandidateApplicationSummary;
   });
 }
@@ -2179,6 +2264,9 @@ export async function getManagedCandidateDetail(profile: Profile, candidateId: s
   for (const note of notes) {
     notesCountMap.set(note.application_id, (notesCountMap.get(note.application_id) ?? 0) + 1);
   }
+  const applicationInterviewSignalMap = buildCandidateApplicationInterviewSignalMap(
+    (interviewRows ?? []) as Record<string, unknown>[]
+  );
 
   const primaryCvDownloadUrl = await createSignedUrlForDocument(adminClient, summary.primary_cv);
   const pipelineSummary = candidateApplications.reduce<CandidatePipelineSummary>(
@@ -2235,7 +2323,9 @@ export async function getManagedCandidateDetail(profile: Profile, candidateId: s
       work_mode: String(job?.work_mode ?? ""),
       sector: String(job?.sector ?? ""),
       organization_name: organizationMap.get(organizationId) ?? "Madajob",
-      notes_count: notesCountMap.get(String(row.id)) ?? 0
+      notes_count: notesCountMap.get(String(row.id)) ?? 0,
+      interview_signal:
+        applicationInterviewSignalMap.get(String(row.id)) ?? createEmptyCandidateApplicationInterviewSignal()
     } satisfies CandidateApplicationSummary;
   });
 
@@ -3368,7 +3458,8 @@ export async function getAdminUserDetail(userId: string) {
       work_mode: String(job?.work_mode ?? ""),
       sector: String(job?.sector ?? ""),
       organization_name: organizationMap.get(organizationId) ?? "Madajob",
-      notes_count: 0
+      notes_count: 0,
+      interview_signal: createEmptyCandidateApplicationInterviewSignal()
     } satisfies CandidateApplicationSummary;
   });
 

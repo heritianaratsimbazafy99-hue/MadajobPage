@@ -362,6 +362,18 @@ export type CandidateApplicationSummary = {
   sector: string;
   organization_name: string;
   notes_count: number;
+  interview_signal: CandidateApplicationInterviewSignal;
+};
+
+export type CandidateApplicationInterviewSignal = {
+  interviews_count: number;
+  latest_interview_at: string | null;
+  latest_interview_status: InterviewStatus | null;
+  next_interview_at: string | null;
+  next_interview_format: InterviewFormat | null;
+  next_interview_location: string | null;
+  next_interview_meeting_url: string | null;
+  next_interview_timezone: string | null;
 };
 
 export type CandidatePipelineSummary = {
