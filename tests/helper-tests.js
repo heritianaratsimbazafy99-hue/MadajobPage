@@ -1,0 +1,323 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const Module = require("node:module");
+const path = require("node:path");
+const test = require("node:test");
+const ts = require("typescript");
+
+const projectRoot = path.resolve(__dirname, "..");
+const originalResolveFilename = Module._resolveFilename;
+
+Module._resolveFilename = function resolveFilename(request, parent, isMain, options) {
+  if (request.startsWith("@/")) {
+    return originalResolveFilename.call(
+      this,
+      path.join(projectRoot, request.slice(2)),
+      parent,
+      isMain,
+      options
+    );
+  }
+
+  return originalResolveFilename.call(this, request, parent, isMain, options);
+};
+
+require.extensions[".ts"] = function compileTypeScript(module, filename) {
+  const source = fs.readFileSync(filename, "utf8");
+  const output = ts.transpileModule(source, {
+    compilerOptions: {
+      esModuleInterop: true,
+      module: ts.ModuleKind.CommonJS,
+      moduleResolution: ts.ModuleResolutionKind.Node10,
+      target: ts.ScriptTarget.ES2020
+    },
+    fileName: filename
+  });
+
+  module._compile(output.outputText, filename);
+};
+
+const {
+  getCandidateJobMatch,
+  rankJobsForCandidate
+} = require("../lib/matching.ts");
+const {
+  getAdminPlatformRecommendations,
+  getRecruiterPlatformRecommendations
+} = require("../lib/platform-recommendations.ts");
+
+const fixedNow = new Date("2026-04-23T12:00:00.000Z").getTime();
+
+function useFixedNow(t) {
+  const originalNow = Date.now;
+  Date.now = () => fixedNow;
+  t.after(() => {
+    Date.now = originalNow;
+  });
+}
+
+function buildJob(overrides = {}) {
+  return {
+    id: "job-commercial",
+    title: "Commercial B2B grands comptes",
+    slug: "commercial-b2b-grands-comptes",
+    organization_id: "org-1",
+    department: "Commercial",
+    location: "Antananarivo",
+    contract_type: "CDI",
+    work_mode: "Hybride",
+    sector: "Commercial",
+    summary: "Developper un portefeuille B2B, piloter la prospection et closer des comptes strategiques.",
+    responsibilities: "Prospection, CRM, closing et suivi grands comptes.",
+    requirements: "Experience B2B, negociation, CRM et gestion de pipeline.",
+    benefits: "Package fixe et variable.",
+    status: "published",
+    is_featured: false,
+    published_at: "2026-04-10T08:00:00.000Z",
+    closing_at: null,
+    created_at: "2026-04-10T08:00:00.000Z",
+    updated_at: "2026-04-10T08:00:00.000Z",
+    applications_count: 0,
+    organization_name: "Madajob",
+    ...overrides
+  };
+}
+
+function buildApplication(overrides = {}) {
+  return {
+    id: "application-1",
+    status: "screening",
+    created_at: "2026-04-10T08:00:00.000Z",
+    updated_at: "2026-04-10T08:00:00.000Z",
+    candidate_id: "candidate-1",
+    job_id: "job-1",
+    cover_letter: null,
+    has_cv: false,
+    candidate_name: "Miora Randriam",
+    candidate_email: "miora@example.com",
+    job_title: "Commercial B2B grands comptes",
+    job_location: "Antananarivo",
+    interview_signal: {
+      interviews_count: 0,
+      feedback_count: 0,
+      latest_interview_at: null,
+      latest_interview_status: null,
+      next_interview_at: null,
+      pending_feedback: false,
+      latest_feedback: null
+    },
+    ...overrides
+  };
+}
+
+function buildCandidate(overrides = {}) {
+  return {
+    id: "candidate-1",
+    full_name: "Miora Randriam",
+    email: "miora@example.com",
+    phone: null,
+    headline: "Commerciale B2B",
+    skills_text: "prospection CRM closing",
+    city: "Antananarivo",
+    country: "Madagascar",
+    current_position: "Commerciale",
+    desired_position: "Commercial B2B grands comptes",
+    profile_completion: 88,
+    applications_count: 0,
+    latest_application_at: null,
+    latest_status: null,
+    latest_job_title: null,
+    latest_job_location: null,
+    has_primary_cv: true,
+    primary_cv: null,
+    ...overrides
+  };
+}
+
+function buildNotification(overrides = {}) {
+  return {
+    id: "notification-1",
+    user_id: "user-1",
+    kind: "application",
+    title: "Nouveau signal",
+    body: "Action a traiter",
+    link_href: "/app/recruteur/candidatures",
+    is_read: false,
+    read_at: null,
+    created_at: "2026-04-22T08:00:00.000Z",
+    metadata: {},
+    ...overrides
+  };
+}
+
+function buildUser(overrides = {}) {
+  return {
+    id: "user-1",
+    email: "recruteur@example.com",
+    full_name: "Recruteur Test",
+    role: "recruteur",
+    organization_id: null,
+    organization_name: null,
+    phone: null,
+    is_active: true,
+    created_at: "2026-04-20T08:00:00.000Z",
+    updated_at: "2026-04-20T08:00:00.000Z",
+    invitation_sent_at: "2026-04-21T08:00:00.000Z",
+    last_admin_action_at: null,
+    headline: "",
+    city: "",
+    current_position: "",
+    candidate_profile_completion: null,
+    applications_count: 0,
+    jobs_count: 0,
+    ...overrides
+  };
+}
+
+function buildOrganization(overrides = {}) {
+  return {
+    id: "org-1",
+    name: "Client Test",
+    slug: "client-test",
+    kind: "client",
+    is_active: true,
+    members_count: 0,
+    recruiters_count: 0,
+    active_jobs_count: 0,
+    applications_count: 0,
+    shortlist_count: 0,
+    latest_job_at: null,
+    latest_application_at: null,
+    ...overrides
+  };
+}
+
+function buildEmail(overrides = {}) {
+  return {
+    id: "email-1",
+    recipient_email: "candidat@example.com",
+    recipient_name: null,
+    recipient_user_id: null,
+    template_key: "application_status_changed",
+    subject: "Mise a jour",
+    preview_text: "Votre dossier avance",
+    link_href: "/app/candidat/candidatures",
+    status: "failed",
+    provider: null,
+    provider_message_id: null,
+    attempts_count: 1,
+    last_attempt_at: "2026-04-22T08:00:00.000Z",
+    sent_at: null,
+    error_message: "Provider non configure",
+    metadata: {},
+    created_at: "2026-04-22T08:00:00.000Z",
+    updated_at: "2026-04-22T09:00:00.000Z",
+    ...overrides
+  };
+}
+
+test("matching: detecte un fort alignement candidat/offre", () => {
+  const profile = {
+    headline: "Commerciale B2B grands comptes",
+    city: "Antananarivo",
+    current_position: "Account executive B2B",
+    desired_position: "Commercial B2B grands comptes",
+    skills_text: "prospection CRM closing negociation comptes strategiques",
+    cv_text: "developpement commercial B2B, gestion de pipeline et closing",
+    profile_completion: 92
+  };
+  const match = getCandidateJobMatch(profile, buildJob());
+
+  assert.equal(match.hasSignal, true);
+  assert.ok(match.score >= 70);
+  assert.match(match.reason, /poste|cible|competences/i);
+  assert.ok(match.matchedKeywords.length > 0);
+});
+
+test("matching: retourne un signal faible quand le profil est vide", () => {
+  const match = getCandidateJobMatch({ city: "Antananarivo" }, buildJob());
+
+  assert.equal(match.score, 0);
+  assert.equal(match.hasSignal, false);
+  assert.equal(match.level, "faible");
+  assert.equal(match.breakdown.length, 5);
+});
+
+test("matching: classe les offres par score decroissant", () => {
+  const profile = {
+    desired_position: "Commercial B2B grands comptes",
+    skills_text: "prospection CRM closing B2B",
+    city: "Antananarivo",
+    profile_completion: 80
+  };
+  const ranked = rankJobsForCandidate(profile, [
+    buildJob({
+      id: "job-finance",
+      title: "Responsable administratif et financier",
+      slug: "responsable-administratif-financier",
+      sector: "Finance",
+      summary: "Piloter la comptabilite, le controle et les reportings financiers.",
+      requirements: "Comptabilite, fiscalite et reporting.",
+      responsibilities: "Clotures comptables et suivi budgetaire."
+    }),
+    buildJob()
+  ]);
+
+  assert.equal(ranked[0].job.id, "job-commercial");
+  assert.ok(ranked[0].match.score > ranked[1].match.score);
+});
+
+test("recommendations: priorise les dossiers recruteur bloques", (t) => {
+  useFixedNow(t);
+
+  const recommendations = getRecruiterPlatformRecommendations({
+    jobs: [
+      buildJob(),
+      buildJob({
+        id: "job-draft",
+        slug: "brouillon-ancien",
+        status: "draft",
+        published_at: null,
+        created_at: "2026-04-18T08:00:00.000Z",
+        updated_at: "2026-04-18T08:00:00.000Z"
+      })
+    ],
+    applications: [buildApplication()],
+    candidates: [buildCandidate()],
+    notifications: [buildNotification()]
+  });
+
+  assert.equal(recommendations[0].id, "stalled-applications");
+  assert.ok(recommendations.some((recommendation) => recommendation.id === "missing-cv-applications"));
+  assert.ok(
+    recommendations.some(
+      (recommendation) => recommendation.id === "published-jobs-without-applications"
+    )
+  );
+  assert.equal(
+    recommendations.find((recommendation) => recommendation.id === "stalled-applications").href,
+    "/app/recruteur/candidatures"
+  );
+});
+
+test("recommendations: remonte les risques admin avant les signaux secondaires", (t) => {
+  useFixedNow(t);
+
+  const recommendations = getAdminPlatformRecommendations({
+    jobs: [],
+    applications: [],
+    candidates: [],
+    notifications: [],
+    users: [buildUser()],
+    organizations: [buildOrganization()],
+    emails: [buildEmail(), buildEmail({ id: "email-2", status: "queued" })]
+  });
+
+  assert.equal(recommendations[0].id, "admin-users-without-access");
+  assert.ok(recommendations.some((recommendation) => recommendation.id === "admin-email-failures"));
+  assert.ok(
+    recommendations.some(
+      (recommendation) => recommendation.id === "admin-organizations-without-recruiter"
+    )
+  );
+});
