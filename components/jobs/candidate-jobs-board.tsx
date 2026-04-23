@@ -7,14 +7,13 @@ import {
   getApplicationStatusMeta,
   isFinalApplicationStatus
 } from "@/lib/application-status";
-import { formatDisplayDate } from "@/lib/format";
-import { rankJobsForCandidate, type MatchingCandidateProfile } from "@/lib/matching";
-import type { CandidateApplicationSummary, Job } from "@/lib/types";
+import type {
+  CandidateJobOpportunity
+} from "@/lib/candidate-job-insights";
+import { formatDateTimeDisplay, formatDisplayDate } from "@/lib/format";
 
 type CandidateJobsBoardProps = {
-  jobs: Job[];
-  applications: CandidateApplicationSummary[];
-  candidateProfile: MatchingCandidateProfile;
+  opportunities: CandidateJobOpportunity[];
 };
 
 type Filters = {
@@ -24,8 +23,9 @@ type Filters = {
   workMode: string;
   sector: string;
   applicationState: "" | "available" | "applied" | "active_applied";
+  focus: "" | "strong_match" | "ready_to_apply" | "featured" | "upcoming_interview";
   featuredOnly: boolean;
-  sort: "recent" | "oldest" | "featured" | "match";
+  sort: "priority_desc" | "recent" | "match" | "featured" | "oldest";
 };
 
 const initialFilters: Filters = {
@@ -35,8 +35,9 @@ const initialFilters: Filters = {
   workMode: "",
   sector: "",
   applicationState: "",
+  focus: "",
   featuredOnly: false,
-  sort: "recent"
+  sort: "priority_desc"
 };
 
 function getUniqueValues(values: Array<string | undefined>) {
@@ -49,40 +50,29 @@ function getUniqueValues(values: Array<string | undefined>) {
   ).sort((a, b) => a.localeCompare(b, "fr"));
 }
 
-export function CandidateJobsBoard({
-  jobs,
-  applications,
-  candidateProfile
-}: CandidateJobsBoardProps) {
+function getOpportunitySortDate(opportunity: CandidateJobOpportunity) {
+  return opportunity.job.published_at || opportunity.application?.updated_at || "";
+}
+
+export function CandidateJobsBoard({ opportunities }: CandidateJobsBoardProps) {
   const [filters, setFilters] = useState<Filters>(initialFilters);
   const deferredQuery = useDeferredValue(filters.query);
-  const applicationByJobId = useMemo(
-    () => new Map(applications.map((application) => [application.job_id, application])),
-    [applications]
-  );
-  const matchByJobId = useMemo(
-    () =>
-      new Map(
-        rankJobsForCandidate(candidateProfile, jobs).map((entry) => [entry.job.id, entry.match])
-      ),
-    [candidateProfile, jobs]
-  );
 
   const options = useMemo(
     () => ({
-      locations: getUniqueValues(jobs.map((job) => job.location)),
-      contractTypes: getUniqueValues(jobs.map((job) => job.contract_type)),
-      workModes: getUniqueValues(jobs.map((job) => job.work_mode)),
-      sectors: getUniqueValues(jobs.map((job) => job.sector))
+      locations: getUniqueValues(opportunities.map((entry) => entry.job.location)),
+      contractTypes: getUniqueValues(opportunities.map((entry) => entry.job.contract_type)),
+      workModes: getUniqueValues(opportunities.map((entry) => entry.job.work_mode)),
+      sectors: getUniqueValues(opportunities.map((entry) => entry.job.sector))
     }),
-    [jobs]
+    [opportunities]
   );
 
-  const filteredJobs = useMemo(() => {
+  const filteredOpportunities = useMemo(() => {
     const query = deferredQuery.trim().toLowerCase();
 
-      const matchingJobs = jobs.filter((job) => {
-        const application = applicationByJobId.get(job.id) ?? null;
+    const matchingOpportunities = opportunities.filter((entry) => {
+      const { job, application, match } = entry;
       const matchesQuery =
         !query ||
         [
@@ -91,23 +81,28 @@ export function CandidateJobsBoard({
           job.location,
           job.contract_type,
           job.work_mode,
-          job.sector
+          job.sector,
+          match.reason,
+          match.matchedKeywords.join(" ")
         ]
           .filter(Boolean)
           .some((value) => value.toLowerCase().includes(query));
 
       const matchesLocation = !filters.location || job.location === filters.location;
-      const matchesContract =
-        !filters.contractType || job.contract_type === filters.contractType;
+      const matchesContract = !filters.contractType || job.contract_type === filters.contractType;
       const matchesWorkMode = !filters.workMode || job.work_mode === filters.workMode;
       const matchesSector = !filters.sector || job.sector === filters.sector;
       const matchesApplicationState =
         !filters.applicationState ||
-        (filters.applicationState === "available" && !application) ||
-        (filters.applicationState === "applied" && Boolean(application)) ||
-        (filters.applicationState === "active_applied" &&
-          application !== null &&
-          !isFinalApplicationStatus(application.status));
+        (filters.applicationState === "available" && entry.isAvailable) ||
+        (filters.applicationState === "applied" && application !== null) ||
+        (filters.applicationState === "active_applied" && entry.isActiveApplied);
+      const matchesFocus =
+        !filters.focus ||
+        (filters.focus === "strong_match" && entry.isAvailable && match.hasSignal && match.score >= 78) ||
+        (filters.focus === "ready_to_apply" && entry.isReadyToApply) ||
+        (filters.focus === "featured" && job.is_featured) ||
+        (filters.focus === "upcoming_interview" && entry.hasUpcomingInterview);
       const matchesFeatured = !filters.featuredOnly || job.is_featured;
 
       return (
@@ -117,47 +112,83 @@ export function CandidateJobsBoard({
         matchesWorkMode &&
         matchesSector &&
         matchesApplicationState &&
+        matchesFocus &&
         matchesFeatured
       );
     });
 
-    return matchingJobs.sort((left, right) => {
-      const leftDate = left.published_at ? new Date(left.published_at).getTime() : 0;
-      const rightDate = right.published_at ? new Date(right.published_at).getTime() : 0;
-      const leftMatch = matchByJobId.get(left.id)?.score ?? 0;
-      const rightMatch = matchByJobId.get(right.id)?.score ?? 0;
+    return matchingOpportunities.sort((left, right) => {
+      const leftDate = new Date(getOpportunitySortDate(left)).getTime();
+      const rightDate = new Date(getOpportunitySortDate(right)).getTime();
+
+      if (filters.sort === "priority_desc") {
+        if (left.priorityScore !== right.priorityScore) {
+          return right.priorityScore - left.priorityScore;
+        }
+      }
+
+      if (filters.sort === "match") {
+        if (left.match.score !== right.match.score) {
+          return right.match.score - left.match.score;
+        }
+      }
+
+      if (filters.sort === "featured") {
+        if (left.job.is_featured !== right.job.is_featured) {
+          return left.job.is_featured ? -1 : 1;
+        }
+      }
 
       if (filters.sort === "oldest") {
         return leftDate - rightDate;
       }
 
-      if (filters.sort === "match") {
-        if (leftMatch !== rightMatch) {
-          return rightMatch - leftMatch;
-        }
-      }
-
-      if (filters.sort === "featured") {
-        if (left.is_featured !== right.is_featured) {
-          return left.is_featured ? -1 : 1;
-        }
-      }
-
       return rightDate - leftDate;
     });
   }, [
-    applicationByJobId,
     deferredQuery,
     filters.applicationState,
     filters.contractType,
     filters.featuredOnly,
+    filters.focus,
     filters.location,
     filters.sector,
     filters.sort,
     filters.workMode,
-    jobs,
-    matchByJobId
+    opportunities
   ]);
+
+  const signalStats = useMemo(() => {
+    let available = 0;
+    let strongMatch = 0;
+    let activeApplied = 0;
+    let upcomingInterview = 0;
+
+    for (const entry of filteredOpportunities) {
+      if (entry.isAvailable) {
+        available += 1;
+      }
+
+      if (entry.isAvailable && entry.match.hasSignal && entry.match.score >= 78) {
+        strongMatch += 1;
+      }
+
+      if (entry.isActiveApplied) {
+        activeApplied += 1;
+      }
+
+      if (entry.hasUpcomingInterview) {
+        upcomingInterview += 1;
+      }
+    }
+
+    return {
+      available,
+      strongMatch,
+      activeApplied,
+      upcomingInterview
+    };
+  }, [filteredOpportunities]);
 
   const activeFilterCount = [
     filters.query,
@@ -166,8 +197,9 @@ export function CandidateJobsBoard({
     filters.workMode,
     filters.sector,
     filters.applicationState,
+    filters.focus,
     filters.featuredOnly ? "featured" : "",
-    filters.sort !== "recent" ? filters.sort : ""
+    filters.sort !== "priority_desc" ? filters.sort : ""
   ].filter(Boolean).length;
 
   return (
@@ -176,9 +208,9 @@ export function CandidateJobsBoard({
         <div className="dashboard-form__head">
           <div>
             <p className="eyebrow">Recherche avancee</p>
-            <h2>Trouvez les offres sur lesquelles vous pouvez reellement postuler</h2>
+            <h2>Priorisez les vraies opportunites et les dossiers deja en mouvement</h2>
           </div>
-          <span className="tag">{filteredJobs.length} offre(s)</span>
+          <span className="tag">{filteredOpportunities.length} offre(s)</span>
         </div>
 
         <div className="form-grid">
@@ -295,6 +327,25 @@ export function CandidateJobsBoard({
           </label>
 
           <label className="field">
+            <span>Focus</span>
+            <select
+              value={filters.focus}
+              onChange={(event) =>
+                setFilters((previous) => ({
+                  ...previous,
+                  focus: event.target.value as Filters["focus"]
+                }))
+              }
+            >
+              <option value="">Vue globale</option>
+              <option value="strong_match">Forts matchs disponibles</option>
+              <option value="ready_to_apply">Pretes a candidater</option>
+              <option value="featured">Mises en avant</option>
+              <option value="upcoming_interview">Avec entretien a venir</option>
+            </select>
+          </label>
+
+          <label className="field">
             <span>Tri</span>
             <select
               value={filters.sort}
@@ -305,12 +356,32 @@ export function CandidateJobsBoard({
                 }))
               }
             >
+              <option value="priority_desc">Priorite</option>
               <option value="recent">Plus recentes</option>
               <option value="match">Meilleur match</option>
               <option value="featured">Mises en avant d'abord</option>
               <option value="oldest">Plus anciennes</option>
             </select>
           </label>
+        </div>
+
+        <div className="interviews-board__stats">
+          <article className="document-card">
+            <strong>{signalStats.available}</strong>
+            <p>offre(s) encore disponibles</p>
+          </article>
+          <article className="document-card">
+            <strong>{signalStats.strongMatch}</strong>
+            <p>fort(s) match(s) non postules</p>
+          </article>
+          <article className="document-card">
+            <strong>{signalStats.activeApplied}</strong>
+            <p>dossier(s) deja en mouvement</p>
+          </article>
+          <article className="document-card">
+            <strong>{signalStats.upcomingInterview}</strong>
+            <p>offre(s) avec entretien a venir</p>
+          </article>
         </div>
 
         <div className="jobs-board__actions">
@@ -328,6 +399,12 @@ export function CandidateJobsBoard({
             <span>Afficher uniquement les offres mises en avant</span>
           </label>
 
+          <span className="jobs-board__hint">
+            {activeFilterCount > 0
+              ? `${activeFilterCount} filtre(s) actif(s).`
+              : "Les offres les plus pertinentes et les dossiers deja avances remontent automatiquement en tete."}
+          </span>
+
           {activeFilterCount > 0 ? (
             <button
               type="button"
@@ -341,31 +418,43 @@ export function CandidateJobsBoard({
       </section>
 
       <section className="jobs-results">
-        {filteredJobs.length > 0 ? (
-          filteredJobs.map((job) => {
-            const application = applicationByJobId.get(job.id) ?? null;
+        {filteredOpportunities.length > 0 ? (
+          filteredOpportunities.map((entry) => {
+            const { job, application, match } = entry;
             const applicationStatus = application
               ? getApplicationStatusMeta(application.status)
               : null;
-            const match = matchByJobId.get(job.id) ?? null;
             const shouldHighlightMatch =
-              !application && match !== null && match.hasSignal && match.score >= 40;
+              entry.isAvailable && match.hasSignal && match.score >= 40;
 
             return (
               <article key={job.id} className="panel job-card jobs-result-card">
                 <div className="jobs-result-card__head">
                   <div className="jobs-result-card__badges">
-                    <span className={`tag ${shouldHighlightMatch ? `tag--${match?.tone}` : ""}`.trim()}>
+                    <span
+                      className={`tag ${
+                        applicationStatus
+                          ? ""
+                          : shouldHighlightMatch
+                            ? `tag--${match.tone}`
+                            : job.is_featured
+                              ? "tag--info"
+                              : ""
+                      }`.trim()}
+                    >
                       {applicationStatus
                         ? applicationStatus.label
-                        : shouldHighlightMatch && match
+                        : shouldHighlightMatch
                           ? match.label
                           : job.is_featured
                             ? "Mise en avant"
                             : "Disponible"}
                     </span>
-                    {shouldHighlightMatch && match ? (
-                      <span className="tag tag--muted">{match.level}</span>
+                    {job.is_featured && !applicationStatus ? (
+                      <span className="tag tag--info">Visible en priorite</span>
+                    ) : null}
+                    {application?.interview_signal.next_interview_at ? (
+                      <span className="tag tag--info">Entretien a venir</span>
                     ) : null}
                   </div>
                   <small>Publie le {formatDisplayDate(job.published_at)}</small>
@@ -375,7 +464,7 @@ export function CandidateJobsBoard({
                 <p>
                   {applicationStatus
                     ? applicationStatus.description
-                    : shouldHighlightMatch && match
+                    : shouldHighlightMatch
                       ? match.reason
                       : job.summary}
                 </p>
@@ -385,26 +474,61 @@ export function CandidateJobsBoard({
                   <span>{job.contract_type}</span>
                   <span>{job.work_mode}</span>
                   <span>{job.sector}</span>
-                  {shouldHighlightMatch && match ? (
-                    <span>{match.matchedKeywords.join(", ") || "Matching actif"}</span>
+                  {shouldHighlightMatch && match.matchedKeywords.length > 0 ? (
+                    <span>{match.matchedKeywords.join(", ")}</span>
                   ) : null}
+                </div>
+
+                <div className="application-signal-card">
+                  <strong>
+                    {application
+                      ? application.interview_signal.next_interview_at
+                        ? "Dossier deja en mouvement"
+                        : isFinalApplicationStatus(application.status)
+                          ? "Dossier deja finalise"
+                          : "Dossier actif"
+                      : entry.isReadyToApply
+                        ? "Bonne opportunite a candidater"
+                        : match.hasSignal
+                          ? "Potentiel a examiner"
+                          : "Matching a completer"}
+                  </strong>
+                  <p>
+                    {application?.interview_signal.next_interview_at
+                      ? `Prochain entretien le ${formatDateTimeDisplay(application.interview_signal.next_interview_at)}.`
+                      : application
+                        ? `Candidature envoyee le ${formatDisplayDate(application.created_at)}.`
+                        : match.reason}
+                  </p>
+                  <small>
+                    {application
+                      ? applicationStatus?.candidateHint
+                      : match.hasSignal
+                        ? `Compatibilite estimee a ${match.score}%.`
+                        : "Completez votre profil pour ameliorer le matching."}
+                  </small>
                 </div>
 
                 <div className="job-card__footer">
                   <small>
                     {application
-                      ? `Candidature envoyee le ${formatDisplayDate(application.created_at)}`
+                      ? application.interview_signal.next_interview_at
+                        ? "Le dossier est deja actif dans votre suivi candidat."
+                        : "Vous pouvez suivre ce dossier directement depuis votre espace candidat."
                       : job.organization_name || "Madajob"}
                   </small>
-                  <Link
-                    href={
-                      application
-                        ? `/app/candidat/candidatures/${application.id}`
-                        : `/app/candidat/offres/${job.slug}`
-                    }
-                  >
-                    {application ? "Suivre ma candidature" : "Voir l'offre"}
-                  </Link>
+                  <div className="notification-card__actions">
+                    {application ? (
+                      <Link href={`/app/candidat/candidatures/${application.id}`}>
+                        Suivre ma candidature
+                      </Link>
+                    ) : (
+                      <Link href={`/app/candidat/offres/${job.slug}`}>Voir l'offre</Link>
+                    )}
+                    {application && !isFinalApplicationStatus(application.status) ? (
+                      <Link href={`/app/candidat/offres/${job.slug}`}>Relire l'offre</Link>
+                    ) : null}
+                  </div>
                 </div>
               </article>
             );

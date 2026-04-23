@@ -1,9 +1,15 @@
+import Link from "next/link";
+
 import { DashboardShell } from "@/components/dashboard/shell";
 import { CandidateJobsBoard } from "@/components/jobs/candidate-jobs-board";
-import { isFinalApplicationStatus } from "@/lib/application-status";
+import { getApplicationStatusMeta } from "@/lib/application-status";
+import {
+  buildCandidateJobOpportunities,
+  summarizeCandidateJobsWorkspace
+} from "@/lib/candidate-job-insights";
 import { requireRole } from "@/lib/auth";
+import { formatDateTimeDisplay, formatDisplayDate } from "@/lib/format";
 import { getCandidateApplicationSummaries, getCandidateWorkspace, getPublicJobs } from "@/lib/jobs";
-import { rankJobsForCandidate } from "@/lib/matching";
 
 export default async function CandidateJobsPage() {
   const profile = await requireRole(["candidat"]);
@@ -12,48 +18,137 @@ export default async function CandidateJobsPage() {
     getCandidateApplicationSummaries(profile.id),
     getCandidateWorkspace(profile)
   ]);
-  const appliedJobIds = new Set(applications.map((application) => application.job_id));
-  const activeApplicationsCount = applications.filter(
-    (application) => !isFinalApplicationStatus(application.status)
-  ).length;
-  const rankedJobs = rankJobsForCandidate(candidateProfile, jobs);
-  const strongMatchesCount = rankedJobs.filter((entry) => entry.match.score >= 78).length;
+
+  const opportunities = buildCandidateJobOpportunities(jobs, applications, candidateProfile);
+  const summary = summarizeCandidateJobsWorkspace(opportunities);
+  const topAvailable = summary.topAvailableOpportunity;
+  const topActive = summary.topActiveOpportunity;
+  const activeApplicationStatus = topActive?.application
+    ? getApplicationStatusMeta(topActive.application.status)
+    : null;
 
   return (
     <DashboardShell
       title="Offres disponibles"
-      description="Explorez une vraie page carriere dans la plateforme, avec recherche avancee et filtres pour cibler rapidement les postes qui vous correspondent."
+      description="Explorez les offres visibles depuis la plateforme avec un cockpit plus oriente decision, matching et suivi des dossiers deja actifs."
       profile={profile}
       currentPath="/app/candidat/offres"
     >
       <section className="dashboard-grid dashboard-grid--four">
         <article className="panel metric-panel">
           <span>Offres visibles</span>
-          <strong>{jobs.length}</strong>
+          <strong>{summary.visibleCount}</strong>
           <small>offres publiees accessibles depuis la plateforme</small>
         </article>
         <article className="panel metric-panel">
-          <span>Offres deja postulees</span>
-          <strong>{appliedJobIds.size}</strong>
-          <small>opportunites sur lesquelles vous avez deja un dossier</small>
-        </article>
-        <article className="panel metric-panel">
-          <span>Candidatures actives</span>
-          <strong>{activeApplicationsCount}</strong>
-          <small>suivi encore en mouvement dans votre espace</small>
-        </article>
-        <article className="panel metric-panel">
           <span>Forts matchs</span>
-          <strong>{strongMatchesCount}</strong>
-          <small>offres avec forte compatibilite calculee depuis votre profil</small>
+          <strong>{summary.strongAvailableCount}</strong>
+          <small>opportunites disponibles avec fort alignement estime</small>
+        </article>
+        <article className="panel metric-panel">
+          <span>Pretes a candidater</span>
+          <strong>{summary.readyToApplyCount}</strong>
+          <small>offres avec bon signal de matching et sans dossier existant</small>
+        </article>
+        <article className="panel metric-panel">
+          <span>Dossiers actifs visibles</span>
+          <strong>{summary.activeAppliedCount}</strong>
+          <small>offres deja reliees a une candidature encore en mouvement</small>
         </article>
       </section>
 
-      <CandidateJobsBoard
-        jobs={jobs}
-        applications={applications}
-        candidateProfile={candidateProfile}
-      />
+      <section className="dashboard-form">
+        <div className="dashboard-form__head">
+          <div>
+            <p className="eyebrow">Centre d'action</p>
+            <h2>Ou concentrer votre attention maintenant</h2>
+          </div>
+          <span className="tag">{summary.featuredCount} offre(s) mise(s) en avant</span>
+        </div>
+
+        <div className="candidate-jobs-summary-grid">
+          <article className="document-card candidate-jobs-summary-card">
+            <div className="dashboard-card__top">
+              <strong>Meilleure opportunite disponible</strong>
+              <span className={`tag tag--${topAvailable?.match.tone ?? "muted"}`}>
+                {topAvailable?.match.label ?? "Aucune"}
+              </span>
+            </div>
+            <h3>{topAvailable?.job.title ?? "Aucune offre disponible pour le moment"}</h3>
+            <p>
+              {topAvailable
+                ? topAvailable.match.reason
+                : "De nouvelles offres apparaitront ici automatiquement des qu'elles seront publiees."}
+            </p>
+            <small>
+              {topAvailable
+                ? `${topAvailable.job.location} · ${topAvailable.job.contract_type} · ${topAvailable.job.work_mode}`
+                : "Continuez a completer votre profil pour renforcer le matching."}
+            </small>
+            <div className="notification-card__actions">
+              {topAvailable ? (
+                <Link href={`/app/candidat/offres/${topAvailable.job.slug}`}>Voir l'offre</Link>
+              ) : (
+                <Link href="/app/candidat">Retour au cockpit candidat</Link>
+              )}
+            </div>
+          </article>
+
+          <article className="document-card candidate-jobs-summary-card">
+            <div className="dashboard-card__top">
+              <strong>Dossier deja actif a suivre</strong>
+              <span className="tag tag--info">
+                {activeApplicationStatus?.label ?? "Aucun"}
+              </span>
+            </div>
+            <h3>{topActive?.job.title ?? "Aucun dossier actif sur ces offres"}</h3>
+            <p>
+              {topActive?.application?.interview_signal.next_interview_at
+                ? `Prochain entretien le ${formatDateTimeDisplay(topActive.application.interview_signal.next_interview_at)}.`
+                : activeApplicationStatus?.description ??
+                  "Vos dossiers actifs apparaitront ici pour vous aider a arbitrer entre candidature et suivi."}
+            </p>
+            <small>
+              {topActive?.application
+                ? `Candidature envoyee le ${formatDisplayDate(topActive.application.created_at)}.`
+                : "Le suivi detaille reste accessible depuis l'espace candidatures."}
+            </small>
+            <div className="notification-card__actions">
+              {topActive?.application ? (
+                <Link href={`/app/candidat/candidatures/${topActive.application.id}`}>
+                  Ouvrir le dossier
+                </Link>
+              ) : (
+                <Link href="/app/candidat/candidatures">Voir mes candidatures</Link>
+              )}
+            </div>
+          </article>
+
+          <article className="document-card candidate-jobs-summary-card">
+            <div className="dashboard-card__top">
+              <strong>Lecture du marche</strong>
+              <span className="tag tag--muted">{summary.visibleCount} offres</span>
+            </div>
+            <h3>Gardez une recherche exploitable</h3>
+            <p>
+              {summary.readyToApplyCount > 0
+                ? `${summary.readyToApplyCount} opportunite(s) semblent deja assez alignees pour candidater rapidement.`
+                : "Le matching reste actif, mais votre profil peut encore gagner en precision pour mieux cibler les postes."}
+            </p>
+            <small>
+              {summary.strongAvailableCount > 0
+                ? `${summary.strongAvailableCount} fort(s) match(s) disponibles dans la liste actuelle.`
+                : "Elargissez les filtres ou enrichissez votre profil pour faire remonter plus d'opportunites fortes."}
+            </small>
+            <div className="notification-card__actions">
+              <Link href="/app/candidat">Completer mon profil</Link>
+              <Link href="/app/candidat/candidatures">Voir mes dossiers actifs</Link>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <CandidateJobsBoard opportunities={opportunities} />
     </DashboardShell>
   );
 }
