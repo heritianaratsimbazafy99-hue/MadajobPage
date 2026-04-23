@@ -26,7 +26,7 @@ export type MatchableJob = Pick<
   Partial<Pick<ManagedJob, "requirements" | "responsibilities" | "benefits">>;
 
 export type JobMatchBreakdownItem = {
-  key: "focus" | "skills" | "location" | "profile";
+  key: "focus" | "skills" | "location" | "profile" | "gap";
   label: string;
   value: string;
 };
@@ -100,6 +100,39 @@ const stopWords = new Set([
   "ces"
 ]);
 
+const genericJobKeywords = new Set([
+  "bonne",
+  "bonnes",
+  "capacite",
+  "capacites",
+  "client",
+  "clients",
+  "collaboration",
+  "communication",
+  "competence",
+  "competences",
+  "connaissance",
+  "connaissances",
+  "equipe",
+  "equipes",
+  "experience",
+  "gestion",
+  "mission",
+  "missions",
+  "niveau",
+  "objectifs",
+  "organisation",
+  "outils",
+  "poste",
+  "profil",
+  "projet",
+  "projets",
+  "service",
+  "services",
+  "suivi",
+  "travail"
+]);
+
 function normalizeText(value: string) {
   return value
     .normalize("NFD")
@@ -137,6 +170,13 @@ function sortKeywords(tokens: string[]) {
 
 function pickTopKeywords(tokens: string[], limit = 4) {
   return Array.from(new Set(sortKeywords(tokens))).slice(0, limit);
+}
+
+function getMeaningfulKeywords(tokens: string[], limit = 6) {
+  return pickTopKeywords(
+    tokens.filter((token) => token.length >= 4 && !genericJobKeywords.has(token)),
+    limit
+  );
 }
 
 function hasDirectTextOverlap(left: Array<string | null | undefined>, right: string | null | undefined) {
@@ -249,7 +289,22 @@ export function getCandidateJobMatch(
     jobKeywordTokens
   );
   const locationMatches = intersect(locationTokens, jobLocationTokens);
-  const matchedKeywords = pickTopKeywords([...titleMatches, ...keywordMatches]);
+  const candidateSignals = Array.from(new Set([...focusTokens, ...candidateKeywordTokens]));
+  const meaningfulJobKeywords = getMeaningfulKeywords(
+    [...jobFocusTokens, ...jobKeywordTokens],
+    8
+  );
+  const meaningfulMatchedKeywords = getMeaningfulKeywords(
+    [...titleMatches, ...keywordMatches],
+    4
+  );
+  const matchedKeywords =
+    meaningfulMatchedKeywords.length > 0
+      ? meaningfulMatchedKeywords
+      : pickTopKeywords([...titleMatches, ...keywordMatches]);
+  const missingKeywords = meaningfulJobKeywords.filter(
+    (keyword) => !candidateSignals.includes(keyword)
+  );
   const completion =
     typeof profile.profile_completion === "number" ? profile.profile_completion : 0;
   const hasFocusSignal = focusTokens.length > 0;
@@ -286,6 +341,11 @@ export function getCandidateJobMatch(
           key: "profile",
           label: "Profil",
           value: getProfileCoverageLabel(completion)
+        },
+        {
+          key: "gap",
+          label: "Points a verifier",
+          value: "Les ecarts seront calcules des que le poste vise et les competences seront renseignes."
         }
       ],
       nextStep: "Commencez par renseigner un poste vise et quelques competences clefs pour activer des suggestions fiables."
@@ -306,6 +366,7 @@ export function getCandidateJobMatch(
   const level = getLevel(score);
   const extraSkillMatches = keywordMatches.filter((keyword) => !titleMatches.includes(keyword));
   const profileBreakdown = getProfileCoverageLabel(completion);
+  const highlightedGaps = pickTopKeywords(missingKeywords, 3);
 
   let reason = "Le profil est encore eloigne de cette offre pour le moment.";
   let nextStep =
@@ -313,19 +374,34 @@ export function getCandidateJobMatch(
 
   if (directFocusAlignment && keywordMatches.length > 0) {
     reason = `Le poste vise recoupe clairement l'intitule de l'offre, avec des signaux sur ${matchedKeywords.join(", ")}.`;
-    nextStep = "Priorisez un contact rapide ou une candidature si les prerequis restants sont confirmes.";
+    nextStep =
+      highlightedGaps.length > 0
+        ? `Priorisez un contact rapide, puis confirmez surtout ${highlightedGaps.join(", ")}.`
+        : "Priorisez un contact rapide ou une candidature si les prerequis restants sont confirmes.";
   } else if (titleMatches.length > 0 && matchedKeywords.length > 0) {
     reason = `Cible metier et competences deja visibles sur ${matchedKeywords.join(", ")}.`;
-    nextStep = "Verifiez surtout le niveau attendu, la disponibilite et les criteres de tri restants.";
+    nextStep =
+      highlightedGaps.length > 0
+        ? `Verifiez surtout ${highlightedGaps.join(", ")} avant d'avancer ce dossier.`
+        : "Verifiez surtout le niveau attendu, la disponibilite et les criteres de tri restants.";
   } else if (titleMatches.length > 0) {
     reason = "Le poste vise recoupe clairement l'intitule de cette offre.";
-    nextStep = "Le titre est coherent. Il reste surtout a confirmer les competences clefs du poste.";
+    nextStep =
+      highlightedGaps.length > 0
+        ? `Le titre est coherent. Il reste surtout a confirmer ${highlightedGaps.join(", ")}.`
+        : "Le titre est coherent. Il reste surtout a confirmer les competences clefs du poste.";
   } else if (keywordMatches.length > 0) {
     reason = `Competences detectees dans l'offre: ${matchedKeywords.join(", ")}.`;
-    nextStep = "La base competences est presente, mais la cible metier merite encore d'etre precisee.";
+    nextStep =
+      highlightedGaps.length > 0
+        ? `La base competences est presente, mais il faut encore lever ${highlightedGaps.join(", ")}.`
+        : "La base competences est presente, mais la cible metier merite encore d'etre precisee.";
   } else if (locationMatches.length > 0) {
     reason = "La localisation du candidat reste coherente avec cette offre.";
-    nextStep = "La proximite geographique est bonne, mais le contenu du profil doit encore etre aligne avec le poste.";
+    nextStep =
+      highlightedGaps.length > 0
+        ? `La proximite geographique est bonne, mais le profil doit encore couvrir ${highlightedGaps.join(", ")}.`
+        : "La proximite geographique est bonne, mais le contenu du profil doit encore etre aligne avec le poste.";
   }
 
   const breakdown: JobMatchBreakdownItem[] = [
@@ -364,6 +440,16 @@ export function getCandidateJobMatch(
       key: "profile",
       label: "Profil",
       value: profileBreakdown
+    },
+    {
+      key: "gap",
+      label: "Points a verifier",
+      value:
+        highlightedGaps.length > 0
+          ? `Verifier surtout ${highlightedGaps.join(", ")} avant arbitrage.`
+          : meaningfulJobKeywords.length > 0
+            ? "Aucun ecart majeur n'apparait dans les mots clefs les plus visibles."
+            : "L'offre donne encore peu de signaux exploitables sur les prerequis."
     }
   ];
 
