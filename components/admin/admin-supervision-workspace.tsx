@@ -10,10 +10,16 @@ import {
   type DashboardPriorityTone
 } from "@/lib/dashboard-interviews";
 import { formatDisplayDate } from "@/lib/format";
+import {
+  getAdminPlatformRecommendations,
+  type PlatformRecommendationTone
+} from "@/lib/platform-recommendations";
 import type {
   AdminAuditEvent,
   AppNotification,
   Job,
+  ManagedCandidateSummary,
+  ManagedJob,
   ManagedOrganizationSummary,
   ManagedUserSummary,
   Profile,
@@ -34,8 +40,9 @@ type AdminSnapshotData = {
 type AdminSupervisionWorkspaceProps = {
   profile: Profile;
   snapshot: AdminSnapshotData;
-  jobs: Job[];
+  jobs: ManagedJob[];
   applications: RecruiterApplication[];
+  candidates: ManagedCandidateSummary[];
   users: ManagedUserSummary[];
   organizations: ManagedOrganizationSummary[];
   emails: TransactionalEmail[];
@@ -61,6 +68,10 @@ function getToneClass(tone: PriorityCard["tone"]) {
   }
 
   return "tag tag--muted";
+}
+
+function getRecommendationToneClass(tone: PlatformRecommendationTone) {
+  return `tag tag--${tone}`;
 }
 
 function getApplicationStatusCounts(applications: RecruiterApplication[]) {
@@ -147,6 +158,7 @@ export function AdminSupervisionWorkspace({
   snapshot,
   jobs,
   applications,
+  candidates,
   users,
   organizations,
   emails,
@@ -161,6 +173,15 @@ export function AdminSupervisionWorkspace({
   ).length;
   const interviewStats = getInterviewDashboardStats(applications);
   const priorityCards = getPriorityCards(applications, users, emails);
+  const platformRecommendations = getAdminPlatformRecommendations({
+    jobs,
+    applications,
+    candidates,
+    notifications,
+    users,
+    organizations,
+    emails
+  });
   const applicationStatusCounts = getApplicationStatusCounts(applications);
   const interviewActionItems = getInterviewDashboardActionItems(applications).slice(0, 6);
   const recentApplications = applications.slice(0, 6);
@@ -378,6 +399,43 @@ export function AdminSupervisionWorkspace({
 
         <aside className="dashboard-column dashboard-column--aside">
           <JobCreateForm roleLabel="Admin" />
+
+          <div className="dashboard-form">
+            <div className="dashboard-form__head">
+              <div>
+                <p className="eyebrow">Recommandations Madajob</p>
+                <h2>Les leviers a traiter en priorite</h2>
+              </div>
+              <span className="tag">{platformRecommendations.length} action(s)</span>
+            </div>
+
+            <div className="reporting-breakdown">
+              {platformRecommendations.length > 0 ? (
+                platformRecommendations.map((recommendation) => (
+                  <div key={recommendation.id} className="document-card reporting-list__item">
+                    <div className="reporting-list__head">
+                      <strong>{recommendation.title}</strong>
+                      <span className={getRecommendationToneClass(recommendation.tone)}>
+                        {recommendation.count}
+                      </span>
+                    </div>
+                    <p>{recommendation.body}</p>
+                    <div className="job-card__meta">
+                      <span>{recommendation.meta}</span>
+                    </div>
+                    <Link className="text-link" href={recommendation.href}>
+                      {recommendation.cta}
+                    </Link>
+                  </div>
+                ))
+              ) : (
+                <div className="document-card">
+                  <strong>Aucune recommandation critique</strong>
+                  <p>Les signaux prioritaires apparaitront ici quand la plateforme en aura besoin.</p>
+                </div>
+              )}
+            </div>
+          </div>
 
           <div className="dashboard-form">
             <div className="dashboard-form__head">

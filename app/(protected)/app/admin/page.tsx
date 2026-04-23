@@ -5,6 +5,7 @@ import {
   getAdminAuditEvents,
   getAdminSnapshot,
   getAdminUsers,
+  getManagedCandidates,
   getManagedJobs,
   getManagedOrganizations
 } from "@/lib/jobs";
@@ -17,6 +18,7 @@ export default async function AdminDashboardPage() {
     snapshot,
     jobs,
     applications,
+    candidates,
     users,
     organizations,
     emails,
@@ -26,6 +28,7 @@ export default async function AdminDashboardPage() {
     getAdminSnapshot(),
     getManagedJobs(profile, { limit: 120 }),
     getAdminApplications({ limit: 120 }),
+    getManagedCandidates(profile, { limit: 200 }),
     getAdminUsers(),
     getManagedOrganizations(),
     getTransactionalEmails({ limit: 80 }),
@@ -39,6 +42,7 @@ export default async function AdminDashboardPage() {
       snapshot={snapshot}
       jobs={jobs}
       applications={applications}
+      candidates={candidates}
       users={users}
       organizations={organizations}
       emails={emails}

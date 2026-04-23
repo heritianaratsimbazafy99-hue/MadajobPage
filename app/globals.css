@@ -433,6 +433,11 @@ code {
   color: #b64242;
 }
 
+.tag--warning {
+  background: rgba(233, 171, 62, 0.16);
+  color: #9a641c;
+}
+
 .tag--muted {
   background: rgba(22, 49, 74, 0.08);
   color: var(--muted);
