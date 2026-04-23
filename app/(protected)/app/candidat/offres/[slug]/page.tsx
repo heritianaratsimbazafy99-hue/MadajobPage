@@ -3,13 +3,14 @@ import { notFound } from "next/navigation";
 
 import { DashboardShell } from "@/components/dashboard/shell";
 import { CandidateSaveJobButton } from "@/components/jobs/candidate-save-job-button";
+import { CandidateSavedJobNoteForm } from "@/components/jobs/candidate-saved-job-note-form";
 import { JobApplyForm } from "@/components/jobs/job-apply-form";
 import { MatchBreakdown } from "@/components/jobs/match-breakdown";
 import { getApplicationStatusMeta } from "@/lib/application-status";
 import { requireRole } from "@/lib/auth";
 import { getCandidateProfileInsights } from "@/lib/candidate-profile";
 import { buildCandidateJobOpportunities } from "@/lib/candidate-job-insights";
-import { getCandidateSavedJobIds } from "@/lib/candidate-saved-jobs";
+import { getCandidateSavedJobsMap } from "@/lib/candidate-saved-jobs";
 import { formatDateTimeDisplay, formatDisplayDate } from "@/lib/format";
 import {
   getCandidateApplicationSummaries,
@@ -42,23 +43,23 @@ export default async function CandidateJobDetailPage({
     notFound();
   }
 
-  const [candidateProfile, applications, publicJobs, savedJobIds] = await Promise.all([
+  const [candidateProfile, applications, publicJobs, savedJobs] = await Promise.all([
     getCandidateWorkspace(profile),
     getCandidateApplicationSummaries(profile.id),
     getPublicJobs({ limit: 36, sort: "featured" }),
-    getCandidateSavedJobIds(profile.id)
+    getCandidateSavedJobsMap(profile.id)
   ]);
 
   const profileInsights = getCandidateProfileInsights(candidateProfile);
   const currentOpportunity =
-    buildCandidateJobOpportunities([job], applications, candidateProfile, savedJobIds)[0] ?? null;
+    buildCandidateJobOpportunities([job], applications, candidateProfile, savedJobs)[0] ?? null;
   const application = currentOpportunity?.application ?? null;
   const applicationStatus = application ? getApplicationStatusMeta(application.status) : null;
   const relatedOpportunities = buildCandidateJobOpportunities(
     publicJobs.filter((entry) => entry.id !== job.id),
     applications,
     candidateProfile,
-    savedJobIds
+    savedJobs
   )
     .filter(
       (entry) =>
@@ -308,6 +309,12 @@ export default async function CandidateJobDetailPage({
               jobId={job.id}
               initialSaved={Boolean(currentOpportunity?.isSaved)}
             />
+            {currentOpportunity?.isSaved ? (
+              <CandidateSavedJobNoteForm
+                jobId={job.id}
+                initialNote={currentOpportunity.savedJob?.note ?? ""}
+              />
+            ) : null}
           </div>
 
           {application ? (

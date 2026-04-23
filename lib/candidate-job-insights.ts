@@ -4,7 +4,10 @@ import {
   type JobMatchResult,
   type MatchingCandidateProfile
 } from "@/lib/matching";
+import type { CandidateSavedJobData } from "@/lib/candidate-saved-jobs";
 import type { CandidateApplicationSummary, Job } from "@/lib/types";
+
+type CandidateSavedJobLookup = Set<string> | Map<string, CandidateSavedJobData>;
 
 export type CandidateJobOpportunity = {
   job: Job;
@@ -16,6 +19,7 @@ export type CandidateJobOpportunity = {
   hasUpcomingInterview: boolean;
   isReadyToApply: boolean;
   isSaved: boolean;
+  savedJob: CandidateSavedJobData | null;
 };
 
 export type CandidateJobsWorkspaceSummary = {
@@ -76,11 +80,25 @@ function getCandidateJobPriorityScore(
   return score;
 }
 
+function getSavedJobData(savedJobs: CandidateSavedJobLookup, jobId: string) {
+  if (savedJobs instanceof Map) {
+    return savedJobs.get(jobId) ?? null;
+  }
+
+  return savedJobs.has(jobId)
+    ? {
+        job_post_id: jobId,
+        note: "",
+        created_at: ""
+      }
+    : null;
+}
+
 export function buildCandidateJobOpportunities(
   jobs: Job[],
   applications: CandidateApplicationSummary[],
   candidateProfile: MatchingCandidateProfile,
-  savedJobIds: Set<string> = new Set()
+  savedJobs: CandidateSavedJobLookup = new Set()
 ) {
   const applicationByJobId = new Map(applications.map((application) => [application.job_id, application]));
 
@@ -92,7 +110,8 @@ export function buildCandidateJobOpportunities(
       const isActiveApplied = application !== null && !isFinalApplicationStatus(application.status);
       const hasUpcomingInterview = Boolean(application?.interview_signal.next_interview_at);
       const isReadyToApply = isAvailable && match.hasSignal && match.score >= 60;
-      const isSaved = savedJobIds.has(job.id);
+      const savedJob = getSavedJobData(savedJobs, job.id);
+      const isSaved = Boolean(savedJob);
 
       return {
         job,
@@ -103,7 +122,8 @@ export function buildCandidateJobOpportunities(
         isActiveApplied,
         hasUpcomingInterview,
         isReadyToApply,
-        isSaved
+        isSaved,
+        savedJob
       } satisfies CandidateJobOpportunity;
     })
     .sort((left, right) => {

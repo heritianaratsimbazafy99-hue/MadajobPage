@@ -3,7 +3,11 @@
 import { revalidatePath } from "next/cache";
 
 import { requireRole } from "@/lib/auth";
-import { saveCandidateJob, unsaveCandidateJob } from "@/lib/candidate-saved-jobs";
+import {
+  saveCandidateJob,
+  unsaveCandidateJob,
+  updateCandidateSavedJobNote
+} from "@/lib/candidate-saved-jobs";
 import { getPublishedJobById } from "@/lib/jobs";
 import {
   createNotifications,
@@ -458,6 +462,52 @@ export async function toggleCandidateSavedJobAction(
     message: nextSaved
       ? "Offre sauvegardee dans votre espace candidat."
       : "Offre retiree de vos sauvegardes."
+  };
+}
+
+export async function updateCandidateSavedJobNoteAction(
+  _previousState: JobActionState = defaultState,
+  formData: FormData
+): Promise<JobActionState> {
+  const profile = await requireRole(["candidat"]);
+  const jobId = getTrimmedValue(formData, "job_id");
+  const note = getTrimmedValue(formData, "note").slice(0, 600);
+
+  if (!jobId || !uuidPattern.test(jobId)) {
+    return {
+      status: "error",
+      message: "Impossible d'identifier cette offre."
+    };
+  }
+
+  const job = await getPublishedJobById(jobId);
+
+  if (!job) {
+    return {
+      status: "error",
+      message: "Cette offre n'est plus disponible."
+    };
+  }
+
+  const { error } = await updateCandidateSavedJobNote(profile.id, jobId, note);
+
+  if (error) {
+    return {
+      status: "error",
+      message:
+        error.code === "42501"
+          ? "La policy de mise a jour des notes sauvegardees n'est pas encore appliquee dans Supabase."
+          : error.message
+    };
+  }
+
+  revalidatePath("/app/candidat");
+  revalidatePath("/app/candidat/offres");
+  revalidatePath(`/app/candidat/offres/${job.slug}`);
+
+  return {
+    status: "success",
+    message: note ? "Note sauvegardee." : "Note retiree."
   };
 }
 

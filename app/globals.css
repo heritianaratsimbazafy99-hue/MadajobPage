@@ -1412,6 +1412,43 @@ code {
   line-height: 1.45;
 }
 
+.saved-job-note-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px dashed rgba(77, 142, 197, 0.22);
+  background: rgba(247, 250, 252, 0.9);
+}
+
+.saved-job-note-card p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.saved-job-note-form {
+  display: grid;
+  gap: 10px;
+}
+
+.saved-job-note-form textarea {
+  min-height: 92px;
+  resize: vertical;
+}
+
+.saved-job-note-form__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.saved-job-note-form__footer small {
+  color: var(--muted);
+}
+
 .application-notes .document-card p {
   margin: 0;
   color: var(--muted);

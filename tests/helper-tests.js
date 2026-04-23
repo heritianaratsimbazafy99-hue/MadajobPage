@@ -322,12 +322,24 @@ test("candidate jobs: remonte les offres sauvegardees dans le cockpit candidat",
     [buildJob(), savedJob],
     [],
     profile,
-    new Set(["job-saved"])
+    new Map([
+      [
+        "job-saved",
+        {
+          job_post_id: "job-saved",
+          note: "Verifier le package et la zone de prospection avant de postuler.",
+          created_at: "2026-04-23T08:00:00.000Z"
+        }
+      ]
+    ])
   );
   const summary = summarizeCandidateJobsWorkspace(opportunities);
+  const savedOpportunity = opportunities.find((entry) => entry.job.id === "job-saved");
 
   assert.equal(summary.savedCount, 1);
-  assert.equal(opportunities.find((entry) => entry.job.id === "job-saved").isSaved, true);
+  assert.ok(savedOpportunity);
+  assert.equal(savedOpportunity.isSaved, true);
+  assert.match(savedOpportunity.savedJob.note, /package/);
   assert.equal(opportunities[0].job.id, "job-saved");
 });
 

@@ -5,6 +5,7 @@ import { useDeferredValue, useMemo, useState } from "react";
 
 import { DashboardEmptyState } from "@/components/dashboard/empty-state";
 import { CandidateSaveJobButton } from "@/components/jobs/candidate-save-job-button";
+import { CandidateSavedJobNoteForm } from "@/components/jobs/candidate-saved-job-note-form";
 import { MatchBreakdown } from "@/components/jobs/match-breakdown";
 import {
   getApplicationStatusMeta,
@@ -86,6 +87,7 @@ export function CandidateJobsBoard({ opportunities }: CandidateJobsBoardProps) {
           job.work_mode,
           job.sector,
           match.reason,
+          entry.savedJob?.note ?? "",
           match.matchedKeywords.join(" "),
           match.breakdown.map((item) => item.value).join(" "),
           match.nextStep
@@ -531,6 +533,23 @@ export function CandidateJobsBoard({ opportunities }: CandidateJobsBoardProps) {
                         : "Completez votre profil pour ameliorer le matching."}
                   </small>
                 </div>
+
+                {entry.isSaved ? (
+                  <div className="saved-job-note-card">
+                    <div>
+                      <strong>Suivi personnel</strong>
+                      <p>
+                        {entry.savedJob?.note
+                          ? entry.savedJob.note
+                          : "Ajoutez une note pour vous rappeler pourquoi cette offre merite d'etre gardee en vue."}
+                      </p>
+                    </div>
+                    <CandidateSavedJobNoteForm
+                      jobId={job.id}
+                      initialNote={entry.savedJob?.note ?? ""}
+                    />
+                  </div>
+                ) : null}
 
                 <div className="job-card__footer">
                   <small>
