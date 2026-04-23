@@ -2,12 +2,14 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { DashboardShell } from "@/components/dashboard/shell";
+import { CandidateSaveJobButton } from "@/components/jobs/candidate-save-job-button";
 import { JobApplyForm } from "@/components/jobs/job-apply-form";
 import { MatchBreakdown } from "@/components/jobs/match-breakdown";
 import { getApplicationStatusMeta } from "@/lib/application-status";
 import { requireRole } from "@/lib/auth";
 import { getCandidateProfileInsights } from "@/lib/candidate-profile";
 import { buildCandidateJobOpportunities } from "@/lib/candidate-job-insights";
+import { getCandidateSavedJobIds } from "@/lib/candidate-saved-jobs";
 import { formatDateTimeDisplay, formatDisplayDate } from "@/lib/format";
 import {
   getCandidateApplicationSummaries,
@@ -40,21 +42,23 @@ export default async function CandidateJobDetailPage({
     notFound();
   }
 
-  const [candidateProfile, applications, publicJobs] = await Promise.all([
+  const [candidateProfile, applications, publicJobs, savedJobIds] = await Promise.all([
     getCandidateWorkspace(profile),
     getCandidateApplicationSummaries(profile.id),
-    getPublicJobs({ limit: 36, sort: "featured" })
+    getPublicJobs({ limit: 36, sort: "featured" }),
+    getCandidateSavedJobIds(profile.id)
   ]);
 
   const profileInsights = getCandidateProfileInsights(candidateProfile);
   const currentOpportunity =
-    buildCandidateJobOpportunities([job], applications, candidateProfile)[0] ?? null;
+    buildCandidateJobOpportunities([job], applications, candidateProfile, savedJobIds)[0] ?? null;
   const application = currentOpportunity?.application ?? null;
   const applicationStatus = application ? getApplicationStatusMeta(application.status) : null;
   const relatedOpportunities = buildCandidateJobOpportunities(
     publicJobs.filter((entry) => entry.id !== job.id),
     applications,
-    candidateProfile
+    candidateProfile,
+    savedJobIds
   )
     .filter(
       (entry) =>
@@ -133,6 +137,7 @@ export default async function CandidateJobDetailPage({
               <span>{job.contract_type}</span>
               <span>{job.work_mode}</span>
               <span>{job.sector}</span>
+              {currentOpportunity?.isSaved ? <span>Offre sauvegardee</span> : null}
             </div>
             <p className="detail-date">Publication : {formatDisplayDate(job.published_at)}</p>
           </article>
@@ -274,7 +279,14 @@ export default async function CandidateJobDetailPage({
                     </div>
                     <div className="job-card__footer">
                       <small>Publie le {formatDisplayDate(entry.job.published_at)}</small>
-                      <Link href={`/app/candidat/offres/${entry.job.slug}`}>Voir l'offre</Link>
+                      <div className="notification-card__actions">
+                        <CandidateSaveJobButton
+                          jobId={entry.job.id}
+                          initialSaved={entry.isSaved}
+                          compact
+                        />
+                        <Link href={`/app/candidat/offres/${entry.job.slug}`}>Voir l'offre</Link>
+                      </div>
                     </div>
                   </article>
                 ))}
@@ -284,6 +296,20 @@ export default async function CandidateJobDetailPage({
         </div>
 
         <aside className="dashboard-column dashboard-column--aside">
+          <div className="panel dashboard-sidecard">
+            <p className="eyebrow">Sauvegarde</p>
+            <h2>Gardez cette offre en vue.</h2>
+            <p>
+              {currentOpportunity?.isSaved
+                ? "Cette offre est dans votre liste de suivi candidat."
+                : "Sauvegardez cette offre pour la retrouver vite avant de postuler."}
+            </p>
+            <CandidateSaveJobButton
+              jobId={job.id}
+              initialSaved={Boolean(currentOpportunity?.isSaved)}
+            />
+          </div>
+
           {application ? (
             <div className="panel dashboard-sidecard detail-side-card__stack">
               <p className="eyebrow">Candidature envoyee</p>

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireRole } from "@/lib/auth";
+import { saveCandidateJob, unsaveCandidateJob } from "@/lib/candidate-saved-jobs";
 import { getPublishedJobById } from "@/lib/jobs";
 import {
   createNotifications,
@@ -410,6 +411,54 @@ export async function quickUpdateJobStatusAction(
   const profile = await requireRole(["recruteur", "admin"]);
 
   return updateJobStatusInternal(profile, jobId, nextStatus);
+}
+
+export async function toggleCandidateSavedJobAction(
+  jobId: string,
+  nextSaved: boolean
+): Promise<JobActionState> {
+  const profile = await requireRole(["candidat"]);
+
+  if (!jobId || !uuidPattern.test(jobId)) {
+    return {
+      status: "error",
+      message: "Impossible d'identifier cette offre."
+    };
+  }
+
+  const job = await getPublishedJobById(jobId);
+
+  if (!job) {
+    return {
+      status: "error",
+      message: "Cette offre n'est plus disponible."
+    };
+  }
+
+  const { error } = nextSaved
+    ? await saveCandidateJob(profile.id, jobId)
+    : await unsaveCandidateJob(profile.id, jobId);
+
+  if (error) {
+    return {
+      status: "error",
+      message:
+        error.code === "42P01"
+          ? "La table des offres sauvegardees n'est pas encore installee dans Supabase."
+          : error.message
+    };
+  }
+
+  revalidatePath("/app/candidat");
+  revalidatePath("/app/candidat/offres");
+  revalidatePath(`/app/candidat/offres/${job.slug}`);
+
+  return {
+    status: "success",
+    message: nextSaved
+      ? "Offre sauvegardee dans votre espace candidat."
+      : "Offre retiree de vos sauvegardes."
+  };
 }
 
 export async function applyToJobAction(

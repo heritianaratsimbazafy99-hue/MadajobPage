@@ -8,19 +8,26 @@ import {
   buildCandidateJobOpportunities,
   summarizeCandidateJobsWorkspace
 } from "@/lib/candidate-job-insights";
+import { getCandidateSavedJobIds } from "@/lib/candidate-saved-jobs";
 import { requireRole } from "@/lib/auth";
 import { formatDateTimeDisplay, formatDisplayDate } from "@/lib/format";
 import { getCandidateApplicationSummaries, getCandidateWorkspace, getPublicJobs } from "@/lib/jobs";
 
 export default async function CandidateJobsPage() {
   const profile = await requireRole(["candidat"]);
-  const [jobs, applications, candidateProfile] = await Promise.all([
+  const [jobs, applications, candidateProfile, savedJobIds] = await Promise.all([
     getPublicJobs(),
     getCandidateApplicationSummaries(profile.id),
-    getCandidateWorkspace(profile)
+    getCandidateWorkspace(profile),
+    getCandidateSavedJobIds(profile.id)
   ]);
 
-  const opportunities = buildCandidateJobOpportunities(jobs, applications, candidateProfile);
+  const opportunities = buildCandidateJobOpportunities(
+    jobs,
+    applications,
+    candidateProfile,
+    savedJobIds
+  );
   const summary = summarizeCandidateJobsWorkspace(opportunities);
   const topAvailable = summary.topAvailableOpportunity;
   const topActive = summary.topActiveOpportunity;
@@ -52,9 +59,9 @@ export default async function CandidateJobsPage() {
           <small>offres avec bon signal de matching et sans dossier existant</small>
         </article>
         <article className="panel metric-panel">
-          <span>Dossiers actifs visibles</span>
-          <strong>{summary.activeAppliedCount}</strong>
-          <small>offres deja reliees a une candidature encore en mouvement</small>
+          <span>Offres sauvegardees</span>
+          <strong>{summary.savedCount}</strong>
+          <small>postes gardes en vue pour arbitrer avant de postuler</small>
         </article>
       </section>
 

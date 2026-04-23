@@ -45,6 +45,10 @@ const {
   getCandidateCvAnalysis
 } = require("../lib/candidate-cv-analysis.ts");
 const {
+  buildCandidateJobOpportunities,
+  summarizeCandidateJobsWorkspace
+} = require("../lib/candidate-job-insights.ts");
+const {
   getAdminPlatformRecommendations,
   getRecruiterPlatformRecommendations
 } = require("../lib/platform-recommendations.ts");
@@ -300,6 +304,31 @@ test("cv analysis: exploite le texte extrait du CV meme sans profil formulaire",
   assert.ok(
     analysis.strengths.some((strength) => /detectee dans le CV/i.test(strength))
   );
+});
+
+test("candidate jobs: remonte les offres sauvegardees dans le cockpit candidat", () => {
+  const profile = {
+    desired_position: "Commercial B2B grands comptes",
+    skills_text: "prospection CRM closing B2B",
+    city: "Antananarivo",
+    profile_completion: 80
+  };
+  const savedJob = buildJob({
+    id: "job-saved",
+    slug: "commercial-b2b-sauvegarde",
+    published_at: "2026-04-09T08:00:00.000Z"
+  });
+  const opportunities = buildCandidateJobOpportunities(
+    [buildJob(), savedJob],
+    [],
+    profile,
+    new Set(["job-saved"])
+  );
+  const summary = summarizeCandidateJobsWorkspace(opportunities);
+
+  assert.equal(summary.savedCount, 1);
+  assert.equal(opportunities.find((entry) => entry.job.id === "job-saved").isSaved, true);
+  assert.equal(opportunities[0].job.id, "job-saved");
 });
 
 test("recommendations: priorise les dossiers recruteur bloques", (t) => {

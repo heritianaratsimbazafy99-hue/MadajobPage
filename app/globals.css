@@ -744,7 +744,7 @@ code {
 }
 
 .dashboard-sidebar {
-  width: clamp(270px, 18vw, 300px);
+  width: clamp(300px, 19vw, 340px);
   padding: 18px;
   position: sticky;
   top: 28px;
@@ -774,6 +774,9 @@ code {
   display: inline-flex;
   align-items: center;
   gap: 14px;
+  min-width: 0;
+  padding: 6px;
+  border-radius: 18px;
   color: var(--text);
 }
 
@@ -795,6 +798,7 @@ code {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0;
 }
 
 .dashboard-brand__copy strong {
@@ -807,11 +811,23 @@ code {
   font-size: 0.88rem;
 }
 
+.dashboard-brand__copy strong,
+.dashboard-brand__copy small,
+.dashboard-user strong,
+.dashboard-user span:not(.dashboard-status) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .dashboard-user {
   display: grid;
   gap: 6px;
   margin: 0;
   padding: 14px;
+  min-width: 0;
+  overflow: hidden;
   border-radius: 20px;
   border: 1px solid rgba(22, 49, 74, 0.08);
   background: rgba(237, 244, 250, 0.92);
@@ -833,7 +849,7 @@ code {
 }
 
 .dashboard-nav {
-  flex-direction: column;
+  display: grid;
   gap: 8px;
   margin: 14px 0;
 }
@@ -841,10 +857,12 @@ code {
 .dashboard-nav__item {
   display: grid;
   gap: 4px;
+  width: 100%;
+  min-height: 74px;
   padding: 12px 14px;
   border-radius: 16px;
-  border: 1px solid transparent;
-  background: rgba(237, 244, 250, 0.7);
+  border: 1px solid rgba(22, 49, 74, 0.06);
+  background: rgba(237, 244, 250, 0.64);
   color: var(--muted);
   transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
 }
@@ -867,6 +885,7 @@ code {
 }
 
 .dashboard-nav__item small {
+  display: block;
   font-size: 0.86rem;
   color: var(--muted);
   line-height: 1.35;
@@ -912,8 +931,9 @@ code {
 
 .dashboard-nav__item:hover,
 .dashboard-nav__item.is-active {
-  border-color: rgba(178, 210, 33, 0.22);
-  background: rgba(178, 210, 33, 0.12);
+  border-color: rgba(178, 210, 33, 0.28);
+  background:
+    linear-gradient(90deg, rgba(178, 210, 33, 0.16), rgba(237, 244, 250, 0.82));
 }
 
 .dashboard-sidecard {
@@ -1376,6 +1396,20 @@ code {
   flex-wrap: wrap;
   align-items: center;
   gap: 12px;
+}
+
+.save-job-control {
+  display: grid;
+  gap: 6px;
+}
+
+.save-job-control--compact {
+  display: contents;
+}
+
+.save-job-control small {
+  color: var(--muted);
+  line-height: 1.45;
 }
 
 .application-notes .document-card p {

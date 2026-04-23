@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useDeferredValue, useMemo, useState } from "react";
 
 import { DashboardEmptyState } from "@/components/dashboard/empty-state";
+import { CandidateSaveJobButton } from "@/components/jobs/candidate-save-job-button";
 import { MatchBreakdown } from "@/components/jobs/match-breakdown";
 import {
   getApplicationStatusMeta,
@@ -25,7 +26,7 @@ type Filters = {
   workMode: string;
   sector: string;
   applicationState: "" | "available" | "applied" | "active_applied";
-  focus: "" | "strong_match" | "ready_to_apply" | "featured" | "upcoming_interview";
+  focus: "" | "strong_match" | "ready_to_apply" | "saved" | "featured" | "upcoming_interview";
   featuredOnly: boolean;
   sort: "priority_desc" | "recent" | "match" | "featured" | "oldest";
 };
@@ -105,6 +106,7 @@ export function CandidateJobsBoard({ opportunities }: CandidateJobsBoardProps) {
         !filters.focus ||
         (filters.focus === "strong_match" && entry.isAvailable && match.hasSignal && match.score >= 78) ||
         (filters.focus === "ready_to_apply" && entry.isReadyToApply) ||
+        (filters.focus === "saved" && entry.isSaved) ||
         (filters.focus === "featured" && job.is_featured) ||
         (filters.focus === "upcoming_interview" && entry.hasUpcomingInterview);
       const matchesFeatured = !filters.featuredOnly || job.is_featured;
@@ -165,6 +167,7 @@ export function CandidateJobsBoard({ opportunities }: CandidateJobsBoardProps) {
   const signalStats = useMemo(() => {
     let available = 0;
     let strongMatch = 0;
+    let saved = 0;
     let activeApplied = 0;
     let upcomingInterview = 0;
 
@@ -175,6 +178,10 @@ export function CandidateJobsBoard({ opportunities }: CandidateJobsBoardProps) {
 
       if (entry.isAvailable && entry.match.hasSignal && entry.match.score >= 78) {
         strongMatch += 1;
+      }
+
+      if (entry.isSaved) {
+        saved += 1;
       }
 
       if (entry.isActiveApplied) {
@@ -189,6 +196,7 @@ export function CandidateJobsBoard({ opportunities }: CandidateJobsBoardProps) {
     return {
       available,
       strongMatch,
+      saved,
       activeApplied,
       upcomingInterview
     };
@@ -344,6 +352,7 @@ export function CandidateJobsBoard({ opportunities }: CandidateJobsBoardProps) {
               <option value="">Vue globale</option>
               <option value="strong_match">Forts matchs disponibles</option>
               <option value="ready_to_apply">Pretes a candidater</option>
+              <option value="saved">Offres sauvegardees</option>
               <option value="featured">Mises en avant</option>
               <option value="upcoming_interview">Avec entretien a venir</option>
             </select>
@@ -381,6 +390,10 @@ export function CandidateJobsBoard({ opportunities }: CandidateJobsBoardProps) {
           <article className="document-card">
             <strong>{signalStats.activeApplied}</strong>
             <p>dossier(s) deja en mouvement</p>
+          </article>
+          <article className="document-card">
+            <strong>{signalStats.saved}</strong>
+            <p>offre(s) sauvegardee(s)</p>
           </article>
           <article className="document-card">
             <strong>{signalStats.upcomingInterview}</strong>
@@ -457,6 +470,9 @@ export function CandidateJobsBoard({ opportunities }: CandidateJobsBoardProps) {
                     {job.is_featured && !applicationStatus ? (
                       <span className="tag tag--info">Visible en priorite</span>
                     ) : null}
+                    {entry.isSaved ? (
+                      <span className="tag tag--success">Sauvegardee</span>
+                    ) : null}
                     {application?.interview_signal.next_interview_at ? (
                       <span className="tag tag--info">Entretien a venir</span>
                     ) : null}
@@ -522,9 +538,16 @@ export function CandidateJobsBoard({ opportunities }: CandidateJobsBoardProps) {
                       ? application.interview_signal.next_interview_at
                         ? "Le dossier est deja actif dans votre suivi candidat."
                         : "Vous pouvez suivre ce dossier directement depuis votre espace candidat."
-                      : job.organization_name || "Madajob"}
+                      : entry.isSaved
+                        ? "Offre sauvegardee pour une decision plus tard."
+                        : job.organization_name || "Madajob"}
                   </small>
                   <div className="notification-card__actions">
+                    <CandidateSaveJobButton
+                      jobId={job.id}
+                      initialSaved={entry.isSaved}
+                      compact
+                    />
                     {application ? (
                       <Link href={`/app/candidat/candidatures/${application.id}`}>
                         Suivre ma candidature

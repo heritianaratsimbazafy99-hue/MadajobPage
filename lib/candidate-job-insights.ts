@@ -15,6 +15,7 @@ export type CandidateJobOpportunity = {
   isActiveApplied: boolean;
   hasUpcomingInterview: boolean;
   isReadyToApply: boolean;
+  isSaved: boolean;
 };
 
 export type CandidateJobsWorkspaceSummary = {
@@ -24,6 +25,7 @@ export type CandidateJobsWorkspaceSummary = {
   strongAvailableCount: number;
   readyToApplyCount: number;
   featuredCount: number;
+  savedCount: number;
   topAvailableOpportunity: CandidateJobOpportunity | null;
   topActiveOpportunity: CandidateJobOpportunity | null;
 };
@@ -77,7 +79,8 @@ function getCandidateJobPriorityScore(
 export function buildCandidateJobOpportunities(
   jobs: Job[],
   applications: CandidateApplicationSummary[],
-  candidateProfile: MatchingCandidateProfile
+  candidateProfile: MatchingCandidateProfile,
+  savedJobIds: Set<string> = new Set()
 ) {
   const applicationByJobId = new Map(applications.map((application) => [application.job_id, application]));
 
@@ -89,16 +92,18 @@ export function buildCandidateJobOpportunities(
       const isActiveApplied = application !== null && !isFinalApplicationStatus(application.status);
       const hasUpcomingInterview = Boolean(application?.interview_signal.next_interview_at);
       const isReadyToApply = isAvailable && match.hasSignal && match.score >= 60;
+      const isSaved = savedJobIds.has(job.id);
 
       return {
         job,
         application,
         match,
-        priorityScore: getCandidateJobPriorityScore(job, application, match),
+        priorityScore: getCandidateJobPriorityScore(job, application, match) + (isSaved ? 25 : 0),
         isAvailable,
         isActiveApplied,
         hasUpcomingInterview,
-        isReadyToApply
+        isReadyToApply,
+        isSaved
       } satisfies CandidateJobOpportunity;
     })
     .sort((left, right) => {
@@ -123,6 +128,7 @@ export function summarizeCandidateJobsWorkspace(
   ).length;
   const readyToApplyCount = opportunities.filter((entry) => entry.isReadyToApply).length;
   const featuredCount = opportunities.filter((entry) => entry.job.is_featured).length;
+  const savedCount = opportunities.filter((entry) => entry.isSaved).length;
 
   return {
     visibleCount: opportunities.length,
@@ -131,6 +137,7 @@ export function summarizeCandidateJobsWorkspace(
     strongAvailableCount,
     readyToApplyCount,
     featuredCount,
+    savedCount,
     topAvailableOpportunity: opportunities.find((entry) => entry.isAvailable) ?? null,
     topActiveOpportunity: opportunities.find((entry) => entry.isActiveApplied) ?? null
   };
