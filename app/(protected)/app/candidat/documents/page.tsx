@@ -4,6 +4,7 @@ import { DashboardShell } from "@/components/dashboard/shell";
 import { CandidateDocumentsManager } from "@/components/profile/candidate-documents-manager";
 import { CandidateCvUpload } from "@/components/profile/candidate-cv-upload";
 import { requireRole } from "@/lib/auth";
+import { summarizeCandidateDocuments } from "@/lib/candidate-document-insights";
 import { formatDisplayDate } from "@/lib/format";
 import { getCandidateDocuments, getCandidateWorkspace } from "@/lib/jobs";
 
@@ -14,35 +15,31 @@ export default async function CandidateDocumentsPage() {
     getCandidateDocuments(profile.id, { limit: 30 })
   ]);
 
-  const cvDocuments = documents.filter((document) => document.document_type === "cv");
-  const supplementaryDocuments = documents.filter((document) => document.document_type !== "cv");
-  const latestDocument = documents[0] ?? null;
-  const uniqueSupplementaryTypes = new Set(
-    supplementaryDocuments.map((document) => document.document_type)
-  );
+  const summary = summarizeCandidateDocuments(documents);
+  const latestDocument = summary.latestDocument;
 
   return (
     <DashboardShell
       title="Mes documents"
-      description="Centralisez votre CV principal et vos pieces complementaires dans un espace candidat dedie."
+      description="Pilotez votre CV principal et vos pieces complementaires depuis un cockpit documentaire plus clair et reutilisable."
       profile={profile}
       currentPath="/app/candidat/documents"
     >
       <section className="dashboard-grid dashboard-grid--four">
         <article className="panel metric-panel">
           <span>Documents totaux</span>
-          <strong>{documents.length}</strong>
+          <strong>{summary.totalCount}</strong>
           <small>fichiers visibles dans votre espace candidat</small>
         </article>
         <article className="panel metric-panel">
           <span>Historique CV</span>
-          <strong>{cvDocuments.length}</strong>
+          <strong>{summary.cvCount}</strong>
           <small>versions de CV rattachees a votre profil</small>
         </article>
         <article className="panel metric-panel">
-          <span>Pieces complementaires</span>
-          <strong>{supplementaryDocuments.length}</strong>
-          <small>{uniqueSupplementaryTypes.size} type(s) de document deja couverts</small>
+          <span>Couverture utile</span>
+          <strong>{summary.distinctSupplementaryTypes}</strong>
+          <small>type(s) complementaires deja couverts</small>
         </article>
         <article className="panel metric-panel">
           <span>Dernier ajout</span>
@@ -53,15 +50,77 @@ export default async function CandidateDocumentsPage() {
 
       <section className="dashboard-workspace">
         <div className="dashboard-column">
+          <div className="dashboard-form">
+            <div className="dashboard-form__head">
+              <div>
+                <p className="eyebrow">Centre d'action</p>
+                <h2>Ce qui renforcera le plus vite votre dossier</h2>
+              </div>
+              <span className="tag">{summary.readinessLabel}</span>
+            </div>
+
+            <div className="candidate-documents-summary-grid">
+              <article className="document-card">
+                <strong>{summary.readinessLabel}</strong>
+                <p>{summary.readinessDescription}</p>
+                <small>
+                  {summary.missingRecommendedTypes.length > 0
+                    ? `${summary.missingRecommendedTypes.length} type(s) recommande(s) restent encore a couvrir.`
+                    : "Votre bibliotheque couvre deja les pieces les plus reutilisables."}
+                </small>
+              </article>
+
+              <article className="document-card">
+                <strong>Prochaines actions conseillees</strong>
+                <ul className="dashboard-mini-list dashboard-mini-list--compact">
+                  {summary.nextActions.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </article>
+
+              <article className="document-card">
+                <strong>Bibliotheque recente</strong>
+                <p>{summary.recentCount} document(s) ajoute(s) sur les 30 derniers jours.</p>
+                <small>
+                  {summary.supplementaryCount > 0
+                    ? `${summary.supplementaryCount} piece(s) complementaire(s) deja stockee(s).`
+                    : "Aucune piece complementaire n'a encore ete ajoutee."}
+                </small>
+              </article>
+            </div>
+
+            <div className="candidate-dashboard-summary-strip">
+              <article className="document-card candidate-dashboard-summary-item">
+                <strong>{summary.totalCount}</strong>
+                <p>document(s) au total</p>
+              </article>
+              <article className="document-card candidate-dashboard-summary-item">
+                <strong>{summary.supplementaryCount}</strong>
+                <p>piece(s) complementaire(s)</p>
+              </article>
+              <article className="document-card candidate-dashboard-summary-item">
+                <strong>{summary.recentCount}</strong>
+                <p>ajout(s) recents</p>
+              </article>
+              <article className="document-card candidate-dashboard-summary-item">
+                <strong>{summary.missingRecommendedTypes.length}</strong>
+                <p>priorite(s) restantes</p>
+              </article>
+            </div>
+          </div>
+
           <CandidateDocumentsManager candidateId={profile.id} documents={documents} />
         </div>
 
         <aside className="dashboard-column dashboard-column--aside">
-          <CandidateCvUpload
-            candidateId={profile.id}
-            currentDocument={candidateProfile.primary_cv}
-            recentDocuments={candidateProfile.recent_documents}
-          />
+          <div id="cv-principal">
+            <CandidateCvUpload
+              candidateId={profile.id}
+              currentDocument={candidateProfile.primary_cv}
+              recentDocuments={candidateProfile.recent_documents}
+            />
+          </div>
 
           <div className="panel dashboard-sidecard">
             <p className="eyebrow">Bonnes pratiques</p>
@@ -72,7 +131,13 @@ export default async function CandidateDocumentsPage() {
               <li>Conservez des noms de fichiers clairs pour retrouver vite vos documents.</li>
             </ul>
             <div className="dashboard-action-stack">
-              <Link className="btn btn-primary btn-block" href="/app/candidat/candidatures">
+              <Link className="btn btn-primary btn-block" href="#cv-principal">
+                Mettre a jour mon CV
+              </Link>
+              <Link className="btn btn-secondary btn-block" href="#documents-complementaires">
+                Ouvrir ma bibliotheque
+              </Link>
+              <Link className="btn btn-secondary btn-block" href="/app/candidat/candidatures">
                 Voir mes candidatures
               </Link>
               <Link className="btn btn-secondary btn-block" href="/app/candidat/offres">

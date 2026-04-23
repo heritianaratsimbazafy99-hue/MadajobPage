@@ -1412,6 +1412,16 @@ code {
   gap: 14px;
 }
 
+.candidate-documents-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.candidate-documents-board {
+  margin-top: 4px;
+}
+
 .notification-signal-card {
   display: grid;
   gap: 8px;
@@ -1915,6 +1925,10 @@ code {
   }
 
   .notifications-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .candidate-documents-summary-grid {
     grid-template-columns: 1fr;
   }
 
