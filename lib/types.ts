@@ -196,6 +196,29 @@ export type ApplicationCommunicationEvent = {
   management_href: string | null;
 };
 
+export type InterviewStatus = "scheduled" | "completed" | "cancelled";
+
+export type InterviewFormat = "phone" | "video" | "onsite" | "other";
+
+export type ApplicationInterview = {
+  id: string;
+  application_id: string;
+  status: InterviewStatus;
+  format: InterviewFormat;
+  starts_at: string;
+  ends_at: string | null;
+  timezone: string;
+  location: string | null;
+  meeting_url: string | null;
+  notes: string | null;
+  interviewer_name: string;
+  interviewer_email: string | null;
+  scheduled_by_name: string;
+  scheduled_by_email: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ApplicationDetail = {
   id: string;
   status: string;
@@ -235,6 +258,7 @@ export type ApplicationDetail = {
   notes: InternalApplicationNote[];
   status_history: ApplicationStatusHistoryEntry[];
   communications: ApplicationCommunicationEvent[];
+  interviews: ApplicationInterview[];
 };
 
 export type CandidateApplicationDetail = {
@@ -342,6 +366,17 @@ export type ManagedOrganizationDetail = ManagedOrganizationSummary & {
   members: ManagedUserSummary[];
   recent_jobs: ManagedJob[];
   recent_applications: RecruiterApplication[];
+};
+
+export type InterviewScheduleItem = ApplicationInterview & {
+  application_status: string;
+  candidate_id: string | null;
+  candidate_name: string;
+  candidate_email: string;
+  job_id: string | null;
+  job_title: string;
+  job_location: string;
+  organization_name: string | null;
 };
 
 export type ManagedUserSummary = {

@@ -24,6 +24,20 @@ const notificationKindMeta = new Map<
     }
   ],
   [
+    "application_interview_scheduled",
+    {
+      label: "Entretien planifie",
+      description: "Un entretien a ete planifie sur une candidature."
+    }
+  ],
+  [
+    "application_interview_cancelled",
+    {
+      label: "Entretien annule",
+      description: "Un entretien a ete annule sur une candidature."
+    }
+  ],
+  [
     "account_invited",
     {
       label: "Compte invite",

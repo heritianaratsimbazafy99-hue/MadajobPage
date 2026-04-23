@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { DashboardShell } from "@/components/dashboard/shell";
+import { ApplicationInterviews } from "@/components/jobs/application-interviews";
 import { ApplicationNotes } from "@/components/jobs/application-notes";
 import { ApplicationStatusForm } from "@/components/jobs/application-status-form";
 import { formatDateTimeDisplay, formatDisplayDate, formatFileSize } from "@/lib/format";
@@ -303,6 +304,17 @@ export function ApplicationDetailWorkspace({
             applicationId={application.id}
             currentStatus={application.status}
           />
+
+          <div className="dashboard-form">
+            <div className="dashboard-form__head">
+              <div>
+                <p className="eyebrow">Entretiens</p>
+                <h2>Planifier et suivre les rendez-vous</h2>
+              </div>
+              <span className="tag">{application.interviews.length} planifie(s)</span>
+            </div>
+            <ApplicationInterviews applicationId={application.id} interviews={application.interviews} />
+          </div>
 
           <div className="dashboard-form">
             <div className="dashboard-form__head">

@@ -8,6 +8,7 @@ import type {
   AdminAuditEvent,
   ApplicationCommunicationEvent,
   ApplicationDetail,
+  ApplicationInterview,
   ApplicationStatusHistoryEntry,
   CandidateApplicationDetail,
   CandidateApplicationHistoryEntry,
@@ -16,6 +17,7 @@ import type {
   CandidateDetail,
   CandidateDocumentData,
   CandidateProfileData,
+  InterviewScheduleItem,
   InternalApplicationNote,
   Job,
   JobAuditEvent,
@@ -141,6 +143,35 @@ const fallbackRecruiterApplications: RecruiterApplication[] = [
   }
 ];
 
+const fallbackInterviews: InterviewScheduleItem[] = [
+  {
+    id: "interview-1",
+    application_id: "recruiter-app-1",
+    status: "scheduled",
+    format: "video",
+    starts_at: "2026-04-25T06:00:00.000Z",
+    ends_at: "2026-04-25T06:45:00.000Z",
+    timezone: "Indian/Antananarivo",
+    location: null,
+    meeting_url: "https://meet.google.com/demo-madajob",
+    notes: "Premier entretien de qualification commerciale avec focus sur la prospection B2B.",
+    interviewer_name: "Equipe recrutement Madajob",
+    interviewer_email: "talent@madajob.com",
+    scheduled_by_name: "Admin Madajob",
+    scheduled_by_email: "admin@madajob.com",
+    created_at: "2026-04-23T09:00:00.000Z",
+    updated_at: "2026-04-23T09:00:00.000Z",
+    application_status: "interview",
+    candidate_id: "candidate-1",
+    candidate_name: "Miora Randriam",
+    candidate_email: "miora@example.com",
+    job_id: "job-2",
+    job_title: "Commercial B2B grands comptes",
+    job_location: "Antananarivo",
+    organization_name: "Madajob"
+  }
+];
+
 const fallbackCandidateProfile: CandidateProfileData = {
   full_name: "",
   email: "",
@@ -207,6 +238,31 @@ function mapCandidateDocumentRecord(record: Record<string, unknown>): CandidateD
     file_size: typeof record.file_size === "number" ? record.file_size : null,
     is_primary: Boolean(record.is_primary),
     created_at: String(record.created_at ?? "")
+  };
+}
+
+function mapApplicationInterviewRecord(
+  record: Record<string, unknown>,
+  scheduler?: { full_name?: string | null; email?: string | null } | null
+): ApplicationInterview {
+  return {
+    id: String(record.id),
+    application_id: String(record.application_id ?? ""),
+    status: (String(record.status ?? "scheduled") as ApplicationInterview["status"]) ?? "scheduled",
+    format: (String(record.format ?? "video") as ApplicationInterview["format"]) ?? "video",
+    starts_at: String(record.starts_at ?? ""),
+    ends_at: typeof record.ends_at === "string" ? record.ends_at : null,
+    timezone: String(record.timezone ?? "UTC"),
+    location: typeof record.location === "string" ? record.location : null,
+    meeting_url: typeof record.meeting_url === "string" ? record.meeting_url : null,
+    notes: typeof record.notes === "string" ? record.notes : null,
+    interviewer_name: String(record.interviewer_name ?? "Equipe Madajob"),
+    interviewer_email: typeof record.interviewer_email === "string" ? record.interviewer_email : null,
+    scheduled_by_name:
+      scheduler?.full_name || scheduler?.email || String(record.interviewer_name ?? "Equipe Madajob"),
+    scheduled_by_email: scheduler?.email ?? null,
+    created_at: String(record.created_at ?? ""),
+    updated_at: String(record.updated_at ?? "")
   };
 }
 
@@ -1144,7 +1200,22 @@ export async function getApplicationDetail(profile: Profile, applicationId: stri
       cv_download_url: null,
       notes: [],
       status_history: [],
-      communications: []
+      communications: [],
+      interviews: fallbackInterviews
+        .filter((interview) => interview.application_id === fallbackApplication.id)
+        .map(
+          ({
+            application_status: _applicationStatus,
+            candidate_id: _candidateId,
+            candidate_name: _candidateName,
+            candidate_email: _candidateEmail,
+            job_id: _jobId,
+            job_title: _jobTitle,
+            job_location: _jobLocation,
+            organization_name: _organizationName,
+            ...interview
+          }) => interview
+        )
     } satisfies ApplicationDetail;
   }
 
@@ -1235,7 +1306,8 @@ export async function getApplicationDetail(profile: Profile, applicationId: stri
       cv_download_url: null,
       notes: [],
       status_history: [],
-      communications: []
+      communications: [],
+      interviews: []
     } satisfies ApplicationDetail;
   }
 
@@ -1250,6 +1322,7 @@ export async function getApplicationDetail(profile: Profile, applicationId: stri
     { data: noteRows },
     { data: historyRows },
     { data: cvDocumentRow },
+    { data: interviewRows },
     { data: notificationRows },
     { data: emailRows }
   ] = await Promise.all([
@@ -1288,6 +1361,13 @@ export async function getApplicationDetail(profile: Profile, applicationId: stri
           .maybeSingle()
       : Promise.resolve({ data: null }),
     adminClient
+      .from("application_interviews")
+      .select(
+        "id, application_id, status, format, starts_at, ends_at, timezone, location, meeting_url, notes, interviewer_name, interviewer_email, created_at, updated_at, scheduler:profiles!application_interviews_scheduled_by_fkey(full_name, email)"
+      )
+      .eq("application_id", applicationId)
+      .order("starts_at", { ascending: true }),
+    adminClient
       .from("notifications")
       .select("id, kind, title, body, link_href, is_read, created_at, recipient:profiles(full_name, email, role)")
       .in("link_href", [
@@ -1309,6 +1389,12 @@ export async function getApplicationDetail(profile: Profile, applicationId: stri
     adminClient,
     cvDocumentRow ? mapCandidateDocumentRecord(cvDocumentRow) : null
   );
+  const interviews = (interviewRows ?? []).map((item: Record<string, unknown>) => {
+    const scheduler =
+      (item.scheduler as { full_name?: string | null; email?: string | null } | null) ?? null;
+
+    return mapApplicationInterviewRecord(item, scheduler);
+  });
 
   const notes = (noteRows ?? []).map((item: Record<string, unknown>) => {
     const author =
@@ -1426,7 +1512,8 @@ export async function getApplicationDetail(profile: Profile, applicationId: stri
     cv_download_url: cvDownloadUrl,
     notes,
     status_history: statusHistory,
-    communications
+    communications,
+    interviews
   } satisfies ApplicationDetail;
 }
 
@@ -1937,6 +2024,214 @@ export async function getAdminApplications(options: { limit?: number } = {}) {
       job_location: job?.location || "Lieu a definir"
     } satisfies RecruiterApplication;
   });
+}
+
+type InterviewContextApplicationRow = {
+  id?: string | null;
+  status?: string | null;
+  candidate_id?: string | null;
+  candidate?: { full_name?: string | null; email?: string | null } | null;
+  job_posts?: Record<string, unknown> | Array<Record<string, unknown>> | null;
+};
+
+function normalizeSingleRelation<T>(relation: T | T[] | null | undefined): T | null {
+  if (!relation) {
+    return null;
+  }
+
+  return Array.isArray(relation) ? relation[0] ?? null : relation;
+}
+
+function buildInterviewScheduleItems(
+  interviewRows: Record<string, unknown>[],
+  applicationRows: InterviewContextApplicationRow[],
+  schedulerMap: Map<string, { full_name?: string | null; email?: string | null }>
+): InterviewScheduleItem[] {
+  const applicationMap = new Map(applicationRows.map((row) => [String(row.id ?? ""), row]));
+
+  const items: InterviewScheduleItem[] = [];
+
+  for (const row of interviewRows) {
+    const application = applicationMap.get(String(row.application_id ?? ""));
+
+    if (!application) {
+      continue;
+    }
+
+    const job = normalizeSingleRelation(application.job_posts) as Record<string, unknown> | null;
+    const organization = normalizeSingleRelation(
+      (job as { organization?: Record<string, unknown> | Array<Record<string, unknown>> | null } | null)
+        ?.organization ?? null
+    ) as Record<string, unknown> | null;
+    const schedulerId = typeof row.scheduled_by === "string" ? row.scheduled_by : "";
+    const scheduler = schedulerMap.get(schedulerId) ?? null;
+    const interview = mapApplicationInterviewRecord(row, scheduler);
+    const candidate = application.candidate ?? null;
+
+    items.push({
+      ...interview,
+      application_status: String(application.status ?? "submitted"),
+      candidate_id: typeof application.candidate_id === "string" ? application.candidate_id : null,
+      candidate_name: candidate?.full_name || candidate?.email || "Candidat Madajob",
+      candidate_email: candidate?.email || "email non renseigne",
+      job_id: typeof job?.id === "string" ? job.id : null,
+      job_title: String(job?.title ?? "Offre Madajob"),
+      job_location: String(job?.location ?? "Lieu a definir"),
+      organization_name: typeof organization?.name === "string" ? organization.name : "Madajob"
+    });
+  }
+
+  return items.sort((left, right) => new Date(left.starts_at).getTime() - new Date(right.starts_at).getTime());
+}
+
+export async function getRecruiterInterviews(
+  profile: Profile,
+  options: { limit?: number } = {}
+): Promise<InterviewScheduleItem[]> {
+  const { limit = 50 } = options;
+
+  if (!isSupabaseConfigured) {
+    return fallbackInterviews;
+  }
+
+  if (!profile.organization_id) {
+    return [] as InterviewScheduleItem[];
+  }
+
+  const supabase = await createClient();
+  let interviewsQuery = supabase
+    .from("application_interviews")
+    .select("id, application_id, scheduled_by, status, format, starts_at, ends_at, timezone, location, meeting_url, notes, interviewer_name, interviewer_email, created_at, updated_at")
+    .order("starts_at", { ascending: true });
+
+  if (typeof limit === "number") {
+    interviewsQuery = interviewsQuery.limit(limit);
+  }
+
+  const { data: interviewRows, error: interviewError } = await interviewsQuery;
+
+  if (interviewError || !interviewRows?.length) {
+    return [] as InterviewScheduleItem[];
+  }
+
+  const applicationIds = Array.from(new Set(interviewRows.map((row) => String(row.application_id ?? "")).filter(Boolean)));
+  const schedulerIds = Array.from(new Set(interviewRows.map((row) => String(row.scheduled_by ?? "")).filter(Boolean)));
+
+  const [{ data: applicationRows, error: applicationError }, { data: schedulerRows }] = await Promise.all([
+    supabase
+      .from("applications")
+      .select(
+        `
+        id,
+        status,
+        candidate_id,
+        candidate:profiles!applications_candidate_id_fkey(full_name, email),
+        job_posts!inner(
+          id,
+          title,
+          location,
+          organization_id,
+          organization:organizations(name)
+        )
+      `
+      )
+      .in("id", applicationIds)
+      .eq("job_posts.organization_id", profile.organization_id),
+    schedulerIds.length
+      ? supabase.from("profiles").select("id, full_name, email").in("id", schedulerIds)
+      : Promise.resolve({ data: [] as Array<Record<string, unknown>> })
+  ]);
+
+  if (applicationError || !applicationRows?.length) {
+    return [] as InterviewScheduleItem[];
+  }
+
+  const schedulerMap = new Map(
+    (schedulerRows ?? []).map((row: Record<string, unknown>) => [
+      String(row.id),
+      {
+        full_name: typeof row.full_name === "string" ? row.full_name : null,
+        email: typeof row.email === "string" ? row.email : null
+      }
+    ])
+  );
+
+  return buildInterviewScheduleItems(
+    interviewRows as Record<string, unknown>[],
+    applicationRows as InterviewContextApplicationRow[],
+    schedulerMap
+  );
+}
+
+export async function getAdminInterviews(options: { limit?: number } = {}): Promise<InterviewScheduleItem[]> {
+  const { limit = 80 } = options;
+
+  if (!isSupabaseConfigured) {
+    return fallbackInterviews;
+  }
+
+  const supabase = await createClient();
+  let interviewsQuery = supabase
+    .from("application_interviews")
+    .select("id, application_id, scheduled_by, status, format, starts_at, ends_at, timezone, location, meeting_url, notes, interviewer_name, interviewer_email, created_at, updated_at")
+    .order("starts_at", { ascending: true });
+
+  if (typeof limit === "number") {
+    interviewsQuery = interviewsQuery.limit(limit);
+  }
+
+  const { data: interviewRows, error: interviewError } = await interviewsQuery;
+
+  if (interviewError || !interviewRows?.length) {
+    return [] as InterviewScheduleItem[];
+  }
+
+  const applicationIds = Array.from(new Set(interviewRows.map((row) => String(row.application_id ?? "")).filter(Boolean)));
+  const schedulerIds = Array.from(new Set(interviewRows.map((row) => String(row.scheduled_by ?? "")).filter(Boolean)));
+
+  const [{ data: applicationRows, error: applicationError }, { data: schedulerRows }] = await Promise.all([
+    supabase
+      .from("applications")
+      .select(
+        `
+        id,
+        status,
+        candidate_id,
+        candidate:profiles!applications_candidate_id_fkey(full_name, email),
+        job_posts(
+          id,
+          title,
+          location,
+          organization_id,
+          organization:organizations(name)
+        )
+      `
+      )
+      .in("id", applicationIds),
+    schedulerIds.length
+      ? supabase.from("profiles").select("id, full_name, email").in("id", schedulerIds)
+      : Promise.resolve({ data: [] as Array<Record<string, unknown>> })
+  ]);
+
+  if (applicationError || !applicationRows?.length) {
+    return [] as InterviewScheduleItem[];
+  }
+
+  const schedulerMap = new Map(
+    (schedulerRows ?? []).map((row: Record<string, unknown>) => [
+      String(row.id),
+      {
+        full_name: typeof row.full_name === "string" ? row.full_name : null,
+        email: typeof row.email === "string" ? row.email : null
+      }
+    ])
+  );
+
+  return buildInterviewScheduleItems(
+    interviewRows as Record<string, unknown>[],
+    applicationRows as InterviewContextApplicationRow[],
+    schedulerMap
+  );
 }
 
 export async function getAdminOrganizations() {

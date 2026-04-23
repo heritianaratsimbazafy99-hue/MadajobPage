@@ -1473,6 +1473,48 @@ code {
   color: var(--muted);
 }
 
+.interviews-board {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.interviews-board__column {
+  min-height: 100%;
+}
+
+.application-interviews {
+  display: grid;
+  gap: 18px;
+}
+
+.application-interviews__stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.application-interviews__list {
+  display: grid;
+  gap: 12px;
+}
+
+.application-interviews__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.application-interviews__actions form {
+  flex: 1 1 180px;
+}
+
+.interview-card {
+  gap: 10px;
+}
+
 .pipeline-card__status {
   display: inline-flex;
 }
@@ -1668,6 +1710,11 @@ code {
   }
 
   .pipeline-board {
+    grid-template-columns: 1fr;
+  }
+
+  .interviews-board,
+  .application-interviews__stats {
     grid-template-columns: 1fr;
   }
 }

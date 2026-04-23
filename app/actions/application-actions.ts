@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { applicationStatusValues } from "@/lib/application-status";
 import { requireRole } from "@/lib/auth";
 import { getApplicationStatusMeta } from "@/lib/application-status";
+import { interviewFormatOptions, interviewStatusOptions } from "@/lib/interviews";
 import { createNotifications } from "@/lib/notifications";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -21,11 +22,22 @@ const defaultState: ApplicationActionState = {
 };
 
 const allowedStatuses = new Set<string>(applicationStatusValues);
+const allowedInterviewStatuses = new Set<string>(interviewStatusOptions.map((option) => option.value));
+const allowedInterviewFormats = new Set<string>(interviewFormatOptions.map((option) => option.value));
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function getTrimmedValue(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
+}
+
+function parseOptionalDateTime(value: string) {
+  if (!value) {
+    return null;
+  }
+
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
 
 async function getApplicationMutationClient() {
@@ -38,6 +50,8 @@ function revalidateApplicationSurfaces(applicationId: string, jobSlug: string | 
   revalidatePath("/app/admin/emails");
   revalidatePath("/app/recruteur/candidatures");
   revalidatePath("/app/admin/candidatures");
+  revalidatePath("/app/recruteur/entretiens");
+  revalidatePath("/app/admin/entretiens");
   revalidatePath("/app/recruteur/shortlist");
   revalidatePath("/app/admin/shortlist");
   revalidatePath(`/app/recruteur/candidatures/${applicationId}`);
@@ -67,6 +81,32 @@ async function getManageableApplicationForActor(
 
   if (actorRole === "recruteur") {
     query = query.eq("job_posts.organization_id", organizationId);
+  }
+
+  const { data, error } = await query.maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return data;
+}
+
+async function getManageableInterviewForActor(
+  actorRole: "admin" | "recruteur",
+  organizationId: string | null,
+  interviewId: string
+) {
+  const supabase = await getApplicationMutationClient();
+  let query = supabase
+    .from("application_interviews")
+    .select(
+      "id, application_id, status, applications!inner(id, candidate_id, status, job_posts!inner(organization_id, slug, title), candidate:profiles!applications_candidate_id_fkey(full_name, email))"
+    )
+    .eq("id", interviewId);
+
+  if (actorRole === "recruteur") {
+    query = query.eq("applications.job_posts.organization_id", organizationId);
   }
 
   const { data, error } = await query.maybeSingle();
@@ -352,5 +392,325 @@ export async function addInternalNoteAction(
   return {
     status: "success",
     message: "Note interne ajoutee."
+  };
+}
+
+export async function scheduleInterviewAction(
+  _previousState: ApplicationActionState = defaultState,
+  formData: FormData
+): Promise<ApplicationActionState> {
+  const profile = await requireRole(["recruteur", "admin"]);
+  const actorRole = profile.role === "admin" ? "admin" : "recruteur";
+  const applicationId = getTrimmedValue(formData, "application_id");
+  const startsAtInput = getTrimmedValue(formData, "starts_at");
+  const endsAtInput = getTrimmedValue(formData, "ends_at");
+  const interviewFormat = getTrimmedValue(formData, "format");
+  const interviewerName = getTrimmedValue(formData, "interviewer_name");
+  const interviewerEmail = getTrimmedValue(formData, "interviewer_email");
+  const location = getTrimmedValue(formData, "location");
+  const meetingUrl = getTrimmedValue(formData, "meeting_url");
+  const notes = getTrimmedValue(formData, "notes");
+  const timezone = getTrimmedValue(formData, "timezone") || "Indian/Antananarivo";
+
+  const startsAt = parseOptionalDateTime(startsAtInput);
+  const endsAt = parseOptionalDateTime(endsAtInput);
+
+  if (!applicationId || !uuidPattern.test(applicationId)) {
+    return {
+      status: "error",
+      message: "Candidature invalide."
+    };
+  }
+
+  if (!startsAt || !allowedInterviewFormats.has(interviewFormat) || !interviewerName) {
+    return {
+      status: "error",
+      message: "Les informations de planning sont incompletes."
+    };
+  }
+
+  if (endsAt && new Date(endsAt).getTime() <= new Date(startsAt).getTime()) {
+    return {
+      status: "error",
+      message: "L'heure de fin doit etre apres l'heure de debut."
+    };
+  }
+
+  const manageableApplication = await getManageableApplicationForActor(
+    actorRole,
+    profile.organization_id,
+    applicationId
+  );
+
+  if (!manageableApplication) {
+    return {
+      status: "error",
+      message: "Impossible de retrouver cette candidature."
+    };
+  }
+
+  const rawJobRelation =
+    (manageableApplication as {
+      candidate_id?: string | null;
+      job_posts?:
+        | { slug?: string | null; title?: string | null }
+        | Array<{ slug?: string | null; title?: string | null }>
+        | null;
+      candidate?: { full_name?: string | null; email?: string | null } | null;
+    }).job_posts ?? null;
+  const currentJob = Array.isArray(rawJobRelation) ? rawJobRelation[0] ?? null : rawJobRelation;
+  const jobSlug = currentJob && typeof currentJob.slug === "string" ? currentJob.slug : null;
+  const jobTitle =
+    currentJob && typeof currentJob.title === "string" ? currentJob.title : "votre offre";
+  const candidateId =
+    typeof (manageableApplication as { candidate_id?: string | null }).candidate_id === "string"
+      ? String((manageableApplication as { candidate_id?: string | null }).candidate_id)
+      : null;
+  const rawCandidateRelation =
+    (manageableApplication as {
+      candidate?: { full_name?: string | null; email?: string | null } | null;
+    }).candidate ?? null;
+  const candidateName =
+    rawCandidateRelation && typeof rawCandidateRelation.full_name === "string"
+      ? rawCandidateRelation.full_name
+      : null;
+  const candidateEmail =
+    rawCandidateRelation && typeof rawCandidateRelation.email === "string"
+      ? rawCandidateRelation.email
+      : null;
+  const currentStatus = String((manageableApplication as { status?: string | null }).status ?? "submitted");
+
+  const supabase = await getApplicationMutationClient();
+  const { error: interviewError } = await supabase.from("application_interviews").insert({
+    application_id: applicationId,
+    scheduled_by: profile.id,
+    status: "scheduled",
+    format: interviewFormat,
+    starts_at: startsAt,
+    ends_at: endsAt,
+    timezone,
+    location: location || null,
+    meeting_url: meetingUrl || null,
+    notes: notes || null,
+    interviewer_name: interviewerName,
+    interviewer_email: interviewerEmail || null
+  });
+
+  if (interviewError) {
+    return {
+      status: "error",
+      message: interviewError.message
+    };
+  }
+
+  if (!["interview", "hired", "rejected"].includes(currentStatus)) {
+    await supabase.from("applications").update({ status: "interview" }).eq("id", applicationId);
+    await supabase.from("application_status_history").insert({
+      application_id: applicationId,
+      from_status: currentStatus,
+      to_status: "interview",
+      changed_by: profile.id,
+      note: "Entretien planifie depuis la plateforme."
+    });
+  }
+
+  const interviewLabel = new Intl.DateTimeFormat("fr-FR", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(new Date(startsAt));
+
+  if (candidateId) {
+    await createNotifications([
+      {
+        user_id: candidateId,
+        kind: "application_interview_scheduled",
+        title: "Entretien planifie",
+        body: `Un entretien pour ${jobTitle} est planifie le ${interviewLabel}.`,
+        link_href: `/app/candidat/candidatures/${applicationId}`,
+        metadata: {
+          application_id: applicationId,
+          interview_starts_at: startsAt,
+          interview_format: interviewFormat
+        }
+      }
+    ]);
+  }
+
+  if (candidateEmail) {
+    await enqueueTransactionalEmails([
+      {
+        recipient_email: candidateEmail,
+        recipient_name: candidateName,
+        recipient_user_id: candidateId,
+        template_key: "candidate_interview_scheduled",
+        subject: `Entretien planifie pour ${jobTitle}`,
+        preview_text: `Votre entretien est planifie le ${interviewLabel}. Consultez votre espace candidat pour retrouver les informations utiles et la suite du processus.`,
+        link_href: `/app/candidat/candidatures/${applicationId}`,
+        metadata: {
+          application_id: applicationId,
+          interview_starts_at: startsAt,
+          interview_format: interviewFormat,
+          job_title: jobTitle
+        }
+      }
+    ]);
+  }
+
+  revalidateApplicationSurfaces(applicationId, jobSlug);
+
+  return {
+    status: "success",
+    message: "Entretien planifie."
+  };
+}
+
+export async function updateInterviewStatusAction(
+  _previousState: ApplicationActionState = defaultState,
+  formData: FormData
+): Promise<ApplicationActionState> {
+  const profile = await requireRole(["recruteur", "admin"]);
+  const actorRole = profile.role === "admin" ? "admin" : "recruteur";
+  const interviewId = getTrimmedValue(formData, "interview_id");
+  const nextStatus = getTrimmedValue(formData, "status");
+
+  if (!interviewId || !uuidPattern.test(interviewId) || !allowedInterviewStatuses.has(nextStatus)) {
+    return {
+      status: "error",
+      message: "Mise a jour entretien invalide."
+    };
+  }
+
+  const manageableInterview = await getManageableInterviewForActor(
+    actorRole,
+    profile.organization_id,
+    interviewId
+  );
+
+  if (!manageableInterview) {
+    return {
+      status: "error",
+      message: "Impossible de retrouver cet entretien."
+    };
+  }
+
+  const currentStatus = String(manageableInterview.status ?? "scheduled");
+
+  if (currentStatus === nextStatus) {
+    return {
+      status: "success",
+      message: "Le statut de l'entretien est deja a jour."
+    };
+  }
+
+  const rawApplicationRelation =
+    (manageableInterview as {
+      applications?:
+        | {
+            id?: string | null;
+            candidate_id?: string | null;
+            status?: string | null;
+            candidate?: { full_name?: string | null; email?: string | null } | null;
+            job_posts?:
+              | { slug?: string | null; title?: string | null }
+              | Array<{ slug?: string | null; title?: string | null }>
+              | null;
+          }
+        | Array<{
+            id?: string | null;
+            candidate_id?: string | null;
+            status?: string | null;
+            candidate?: { full_name?: string | null; email?: string | null } | null;
+            job_posts?:
+              | { slug?: string | null; title?: string | null }
+              | Array<{ slug?: string | null; title?: string | null }>
+              | null;
+          }>
+        | null;
+    }).applications ?? null;
+  const application = Array.isArray(rawApplicationRelation)
+    ? rawApplicationRelation[0] ?? null
+    : rawApplicationRelation;
+  const rawJobRelation = application?.job_posts ?? null;
+  const currentJob = Array.isArray(rawJobRelation) ? rawJobRelation[0] ?? null : rawJobRelation;
+  const jobSlug = currentJob && typeof currentJob.slug === "string" ? currentJob.slug : null;
+  const jobTitle =
+    currentJob && typeof currentJob.title === "string" ? currentJob.title : "votre offre";
+  const applicationId = typeof application?.id === "string" ? application.id : null;
+  const candidateId = typeof application?.candidate_id === "string" ? application.candidate_id : null;
+  const candidateName =
+    application?.candidate && typeof application.candidate.full_name === "string"
+      ? application.candidate.full_name
+      : null;
+  const candidateEmail =
+    application?.candidate && typeof application.candidate.email === "string"
+      ? application.candidate.email
+      : null;
+
+  const supabase = await getApplicationMutationClient();
+  const { error } = await supabase
+    .from("application_interviews")
+    .update({ status: nextStatus })
+    .eq("id", interviewId);
+
+  if (error) {
+    return {
+      status: "error",
+      message: error.message
+    };
+  }
+
+  if (nextStatus === "cancelled" && candidateId && applicationId) {
+    await createNotifications([
+      {
+        user_id: candidateId,
+        kind: "application_interview_cancelled",
+        title: "Entretien annule",
+        body: `L'entretien planifie pour ${jobTitle} a ete annule. Consultez votre espace candidat pour suivre la suite du dossier.`,
+        link_href: `/app/candidat/candidatures/${applicationId}`,
+        metadata: {
+          application_id: applicationId,
+          interview_id: interviewId
+        }
+      }
+    ]);
+
+    if (candidateEmail) {
+      await enqueueTransactionalEmails([
+        {
+          recipient_email: candidateEmail,
+          recipient_name: candidateName,
+          recipient_user_id: candidateId,
+          template_key: "candidate_interview_cancelled",
+          subject: `Entretien annule pour ${jobTitle}`,
+          preview_text: `L'entretien planifie pour ${jobTitle} a ete annule. Consultez votre espace candidat pour suivre la suite du dossier.`,
+          link_href: `/app/candidat/candidatures/${applicationId}`,
+          metadata: {
+            application_id: applicationId,
+            interview_id: interviewId,
+            job_title: jobTitle
+          }
+        }
+      ]);
+    }
+  }
+
+  if (applicationId) {
+    revalidateApplicationSurfaces(applicationId, jobSlug);
+  } else {
+    revalidatePath("/app/recruteur/entretiens");
+    revalidatePath("/app/admin/entretiens");
+  }
+
+  return {
+    status: "success",
+    message:
+      nextStatus === "completed"
+        ? "Entretien marque comme termine."
+        : nextStatus === "cancelled"
+          ? "Entretien annule."
+          : "Entretien mis a jour."
   };
 }

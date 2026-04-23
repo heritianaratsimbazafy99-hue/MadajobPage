@@ -10,6 +10,16 @@ export function getTransactionalEmailTemplateMeta(templateKey: string) {
         label: "Mise a jour candidature",
         description: "Email prevu lors d'un changement de statut candidat."
       };
+    case "candidate_interview_scheduled":
+      return {
+        label: "Entretien planifie",
+        description: "Email prevu lors de la planification d'un entretien candidat."
+      };
+    case "candidate_interview_cancelled":
+      return {
+        label: "Entretien annule",
+        description: "Email prevu lorsqu'un entretien candidat est annule."
+      };
     case "account_invited":
       return {
         label: "Invitation compte",
