@@ -9,21 +9,30 @@ import {
 } from "@/lib/application-status";
 import { getCandidateProfileInsights } from "@/lib/candidate-profile";
 import { requireRole } from "@/lib/auth";
-import { formatDisplayDate } from "@/lib/format";
+import { formatDateTimeDisplay, formatDisplayDate } from "@/lib/format";
+import { getInterviewFormatLabel } from "@/lib/interviews";
 import {
   getCandidateApplications,
+  getCandidateInterviews,
   getCandidateWorkspace
 } from "@/lib/jobs";
 
 export default async function CandidateDashboardPage() {
   const profile = await requireRole(["candidat"]);
-  const applications = await getCandidateApplications(profile.id);
-  const candidateProfile = await getCandidateWorkspace(profile);
+  const [applications, candidateProfile, interviews] = await Promise.all([
+    getCandidateApplications(profile.id),
+    getCandidateWorkspace(profile),
+    getCandidateInterviews(profile.id, { limit: 6 })
+  ]);
   const profileInsights = getCandidateProfileInsights(candidateProfile);
   const latestApplication = applications[0];
   const activeApplicationsCount = applications.filter(
     (application) => !isFinalApplicationStatus(application.status)
   ).length;
+  const upcomingInterviews = interviews.filter((interview) => interview.status === "scheduled");
+  const nextInterview = upcomingInterviews.find(
+    (interview) => new Date(interview.starts_at).getTime() >= Date.now()
+  ) ?? upcomingInterviews[0] ?? null;
   const latestApplicationStatus = latestApplication
     ? getApplicationStatusMeta(latestApplication.status)
     : null;
@@ -62,14 +71,73 @@ export default async function CandidateDashboardPage() {
           </small>
         </article>
         <article className="panel metric-panel">
-          <span>Derniere action</span>
-          <strong>{latestApplicationStatus ? latestApplicationStatus.label : "Aucune"}</strong>
-          <small>{latestApplication ? formatDisplayDate(latestApplication.created_at) : "postulez a une offre pour demarrer"}</small>
+          <span>Prochain entretien</span>
+          <strong>{nextInterview ? formatDisplayDate(nextInterview.starts_at) : "Aucun"}</strong>
+          <small>
+            {nextInterview
+              ? `${nextInterview.job_title} · ${getInterviewFormatLabel(nextInterview.format)}`
+              : latestApplication
+                ? `${latestApplicationStatus?.label ?? "Suivi actif"} · ${formatDisplayDate(latestApplication.created_at)}`
+                : "postulez a une offre pour demarrer"}
+          </small>
         </article>
       </section>
 
       <section className="dashboard-workspace">
         <div className="dashboard-column">
+          <div className="dashboard-section">
+            <div className="dashboard-section__head">
+              <div>
+                <p className="eyebrow">Entretiens</p>
+                <h2>Rendez-vous a venir</h2>
+              </div>
+              <Link className="text-link" href="/app/candidat/candidatures">
+                Ouvrir mon suivi candidat
+              </Link>
+            </div>
+
+            <div className="dashboard-list">
+              {upcomingInterviews.length > 0 ? (
+                upcomingInterviews.slice(0, 3).map((interview) => (
+                  <article key={interview.id} className="panel list-card dashboard-card">
+                    <div className="dashboard-card__top">
+                      <div>
+                        <h3>{interview.job_title}</h3>
+                        <p>{interview.organization_name}</p>
+                      </div>
+                      <span className="tag">{getInterviewFormatLabel(interview.format)}</span>
+                    </div>
+                    <p>Entretien planifie le {formatDateTimeDisplay(interview.starts_at)}.</p>
+                    <div className="job-card__meta">
+                      {interview.location ? <span>{interview.location}</span> : null}
+                      <span>{interview.timezone}</span>
+                    </div>
+                    <div className="job-card__footer">
+                      <small>
+                        {interview.notes || "Retrouvez les details du rendez-vous dans votre dossier candidat."}
+                      </small>
+                      <div className="notification-card__actions">
+                        <Link href={`/app/candidat/candidatures/${interview.application_id}`}>
+                          Ouvrir le dossier
+                        </Link>
+                        {interview.meeting_url ? (
+                          <Link href={interview.meeting_url} target="_blank" rel="noreferrer">
+                            Rejoindre
+                          </Link>
+                        ) : null}
+                      </div>
+                    </div>
+                  </article>
+                ))
+              ) : (
+                <article className="panel list-card dashboard-card dashboard-card--empty">
+                  <h3>Aucun entretien planifie pour le moment</h3>
+                  <p>Lorsqu'un recruteur planifiera un rendez-vous, il apparaitra ici automatiquement.</p>
+                </article>
+              )}
+            </div>
+          </div>
+
           <div className="dashboard-section">
             <div className="dashboard-section__head">
               <div>

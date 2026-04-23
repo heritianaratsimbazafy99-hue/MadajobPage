@@ -1,7 +1,8 @@
 import Link from "next/link";
 
 import { getApplicationStatusMeta } from "@/lib/application-status";
-import { formatDisplayDate, formatFileSize } from "@/lib/format";
+import { formatDateTimeDisplay, formatDisplayDate, formatFileSize } from "@/lib/format";
+import { getInterviewFormatLabel, getInterviewStatusMeta } from "@/lib/interviews";
 import type { CandidateApplicationDetail, CandidateApplicationHistoryEntry, Profile } from "@/lib/types";
 import { DashboardShell } from "@/components/dashboard/shell";
 
@@ -153,6 +154,64 @@ export function CandidateApplicationDetailWorkspace({
                   </article>
                 );
               })}
+            </div>
+          </div>
+
+          <div className="dashboard-form">
+            <div className="dashboard-form__head">
+              <div>
+                <p className="eyebrow">Entretiens</p>
+                <h2>Planning du dossier</h2>
+              </div>
+              <span className="tag">{application.interviews.length} rendez-vous</span>
+            </div>
+
+            <div className="dashboard-list">
+              {application.interviews.length > 0 ? (
+                application.interviews.map((interview) => {
+                  const interviewStatus = getInterviewStatusMeta(interview.status);
+
+                  return (
+                    <article key={interview.id} className="panel list-card dashboard-card">
+                      <div className="dashboard-card__top">
+                        <div>
+                          <h3>{getInterviewFormatLabel(interview.format)}</h3>
+                          <p>{formatDateTimeDisplay(interview.starts_at)}</p>
+                        </div>
+                        <span className={`tag tag--${interviewStatus.tone}`}>{interviewStatus.label}</span>
+                      </div>
+
+                      <div className="job-card__meta">
+                        <span>{interview.interviewer_name}</span>
+                        {interview.location ? <span>{interview.location}</span> : null}
+                        <span>{interview.timezone}</span>
+                      </div>
+
+                      {interview.notes ? <p>{interview.notes}</p> : null}
+
+                      <div className="job-card__footer">
+                        <small>
+                          {interview.meeting_url
+                            ? "Le lien de connexion reste disponible tant que l'entretien est planifie."
+                            : "Les details logistiques vous sont affiches directement dans ce suivi."}
+                        </small>
+                        <div className="notification-card__actions">
+                          {interview.meeting_url ? (
+                            <Link href={interview.meeting_url} target="_blank" rel="noreferrer">
+                              Rejoindre l'entretien
+                            </Link>
+                          ) : null}
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })
+              ) : (
+                <article className="panel list-card dashboard-card dashboard-card--empty">
+                  <h3>Aucun entretien planifie</h3>
+                  <p>Si un recruteur planifie un rendez-vous, il apparaitra ici automatiquement.</p>
+                </article>
+              )}
             </div>
           </div>
 

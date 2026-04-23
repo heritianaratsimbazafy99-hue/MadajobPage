@@ -12,6 +12,7 @@ import type {
   ApplicationStatusHistoryEntry,
   CandidateApplicationDetail,
   CandidateApplicationHistoryEntry,
+  CandidateInterviewScheduleItem,
   CandidateApplicationSummary,
   CandidateApplication,
   CandidateDetail,
@@ -541,6 +542,122 @@ export async function getCandidateApplicationSummaries(candidateId: string) {
   });
 }
 
+export async function getCandidateInterviews(
+  candidateId: string,
+  options: { limit?: number } = {}
+) {
+  noStore();
+  const { limit = 12 } = options;
+
+  if (!isSupabaseConfigured) {
+    return fallbackInterviews
+      .filter((interview) => interview.candidate_id === candidateId)
+      .map((interview) => ({
+        id: interview.id,
+        application_id: interview.application_id,
+        status: interview.status,
+        format: interview.format,
+        starts_at: interview.starts_at,
+        ends_at: interview.ends_at,
+        timezone: interview.timezone,
+        location: interview.location,
+        meeting_url: interview.meeting_url,
+        notes: interview.notes,
+        interviewer_name: interview.interviewer_name,
+        interviewer_email: interview.interviewer_email,
+        scheduled_by_name: interview.scheduled_by_name,
+        scheduled_by_email: interview.scheduled_by_email,
+        created_at: interview.created_at,
+        updated_at: interview.updated_at,
+        job_title: interview.job_title,
+        job_slug:
+          fallbackJobs.find((job) => job.id === interview.job_id)?.slug ??
+          fallbackJobs.find((job) => job.title === interview.job_title)?.slug ??
+          "",
+        organization_name: interview.organization_name ?? "Madajob"
+      })) satisfies CandidateInterviewScheduleItem[];
+  }
+
+  const supabase = await createClient();
+  const { data: applicationRows, error: applicationError } = await supabase
+    .from("applications")
+    .select(
+      `
+      id,
+      candidate_id,
+      job_posts!inner(
+        title,
+        slug,
+        organization_id
+      )
+    `
+    )
+    .eq("candidate_id", candidateId);
+
+  if (applicationError || !applicationRows?.length) {
+    return [] as CandidateInterviewScheduleItem[];
+  }
+
+  const applicationIds = Array.from(
+    new Set(applicationRows.map((row) => String(row.id ?? "")).filter(Boolean))
+  );
+
+  let interviewsQuery = supabase
+    .from("application_interviews")
+    .select(
+      "id, application_id, status, format, starts_at, ends_at, timezone, location, meeting_url, notes, interviewer_name, interviewer_email, created_at, updated_at"
+    )
+    .in("application_id", applicationIds)
+    .order("starts_at", { ascending: true });
+
+  if (typeof limit === "number") {
+    interviewsQuery = interviewsQuery.limit(limit);
+  }
+
+  const { data: interviewRows, error: interviewError } = await interviewsQuery;
+
+  if (interviewError || !interviewRows?.length) {
+    return [] as CandidateInterviewScheduleItem[];
+  }
+
+  const jobRelations = applicationRows.map((row) =>
+    normalizeJobRelation(row.job_posts as ApplicationAccessRow["job_posts"])
+  );
+  const organizationIds = Array.from(
+    new Set(jobRelations.map((job) => String(job?.organization_id ?? "")).filter(Boolean))
+  );
+
+  const adminClient = createAdminClient();
+  const organizations =
+    adminClient && organizationIds.length
+      ? await adminClient.from("organizations").select("id, name").in("id", organizationIds)
+      : { data: [] as Array<{ id?: string | null; name?: string | null }> };
+  const organizationMap = new Map(
+    (organizations.data ?? []).map((row) => [String(row.id ?? ""), String(row.name ?? "Madajob")])
+  );
+  const applicationMap = new Map(applicationRows.map((row) => [String(row.id ?? ""), row]));
+
+  return interviewRows
+    .map((row) => {
+      const application = applicationMap.get(String(row.application_id ?? ""));
+
+      if (!application) {
+        return null;
+      }
+
+      const job = normalizeJobRelation(application.job_posts as ApplicationAccessRow["job_posts"]);
+      const interview = mapApplicationInterviewRecord(row);
+
+      return {
+        ...interview,
+        job_title: String(job?.title ?? "Offre Madajob"),
+        job_slug: String(job?.slug ?? ""),
+        organization_name: organizationMap.get(String(job?.organization_id ?? "")) ?? "Madajob"
+      } satisfies CandidateInterviewScheduleItem;
+    })
+    .filter((item): item is CandidateInterviewScheduleItem => Boolean(item));
+}
+
 export async function getCandidateApplicationDetail(
   profile: Profile,
   applicationId: string
@@ -579,7 +696,22 @@ export async function getCandidateApplicationDetail(
       },
       cv_document: null,
       cv_download_url: null,
-      status_history: []
+      status_history: [],
+      interviews: fallbackInterviews
+        .filter((interview) => interview.application_id === fallbackApplication.id)
+        .map(
+          ({
+            application_status: _applicationStatus,
+            candidate_id: _candidateId,
+            candidate_name: _candidateName,
+            candidate_email: _candidateEmail,
+            job_id: _jobId,
+            job_title: _jobTitle,
+            job_location: _jobLocation,
+            organization_name: _organizationName,
+            ...interview
+          }) => interview
+        )
     } satisfies CandidateApplicationDetail;
   }
 
@@ -627,7 +759,7 @@ export async function getCandidateApplicationDetail(
   const cvDocumentId =
     typeof applicationRow.cv_document_id === "string" ? applicationRow.cv_document_id : null;
 
-  const [{ data: organizationData }, { data: historyRows }, { data: cvDocumentRow }] =
+  const [{ data: organizationData }, { data: historyRows }, { data: cvDocumentRow }, { data: interviewRows }] =
     await Promise.all([
       adminClient
         ? adminClient
@@ -647,7 +779,14 @@ export async function getCandidateApplicationDetail(
             .select("id, bucket_id, storage_path, file_name, mime_type, file_size, is_primary, created_at")
             .eq("id", cvDocumentId)
             .maybeSingle()
-        : Promise.resolve({ data: null })
+        : Promise.resolve({ data: null }),
+      supabase
+        .from("application_interviews")
+        .select(
+          "id, application_id, status, format, starts_at, ends_at, timezone, location, meeting_url, notes, interviewer_name, interviewer_email, created_at, updated_at"
+        )
+        .eq("application_id", applicationId)
+        .order("starts_at", { ascending: true })
     ]);
 
   const cvDocument = cvDocumentRow ? mapCandidateDocumentRecord(cvDocumentRow) : null;
@@ -659,6 +798,9 @@ export async function getCandidateApplicationDetail(
     note: typeof item.note === "string" ? item.note : null,
     created_at: String(item.created_at ?? "")
   })) satisfies CandidateApplicationHistoryEntry[];
+  const interviews = (interviewRows ?? []).map((item: Record<string, unknown>) =>
+    mapApplicationInterviewRecord(item)
+  );
 
   return {
     id: String(applicationRow.id),
@@ -681,7 +823,8 @@ export async function getCandidateApplicationDetail(
     },
     cv_document: cvDocument,
     cv_download_url: cvDownloadUrl,
-    status_history: statusHistory
+    status_history: statusHistory,
+    interviews
   } satisfies CandidateApplicationDetail;
 }
 

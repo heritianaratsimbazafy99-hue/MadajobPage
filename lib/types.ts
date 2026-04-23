@@ -282,6 +282,7 @@ export type CandidateApplicationDetail = {
   cv_document: CandidateDocumentData | null;
   cv_download_url: string | null;
   status_history: CandidateApplicationHistoryEntry[];
+  interviews: ApplicationInterview[];
 };
 
 export type ManagedCandidateSummary = {
@@ -377,6 +378,12 @@ export type InterviewScheduleItem = ApplicationInterview & {
   job_title: string;
   job_location: string;
   organization_name: string | null;
+};
+
+export type CandidateInterviewScheduleItem = ApplicationInterview & {
+  job_title: string;
+  job_slug: string;
+  organization_name: string;
 };
 
 export type ManagedUserSummary = {
