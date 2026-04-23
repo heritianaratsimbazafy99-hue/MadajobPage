@@ -3,28 +3,16 @@
 import { startTransition, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { uploadCandidateCvAction } from "@/app/actions/profile-actions";
 import { formatDisplayDate, formatFileSize } from "@/lib/format";
-import { isSupabaseConfigured } from "@/lib/env";
-import { createClient } from "@/lib/supabase/client";
 import type { CandidateDocumentData } from "@/lib/types";
 
 type CandidateCvUploadProps = {
-  candidateId: string;
   currentDocument: CandidateDocumentData | null;
   recentDocuments: CandidateDocumentData[];
 };
 
-function sanitizeFileName(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-zA-Z0-9._-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .toLowerCase();
-}
-
 export function CandidateCvUpload({
-  candidateId,
   currentDocument,
   recentDocuments
 }: CandidateCvUploadProps) {
@@ -50,14 +38,6 @@ export function CandidateCvUpload({
   async function handleUpload(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    if (!isSupabaseConfigured) {
-      setStatus({
-        kind: "error",
-        message: "Supabase n'est pas configure pour l'instant."
-      });
-      return;
-    }
-
     const file = inputRef.current?.files?.[0];
 
     if (!file) {
@@ -82,66 +62,20 @@ export function CandidateCvUpload({
       message: ""
     });
 
-    const supabase = createClient();
-    const extension = file.name.includes(".")
-      ? file.name.split(".").pop()?.toLowerCase() ?? "pdf"
-      : "pdf";
-    const safeName = sanitizeFileName(file.name || `cv.${extension}`);
-    const storagePath = `${candidateId}/${Date.now()}-${safeName}`;
-
     try {
-      const { error: uploadError } = await supabase.storage
-        .from("candidate-cv")
-        .upload(storagePath, file, {
-          cacheControl: "3600",
-          contentType: file.type || undefined,
-          upsert: false
-        });
+      const result = await uploadCandidateCvAction(new FormData(event.currentTarget));
 
-      if (uploadError) {
+      if (result.status === "error") {
         setStatus({
           kind: "error",
-          message: uploadError.message
-        });
-        return;
-      }
-
-      const { error: resetError } = await supabase
-        .from("candidate_documents")
-        .update({ is_primary: false })
-        .eq("candidate_id", candidateId)
-        .eq("is_primary", true);
-
-      if (resetError) {
-        setStatus({
-          kind: "error",
-          message: resetError.message
-        });
-        return;
-      }
-
-      const { error: insertError } = await supabase.from("candidate_documents").insert({
-        candidate_id: candidateId,
-        document_type: "cv",
-        bucket_id: "candidate-cv",
-        storage_path: storagePath,
-        file_name: file.name,
-        mime_type: file.type || null,
-        file_size: file.size,
-        is_primary: true
-      });
-
-      if (insertError) {
-        setStatus({
-          kind: "error",
-          message: insertError.message
+          message: result.message
         });
         return;
       }
 
       setStatus({
         kind: "success",
-        message: "CV principal televerse. Il sera rattache automatiquement a vos prochaines candidatures."
+        message: result.message
       });
 
       if (inputRef.current) {
@@ -206,6 +140,7 @@ export function CandidateCvUpload({
         <span>Choisir un fichier</span>
         <input
           ref={inputRef}
+          name="cv_file"
           type="file"
           accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         />

@@ -122,13 +122,12 @@ export default async function CandidateDocumentsPage() {
             title="Ce que votre CV raconte deja vraiment"
           />
 
-          <CandidateDocumentsManager candidateId={profile.id} documents={documents} />
+          <CandidateDocumentsManager documents={documents} />
         </div>
 
         <aside className="dashboard-column dashboard-column--aside">
           <div id="cv-principal">
             <CandidateCvUpload
-              candidateId={profile.id}
               currentDocument={candidateProfile.primary_cv}
               recentDocuments={candidateProfile.recent_documents}
             />
