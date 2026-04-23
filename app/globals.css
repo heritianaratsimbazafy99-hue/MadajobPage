@@ -1446,6 +1446,17 @@ code {
   gap: 12px;
 }
 
+.managed-jobs-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.managed-jobs-summary-card {
+  display: grid;
+  gap: 12px;
+}
+
 .candidate-documents-board {
   margin-top: 4px;
 }
@@ -1969,6 +1980,10 @@ code {
   }
 
   .job-management-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .managed-jobs-summary-grid {
     grid-template-columns: 1fr;
   }
 

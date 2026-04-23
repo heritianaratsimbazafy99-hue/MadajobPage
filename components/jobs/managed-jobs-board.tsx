@@ -5,6 +5,12 @@ import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "r
 
 import { quickUpdateJobStatusAction } from "@/app/actions/job-actions";
 import { formatDisplayDate } from "@/lib/format";
+import {
+  getManagedJobPriorityMeta,
+  getManagedJobPriorityScore,
+  summarizeManagedJobs,
+  type ManagedJobPriorityKey
+} from "@/lib/managed-job-insights";
 import type { ManagedJob } from "@/lib/types";
 
 type ManagedJobsBoardProps = {
@@ -17,8 +23,8 @@ type ManagedFilters = {
   status: string;
   location: string;
   organizationId: string;
-  moderation: "" | "to_publish" | "live_without_candidates" | "active" | "closed_or_archived";
-  sort: "recent" | "oldest" | "applications_desc";
+  focus: "" | ManagedJobPriorityKey;
+  sort: "priority_desc" | "recent" | "oldest" | "applications_desc";
 };
 
 const initialFilters: ManagedFilters = {
@@ -26,8 +32,8 @@ const initialFilters: ManagedFilters = {
   status: "",
   location: "",
   organizationId: "",
-  moderation: "",
-  sort: "recent"
+  focus: "",
+  sort: "priority_desc"
 };
 
 function getUniqueValues(values: string[]) {
@@ -46,6 +52,8 @@ export function ManagedJobsBoard({ jobs, basePath }: ManagedJobsBoardProps) {
     setBoardJobs(jobs);
     setFeedback(null);
   }, [jobs]);
+
+  const boardSummary = useMemo(() => summarizeManagedJobs(boardJobs), [boardJobs]);
 
   const filterOptions = useMemo(
     () => ({
@@ -71,6 +79,7 @@ export function ManagedJobsBoard({ jobs, basePath }: ManagedJobsBoardProps) {
 
     return boardJobs
       .filter((job) => {
+        const priorityMeta = getManagedJobPriorityMeta(job);
         const matchesQuery =
           !query ||
           [
@@ -80,7 +89,9 @@ export function ManagedJobsBoard({ jobs, basePath }: ManagedJobsBoardProps) {
             job.contract_type,
             job.work_mode,
             job.sector,
-            job.organization_name
+            job.organization_name,
+            priorityMeta.label,
+            priorityMeta.description
           ]
             .filter((value): value is string => typeof value === "string" && value.length > 0)
             .some((value) => value.toLowerCase().includes(query));
@@ -89,19 +100,20 @@ export function ManagedJobsBoard({ jobs, basePath }: ManagedJobsBoardProps) {
         const matchesLocation = !filters.location || job.location === filters.location;
         const matchesOrganization =
           !filters.organizationId || job.organization_id === filters.organizationId;
-        const matchesModeration =
-          !filters.moderation ||
-          (filters.moderation === "to_publish" && job.status === "draft") ||
-          (filters.moderation === "live_without_candidates" &&
-            job.status === "published" &&
-            job.applications_count === 0) ||
-          (filters.moderation === "active" && job.status === "published") ||
-          (filters.moderation === "closed_or_archived" &&
-            (job.status === "closed" || job.status === "archived"));
+        const matchesFocus = !filters.focus || priorityMeta.key === filters.focus;
 
-        return matchesQuery && matchesStatus && matchesLocation && matchesOrganization && matchesModeration;
+        return matchesQuery && matchesStatus && matchesLocation && matchesOrganization && matchesFocus;
       })
       .sort((left, right) => {
+        if (filters.sort === "priority_desc") {
+          const leftScore = getManagedJobPriorityScore(left);
+          const rightScore = getManagedJobPriorityScore(right);
+
+          if (leftScore !== rightScore) {
+            return rightScore - leftScore;
+          }
+        }
+
         if (filters.sort === "applications_desc" && left.applications_count !== right.applications_count) {
           return right.applications_count - left.applications_count;
         }
@@ -118,20 +130,22 @@ export function ManagedJobsBoard({ jobs, basePath }: ManagedJobsBoardProps) {
   }, [
     boardJobs,
     deferredQuery,
+    filters.focus,
     filters.location,
-    filters.moderation,
     filters.organizationId,
     filters.sort,
     filters.status
   ]);
+
+  const filteredSummary = useMemo(() => summarizeManagedJobs(filteredJobs), [filteredJobs]);
 
   const activeFilterCount = [
     filters.query,
     filters.status,
     filters.location,
     filters.organizationId,
-    filters.moderation,
-    filters.sort !== "recent" ? filters.sort : ""
+    filters.focus,
+    filters.sort !== "priority_desc" ? filters.sort : ""
   ].filter(Boolean).length;
 
   async function handleQuickStatusUpdate(jobId: string, nextStatus: ManagedJob["status"]) {
@@ -229,8 +243,8 @@ export function ManagedJobsBoard({ jobs, basePath }: ManagedJobsBoardProps) {
             </p>
             <h2>
               {isAdminView
-                ? "Priorisez la diffusion, reperez les annonces a publier et arbitrez rapidement les statuts"
-                : "Retrouvez, filtrez et ouvrez vos annonces"}
+                ? "Priorisez la diffusion, les offres sans traction et les annonces dont la cloture approche"
+                : "Retrouvez les annonces qui demandent une action concrete sur la diffusion ou le pipeline"}
             </h2>
           </div>
           <span className="tag">{filteredJobs.length} offre(s)</span>
@@ -316,11 +330,11 @@ export function ManagedJobsBoard({ jobs, basePath }: ManagedJobsBoardProps) {
           <label className="field">
             <span>{isAdminView ? "Priorite" : "Focus suivi"}</span>
             <select
-              value={filters.moderation}
+              value={filters.focus}
               onChange={(event) =>
                 setFilters((previous) => ({
                   ...previous,
-                  moderation: event.target.value as ManagedFilters["moderation"]
+                  focus: event.target.value as ManagedFilters["focus"]
                 }))
               }
             >
@@ -328,17 +342,12 @@ export function ManagedJobsBoard({ jobs, basePath }: ManagedJobsBoardProps) {
                 {isAdminView ? "Toutes les priorites" : "Toutes les offres"}
               </option>
               <option value="to_publish">
-                {isAdminView ? "A publier en priorite" : "Brouillons a traiter"}
+                {isAdminView ? "A publier en priorite" : "Brouillons a publier"}
               </option>
-              <option value="active">
-                {isAdminView ? "Actives a suivre" : "Actives"}
-              </option>
-              <option value="live_without_candidates">
-                {isAdminView
-                  ? "Publiees sans candidatures"
-                  : "Actives sans candidatures"}
-              </option>
-              <option value="closed_or_archived">Fermees ou archivees</option>
+              <option value="closing_soon">Cloture proche</option>
+              <option value="live_without_candidates">Publiees sans candidatures</option>
+              <option value="active_pipeline">Pipeline actif</option>
+              <option value="inactive">A surveiller</option>
             </select>
           </label>
 
@@ -353,6 +362,7 @@ export function ManagedJobsBoard({ jobs, basePath }: ManagedJobsBoardProps) {
                 }))
               }
             >
+              <option value="priority_desc">Priorite</option>
               <option value="recent">Activite recente</option>
               <option value="applications_desc">Plus de candidatures</option>
               <option value="oldest">Plus anciennes</option>
@@ -360,24 +370,30 @@ export function ManagedJobsBoard({ jobs, basePath }: ManagedJobsBoardProps) {
           </label>
         </div>
 
+        <div className="interviews-board__stats">
+          <article className="document-card">
+            <strong>{filteredSummary.draftCount}</strong>
+            <p>brouillon(s)</p>
+          </article>
+          <article className="document-card">
+            <strong>{filteredSummary.withoutApplicationsCount}</strong>
+            <p>publiee(s) sans candidatures</p>
+          </article>
+          <article className="document-card">
+            <strong>{filteredSummary.closingSoonCount}</strong>
+            <p>cloture(s) proche(s)</p>
+          </article>
+          <article className="document-card">
+            <strong>{filteredSummary.activePipelineCount}</strong>
+            <p>pipeline(s) actif(s)</p>
+          </article>
+        </div>
+
         <div className="jobs-board__actions">
           <div className="dashboard-card__badges">
-            <span className="tag tag--muted">
-              {boardJobs.filter((job) => job.status === "draft").length} brouillon(s)
-            </span>
-            <span className="tag tag--info">
-              {boardJobs.filter((job) => job.status === "published").length} publiee(s)
-            </span>
-            {isAdminView ? (
-              <span className="tag tag--muted">
-                {
-                  boardJobs.filter(
-                    (job) => job.status === "published" && job.applications_count === 0
-                  ).length
-                }{" "}
-                sans candidature
-              </span>
-            ) : null}
+            <span className="tag tag--muted">{boardSummary.draftCount} brouillon(s)</span>
+            <span className="tag tag--info">{boardSummary.publishedCount} publiee(s)</span>
+            <span className="tag tag--danger">{boardSummary.withoutApplicationsCount} sans candidature</span>
           </div>
 
           {activeFilterCount > 0 ? (
@@ -391,12 +407,11 @@ export function ManagedJobsBoard({ jobs, basePath }: ManagedJobsBoardProps) {
           ) : null}
         </div>
 
-        {activeFilterCount > 0 ? (
-          <p className="jobs-board__hint">
-            {activeFilterCount} filtre(s) actif(s) pour isoler les offres les plus
-            prioritaires.
-          </p>
-        ) : null}
+        <p className="jobs-board__hint">
+          {activeFilterCount > 0
+            ? `${activeFilterCount} filtre(s) actif(s) pour isoler les offres les plus prioritaires.`
+            : "Les offres a publier, a relancer ou a arbitrer rapidement remontent automatiquement en tete."}
+        </p>
 
         {feedback ? (
           <p className={feedback.kind === "error" ? "form-feedback form-feedback--error" : "form-feedback"}>
@@ -407,50 +422,68 @@ export function ManagedJobsBoard({ jobs, basePath }: ManagedJobsBoardProps) {
 
       <section className="jobs-results">
         {filteredJobs.length > 0 ? (
-          filteredJobs.map((job) => (
-            <article key={job.id} className="panel job-card jobs-result-card">
-              <div className="jobs-result-card__head">
-                <div className="jobs-result-card__badges">
-                  <span className="tag">{job.status}</span>
-                  {job.is_featured ? <span className="tag tag--success">Mise en avant</span> : null}
-                  {job.status === "draft" ? (
-                    <span className="tag tag--muted">A publier</span>
-                  ) : null}
-                  {job.status === "published" && job.applications_count === 0 ? (
-                    <span className="tag tag--muted">Sans candidatures</span>
-                  ) : null}
-                </div>
-                <small>Mise a jour le {formatDisplayDate(job.updated_at)}</small>
-              </div>
-              <h2>{job.title}</h2>
-              <p>{job.summary}</p>
-              <div className="job-card__meta">
-                {isAdminView ? <span>{job.organization_name || "Madajob"}</span> : null}
-                <span>{job.location}</span>
-                <span>{job.contract_type}</span>
-                <span>{job.work_mode}</span>
-                <span>{job.applications_count} candidature(s)</span>
-              </div>
-              <div className="job-card__footer">
-                <small>Publiee le {formatDisplayDate(job.published_at)}</small>
-                <Link href={`${basePath}/${job.id}`}>Gerer l'offre</Link>
-              </div>
+          filteredJobs.map((job) => {
+            const priorityMeta = getManagedJobPriorityMeta(job);
 
-              <div className="job-quick-actions">
-                {getQuickActions(job).map((action) => (
-                  <button
-                    key={action.value}
-                    type="button"
-                    className={action.variant}
-                    disabled={isPending}
-                    onClick={() => void handleQuickStatusUpdate(job.id, action.value)}
-                  >
-                    {action.label}
-                  </button>
-                ))}
-              </div>
-            </article>
-          ))
+            return (
+              <article key={job.id} className="panel job-card jobs-result-card">
+                <div className="jobs-result-card__head">
+                  <div className="jobs-result-card__badges">
+                    <span className="tag">{job.status}</span>
+                    <span className={`tag tag--${priorityMeta.tone}`}>{priorityMeta.label}</span>
+                    {job.is_featured ? <span className="tag tag--success">Mise en avant</span> : null}
+                  </div>
+                  <small>Mise a jour le {formatDisplayDate(job.updated_at)}</small>
+                </div>
+
+                <h2>{job.title}</h2>
+                <p>{priorityMeta.description}</p>
+
+                <div className="job-card__meta">
+                  {isAdminView ? <span>{job.organization_name || "Madajob"}</span> : null}
+                  <span>{job.location}</span>
+                  <span>{job.contract_type}</span>
+                  <span>{job.work_mode}</span>
+                  <span>{job.applications_count} candidature(s)</span>
+                  {job.closing_at ? <span>Cloture le {formatDisplayDate(job.closing_at)}</span> : null}
+                </div>
+
+                <div className="application-signal-card">
+                  <strong>{job.summary}</strong>
+                  <p>
+                    {job.status === "published" && job.applications_count === 0
+                      ? "L'annonce est diffusee mais n'a pas encore converti en candidatures."
+                      : job.status === "published" && job.applications_count >= 5
+                        ? "Le pipeline est deja alimente. L'enjeu principal est maintenant le traitement des dossiers."
+                        : job.status === "draft"
+                          ? "L'offre peut etre relue, finalisee puis publiee directement depuis la liste."
+                          : "Cette offre reste disponible pour pilotage depuis sa fiche detaillee."}
+                  </p>
+                </div>
+
+                <div className="job-card__footer">
+                  <small>
+                    Publiee le {formatDisplayDate(job.published_at)}{job.department ? ` · ${job.department}` : ""}
+                  </small>
+                  <Link href={`${basePath}/${job.id}`}>Gerer l'offre</Link>
+                </div>
+
+                <div className="job-quick-actions">
+                  {getQuickActions(job).map((action) => (
+                    <button
+                      key={action.value}
+                      type="button"
+                      className={action.variant}
+                      disabled={isPending}
+                      onClick={() => void handleQuickStatusUpdate(job.id, action.value)}
+                    >
+                      {action.label}
+                    </button>
+                  ))}
+                </div>
+              </article>
+            );
+          })
         ) : (
           <article className="panel jobs-empty">
             <h2>Aucune offre ne correspond a ces filtres</h2>
