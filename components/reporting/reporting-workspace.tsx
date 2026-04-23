@@ -1,8 +1,15 @@
 import { DashboardShell } from "@/components/dashboard/shell";
 import { getApplicationStatusMeta } from "@/lib/application-status";
+import {
+  getReportingAlerts,
+  getReportingExportShortcuts,
+  getReportingMetricCards,
+  getReportingWindowSummaries,
+  getTopReportingJobConversions
+} from "@/lib/managed-reporting-insights";
 import type {
-  Job,
   ManagedCandidateSummary,
+  ManagedJob,
   Profile,
   RecruiterApplication
 } from "@/lib/types";
@@ -12,7 +19,7 @@ type ReportingWorkspaceProps = {
   currentPath: string;
   title: string;
   description: string;
-  jobs: Job[];
+  jobs: ManagedJob[];
   candidates: ManagedCandidateSummary[];
   applications: RecruiterApplication[];
 };
@@ -31,6 +38,34 @@ function formatPercent(value: number, total: number) {
   return `${Math.round((value / total) * 100)}%`;
 }
 
+function getToneClass(tone: "info" | "success" | "danger" | "muted") {
+  if (tone === "danger") {
+    return "tag tag--danger";
+  }
+
+  if (tone === "success") {
+    return "tag tag--success";
+  }
+
+  if (tone === "info") {
+    return "tag tag--info";
+  }
+
+  return "tag tag--muted";
+}
+
+function getButtonClass(tone: "primary" | "secondary" | "ghost") {
+  if (tone === "primary") {
+    return "btn btn-primary btn-block";
+  }
+
+  if (tone === "secondary") {
+    return "btn btn-secondary btn-block";
+  }
+
+  return "btn btn-ghost btn-block";
+}
+
 function getApplicationStatusCount(applications: RecruiterApplication[]) {
   const counts = new Map<string, number>();
 
@@ -47,7 +82,7 @@ function getApplicationStatusCount(applications: RecruiterApplication[]) {
     }));
 }
 
-function getJobStatusCount(jobs: Job[]) {
+function getJobStatusCount(jobs: ManagedJob[]) {
   const counts = new Map<string, number>();
 
   for (const job of jobs) {
@@ -60,33 +95,6 @@ function getJobStatusCount(jobs: Job[]) {
       label: status,
       value: count
     }));
-}
-
-function getTopJobs(applications: RecruiterApplication[]) {
-  const counts = new Map<
-    string,
-    {
-      label: string;
-      value: number;
-      hint: string;
-    }
-  >();
-
-  for (const application of applications) {
-    const key = application.job_id || application.job_title;
-    const current = counts.get(key) ?? {
-      label: application.job_title,
-      value: 0,
-      hint: application.job_location
-    };
-
-    current.value += 1;
-    counts.set(key, current);
-  }
-
-  return Array.from(counts.values())
-    .sort((left, right) => right.value - left.value)
-    .slice(0, 5);
 }
 
 function getTopCandidateCities(candidates: ManagedCandidateSummary[]) {
@@ -108,7 +116,7 @@ function getTopCandidateCities(candidates: ManagedCandidateSummary[]) {
     .map(([label, value]) => ({ label, value }));
 }
 
-function getTopJobSignals(jobs: Job[], field: "location" | "sector") {
+function getTopJobSignals(jobs: ManagedJob[], field: "location" | "sector") {
   const counts = new Map<string, number>();
 
   for (const job of jobs) {
@@ -167,32 +175,6 @@ function getCandidateCompletionBuckets(candidates: ManagedCandidateSummary[]) {
   ] satisfies CountEntry[];
 }
 
-function getTopFollowupNeeds(applications: RecruiterApplication[]) {
-  const withoutCv = applications.filter((item) => !item.has_cv).length;
-  const advanced = applications.filter((item) =>
-    ["shortlist", "interview", "hired"].includes(item.status)
-  ).length;
-  const rejected = applications.filter((item) => item.status === "rejected").length;
-
-  return [
-    {
-      label: "Dossiers avances",
-      value: advanced,
-      hint: formatPercent(advanced, applications.length)
-    },
-    {
-      label: "Sans CV joint",
-      value: withoutCv,
-      hint: formatPercent(withoutCv, applications.length)
-    },
-    {
-      label: "Finalises",
-      value: rejected + applications.filter((item) => item.status === "hired").length,
-      hint: "retenus ou rejetes"
-    }
-  ] satisfies CountEntry[];
-}
-
 export function ReportingWorkspace({
   profile,
   currentPath,
@@ -203,20 +185,21 @@ export function ReportingWorkspace({
   applications
 }: ReportingWorkspaceProps) {
   const applicationsWithCv = applications.filter((item) => item.has_cv).length;
-  const candidatesWithCv = candidates.filter((item) => item.has_primary_cv).length;
   const publishedJobs = jobs.filter((job) => job.status === "published").length;
-  const featuredJobs = jobs.filter((job) => job.is_featured).length;
   const advancedApplications = applications.filter((item) =>
     ["shortlist", "interview", "hired"].includes(item.status)
   ).length;
+  const windowSummaries = getReportingWindowSummaries(jobs, applications, candidates);
+  const metricCards = getReportingMetricCards(jobs, applications, candidates);
+  const alerts = getReportingAlerts(applications);
+  const exportShortcuts = getReportingExportShortcuts(profile, jobs, applications, candidates);
+  const topJobConversions = getTopReportingJobConversions(applications);
   const applicationStatusCounts = getApplicationStatusCount(applications);
   const jobStatusCounts = getJobStatusCount(jobs);
-  const topJobs = getTopJobs(applications);
   const topCities = getTopCandidateCities(candidates);
   const topLocations = getTopJobSignals(jobs, "location");
   const topSectors = getTopJobSignals(jobs, "sector");
   const completionBuckets = getCandidateCompletionBuckets(candidates);
-  const followupNeeds = getTopFollowupNeeds(applications);
   const isAdminView = profile.role === "admin";
 
   return (
@@ -228,24 +211,24 @@ export function ReportingWorkspace({
     >
       <section className="dashboard-grid dashboard-grid--four">
         <article className="panel metric-panel">
-          <span>Offres exportables</span>
+          <span>Offres sous pilotage</span>
           <strong>{jobs.length}</strong>
-          <small>{publishedJobs} publiee(s), {featuredJobs} mise(s) en avant</small>
+          <small>{publishedJobs} publiee(s) et visibles dans le reporting</small>
         </article>
         <article className="panel metric-panel">
-          <span>Candidatures exportables</span>
+          <span>Candidatures sous suivi</span>
           <strong>{applications.length}</strong>
-          <small>{advancedApplications} dossier(s) avance(s)</small>
+          <small>{advancedApplications} dossier(s) deja avances</small>
         </article>
         <article className="panel metric-panel">
-          <span>Candidats exportables</span>
+          <span>Candidats exploitables</span>
           <strong>{candidates.length}</strong>
-          <small>profils accessibles depuis votre espace</small>
+          <small>{completionBuckets[0]?.value ?? 0} profil(s) deja prets a activer</small>
         </article>
         <article className="panel metric-panel">
           <span>Couverture CV</span>
           <strong>{formatPercent(applicationsWithCv, applications.length)}</strong>
-          <small>{candidatesWithCv} candidat(s) avec CV principal</small>
+          <small>{applications.length - applicationsWithCv} candidature(s) sans CV joint</small>
         </article>
       </section>
 
@@ -254,59 +237,150 @@ export function ReportingWorkspace({
           <div className="dashboard-form">
             <div className="dashboard-form__head">
               <div>
-                <p className="eyebrow">Exports</p>
-                <h2>Telechargez les donnees utiles a vos reprises et analyses</h2>
+                <p className="eyebrow">Syntheses par periode</p>
+                <h2>Lisez rapidement les volumes et conversions sur plusieurs fenetres</h2>
+              </div>
+              <span className="tag">{windowSummaries.length} vue(s)</span>
+            </div>
+
+            <div className="reporting-grid">
+              {windowSummaries.map((summary) => (
+                <article key={summary.key} className="document-card reporting-card">
+                  <div className="reporting-list__head">
+                    <strong>{summary.label}</strong>
+                    <span className="tag tag--info">{summary.applicationsCount}</span>
+                  </div>
+                  <p>{summary.description}</p>
+                  <div className="document-meta">
+                    <span>{summary.jobsCount} offre(s)</span>
+                    <span>{summary.publishedJobsCount} publiee(s)</span>
+                    <span>{summary.shortlistedCount} shortlist / avance(s)</span>
+                    <span>{summary.interviewsCount} entretien(s)</span>
+                    <span>{summary.hiredCount} retenue(s)</span>
+                    <span>{summary.readyCandidatesCount} candidat(s) prets</span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+
+          <div className="dashboard-form">
+            <div className="dashboard-form__head">
+              <div>
+                <p className="eyebrow">Exports cibles</p>
+                <h2>Declenchez des CSV plus precis pour vos reprises et analyses</h2>
               </div>
               <span className="tag">CSV</span>
             </div>
 
             <div className="reporting-grid">
-              <article className="document-card reporting-card">
-                <strong>Export des offres</strong>
-                <p>
-                  {isAdminView
-                    ? "Recupere les annonces de toute la plateforme avec leur diffusion et leur volume de candidatures."
-                    : "Recupere les annonces visibles dans votre perimetre recruteur avec leurs statuts et volumes."}
-                </p>
-                <a className="btn btn-primary btn-block" href="/api/exports/jobs">
-                  Exporter les offres
-                </a>
-              </article>
-
-              <article className="document-card reporting-card">
-                <strong>Export des candidatures</strong>
-                <p>
-                  Recupere le pipeline, les postes, la presence du CV et les dates d'entree pour
-                  consolider votre suivi.
-                </p>
-                <a className="btn btn-secondary btn-block" href="/api/exports/applications">
-                  Exporter les candidatures
-                </a>
-              </article>
-
-              <article className="document-card reporting-card">
-                <strong>Export des candidats</strong>
-                <p>
-                  Recupere la base profils accessible avec completion, ville, poste actuel et
-                  volume de dossiers.
-                </p>
-                <a className="btn btn-ghost btn-block" href="/api/exports/candidates">
-                  Exporter les candidats
-                </a>
-              </article>
+              {exportShortcuts.map((shortcut) => (
+                <article key={shortcut.title} className="document-card reporting-card">
+                  <strong>{shortcut.title}</strong>
+                  <p>{shortcut.description}</p>
+                  <a className={getButtonClass(shortcut.tone)} href={shortcut.href}>
+                    {shortcut.cta}
+                  </a>
+                </article>
+              ))}
             </div>
 
             <p className="form-caption">
-              Chaque export respecte automatiquement les droits du compte connecte et le
-              perimetre visible dans la plateforme.
+              Chaque export respecte automatiquement les droits du compte connecte et le perimetre{" "}
+              {isAdminView ? "plateforme" : "recruteur"} visible.
             </p>
           </div>
 
           <div className="dashboard-form">
             <div className="dashboard-form__head">
               <div>
-                <p className="eyebrow">Lecture pipeline</p>
-                <h2>Reperez rapidement les statuts dominants et les dossiers a relancer</h2>
+                <p className="eyebrow">Conversion pipeline</p>
+                <h2>Reperez vite la qualite du funnel, de la diffusion jusqu'a l'embauche</h2>
+              </div>
+              <span className="tag">{metricCards.length} signal(aux)</span>
+            </div>
+
+            <div className="reporting-grid">
+              {metricCards.map((card) => (
+                <article key={card.title} className="document-card reporting-card">
+                  <div className="reporting-list__head">
+                    <strong>{card.title}</strong>
+                    <span className={getToneClass(card.tone)}>{card.value}</span>
+                  </div>
+                  <p>{card.hint}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+
+          <div className="dashboard-form">
+            <div className="dashboard-form__head">
+              <div>
+                <p className="eyebrow">Postes qui convertissent</p>
+                <h2>Top offres par progression shortlist, entretiens et embauches</h2>
+              </div>
+              <span className="tag">{topJobConversions.length} poste(s)</span>
+            </div>
+
+            <div className="reporting-breakdown">
+              {topJobConversions.length > 0 ? (
+                topJobConversions.map((entry) => (
+                  <div key={`${entry.label}-${entry.location}`} className="document-card reporting-list__item">
+                    <div className="reporting-list__head">
+                      <strong>{entry.label}</strong>
+                      <span className="tag tag--success">{entry.advancedCount} avance(s)</span>
+                    </div>
+                    <p>{entry.location || "Lieu non renseigne"}</p>
+                    <div className="document-meta">
+                      <span>{entry.applicationsCount} candidature(s)</span>
+                      <span>{entry.interviewedCount} entretien(s)</span>
+                      <span>{entry.hiredCount} embauche(s)</span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="document-card">
+                  <strong>Aucune offre ne ressort encore</strong>
+                  <p>Les postes qui convertissent le mieux apparaitront ici automatiquement.</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <aside className="dashboard-column dashboard-column--aside">
+          <div className="dashboard-form">
+            <div className="dashboard-form__head">
+              <div>
+                <p className="eyebrow">Alertes conversion</p>
+                <h2>Ce qui merite une action rapide dans le pipeline</h2>
+              </div>
+              <span className="tag">{alerts.length} lecture(s)</span>
+            </div>
+
+            <div className="reporting-breakdown">
+              {alerts.map((alert) => (
+                <div key={alert.title} className="document-card reporting-list__item">
+                  <div className="reporting-list__head">
+                    <strong>{alert.title}</strong>
+                    <span className={getToneClass(alert.tone)}>{alert.value}</span>
+                  </div>
+                  <p>{alert.hint}</p>
+                  {alert.exportHref ? (
+                    <a className="btn btn-ghost btn-block" href={alert.exportHref}>
+                      Exporter cette vue
+                    </a>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="dashboard-form">
+            <div className="dashboard-form__head">
+              <div>
+                <p className="eyebrow">Pipeline courant</p>
+                <h2>Statuts dominants dans le perimetre visible</h2>
               </div>
               <span className="tag">{applicationStatusCounts.length} statut(s)</span>
             </div>
@@ -328,59 +402,6 @@ export function ReportingWorkspace({
                   <p>Le reporting se remplira des que des dossiers seront disponibles.</p>
                 </div>
               )}
-            </div>
-          </div>
-
-          <div className="dashboard-form">
-            <div className="dashboard-form__head">
-              <div>
-                <p className="eyebrow">Offres qui captent le plus</p>
-                <h2>Top postes par volume de candidatures</h2>
-              </div>
-              <span className="tag">{topJobs.length} poste(s)</span>
-            </div>
-
-            <div className="reporting-breakdown">
-              {topJobs.length > 0 ? (
-                topJobs.map((entry) => (
-                  <div key={`${entry.label}-${entry.hint}`} className="document-card reporting-list__item">
-                    <div className="reporting-list__head">
-                      <strong>{entry.label}</strong>
-                      <span className="tag tag--info">{entry.value} candidature(s)</span>
-                    </div>
-                    <p>{entry.hint || "Lieu non renseigne"}</p>
-                  </div>
-                ))
-              ) : (
-                <div className="document-card">
-                  <strong>Aucune offre dominante pour le moment</strong>
-                  <p>Les postes les plus sollicités remonteront ici automatiquement.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <aside className="dashboard-column dashboard-column--aside">
-          <div className="dashboard-form">
-            <div className="dashboard-form__head">
-              <div>
-                <p className="eyebrow">Signal principal</p>
-                <h2>Indicateurs de conversion et de qualité</h2>
-              </div>
-              <span className="tag">{followupNeeds.length} lecture(s)</span>
-            </div>
-
-            <div className="reporting-breakdown">
-              {followupNeeds.map((entry) => (
-                <div key={entry.label} className="document-card reporting-list__item">
-                  <div className="reporting-list__head">
-                    <strong>{entry.label}</strong>
-                    <span className="tag">{entry.value}</span>
-                  </div>
-                  <p>{entry.hint ?? "Signal de suivi"}</p>
-                </div>
-              ))}
             </div>
           </div>
 
