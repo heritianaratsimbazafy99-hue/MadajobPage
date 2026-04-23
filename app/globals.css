@@ -1055,6 +1055,12 @@ code {
   gap: 16px;
 }
 
+.supervision-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
 .dashboard-section__head {
   display: flex;
   align-items: end;
@@ -1581,6 +1587,10 @@ code {
   }
 
   .reporting-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .supervision-grid {
     grid-template-columns: 1fr;
   }
 
