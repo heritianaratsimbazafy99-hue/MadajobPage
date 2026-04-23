@@ -8,9 +8,12 @@ export default async function RecruiterApplicationsPage() {
   const profile = await requireRole(["recruteur"]);
   const applications = await getRecruiterApplications(profile);
   const activeCount = applications.filter((application) => !isFinalApplicationStatus(application.status)).length;
-  const shortlistCount = applications.filter((application) => application.status === "shortlist").length;
-  const interviewCount = applications.filter((application) => application.status === "interview").length;
-  const uniqueStatuses = new Set(applications.map((application) => application.status)).size;
+  const upcomingInterviewCount = applications.filter((application) =>
+    Boolean(application.interview_signal.next_interview_at)
+  ).length;
+  const pendingFeedbackCount = applications.filter(
+    (application) => application.interview_signal.pending_feedback
+  ).length;
 
   return (
     <DashboardShell
@@ -31,14 +34,14 @@ export default async function RecruiterApplicationsPage() {
           <small>dossiers toujours actifs dans le pipeline</small>
         </article>
         <article className="panel metric-panel">
-          <span>Shortlist</span>
-          <strong>{shortlistCount}</strong>
-          <small>profils retenus pour la suite</small>
+          <span>Entretiens a venir</span>
+          <strong>{upcomingInterviewCount}</strong>
+          <small>dossiers a preparer rapidement</small>
         </article>
         <article className="panel metric-panel">
-          <span>Entretiens</span>
-          <strong>{interviewCount}</strong>
-          <small>{uniqueStatuses} statut(s) representes dans la vue</small>
+          <span>Feedbacks a saisir</span>
+          <strong>{pendingFeedbackCount}</strong>
+          <small>entretiens termines sans compte-rendu</small>
         </article>
       </section>
 

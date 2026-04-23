@@ -20,7 +20,13 @@ import {
   getApplicationStatusMeta,
   isFinalApplicationStatus
 } from "@/lib/application-status";
-import { formatDisplayDate } from "@/lib/format";
+import { formatDateTimeDisplay, formatDisplayDate } from "@/lib/format";
+import {
+  getInterviewNextActionLabel,
+  getInterviewProposedDecisionMeta,
+  getInterviewRecommendationMeta,
+  getInterviewStatusMeta
+} from "@/lib/interviews";
 import type { RecruiterApplication } from "@/lib/types";
 
 type ManagedApplicationsBoardProps = {
@@ -32,9 +38,16 @@ type Filters = {
   query: string;
   status: string;
   withCvOnly: boolean;
-  stage: "" | "active" | "final" | "shortlist";
+  stage: "" | "active" | "final" | "shortlist" | "interview";
+  signalFocus:
+    | ""
+    | "upcoming_interview"
+    | "feedback_ready"
+    | "feedback_missing"
+    | "favorable_feedback"
+    | "watchout_feedback";
   view: "list" | "pipeline";
-  sort: "recent" | "oldest";
+  sort: "priority_desc" | "recent" | "oldest";
 };
 
 const initialFilters: Filters = {
@@ -42,14 +55,77 @@ const initialFilters: Filters = {
   status: "",
   withCvOnly: false,
   stage: "",
+  signalFocus: "",
   view: "pipeline",
-  sort: "recent"
+  sort: "priority_desc"
 };
 
 function getUniqueStatuses(applications: RecruiterApplication[]) {
   return Array.from(new Set(applications.map((application) => application.status))).sort((a, b) =>
     a.localeCompare(b, "fr")
   );
+}
+
+function hasFavorableFeedback(application: RecruiterApplication) {
+  const recommendation = application.interview_signal.latest_feedback?.recommendation;
+  return recommendation === "strong_yes" || recommendation === "yes";
+}
+
+function hasWatchoutFeedback(application: RecruiterApplication) {
+  const recommendation = application.interview_signal.latest_feedback?.recommendation;
+  return recommendation === "mixed" || recommendation === "no";
+}
+
+function getApplicationPriorityScore(application: RecruiterApplication) {
+  let score = 0;
+
+  if (application.status === "interview") {
+    score += 120;
+  }
+
+  if (application.status === "shortlist") {
+    score += 60;
+  }
+
+  if (application.interview_signal.pending_feedback) {
+    score += 240;
+  }
+
+  if (application.interview_signal.next_interview_at) {
+    score += 150;
+  }
+
+  const latestFeedback = application.interview_signal.latest_feedback;
+
+  if (latestFeedback?.proposed_decision === "hire") {
+    score += 110;
+  }
+
+  if (latestFeedback?.proposed_decision === "advance") {
+    score += 90;
+  }
+
+  if (latestFeedback?.recommendation === "strong_yes") {
+    score += 80;
+  }
+
+  if (latestFeedback?.recommendation === "yes") {
+    score += 60;
+  }
+
+  if (latestFeedback?.recommendation === "mixed") {
+    score += 20;
+  }
+
+  if (latestFeedback?.recommendation === "no") {
+    score -= 30;
+  }
+
+  if (!application.has_cv) {
+    score -= 20;
+  }
+
+  return score;
 }
 
 export function ManagedApplicationsBoard({
@@ -78,13 +154,15 @@ export function ManagedApplicationsBoard({
 
     return boardApplications
       .filter((application) => {
+        const latestFeedback = application.interview_signal.latest_feedback;
         const matchesQuery =
           !query ||
           [
             application.candidate_name,
             application.candidate_email,
             application.job_title,
-            application.job_location
+            application.job_location,
+            latestFeedback?.summary ?? ""
           ]
             .filter(Boolean)
             .some((value) => value.toLowerCase().includes(query));
@@ -95,21 +173,51 @@ export function ManagedApplicationsBoard({
           !filters.stage ||
           (filters.stage === "active" && !isFinalApplicationStatus(application.status)) ||
           (filters.stage === "final" && isFinalApplicationStatus(application.status)) ||
-          (filters.stage === "shortlist" && application.status === "shortlist");
+          (filters.stage === "shortlist" && application.status === "shortlist") ||
+          (filters.stage === "interview" && application.status === "interview");
+        const matchesSignalFocus =
+          !filters.signalFocus ||
+          (filters.signalFocus === "upcoming_interview" &&
+            Boolean(application.interview_signal.next_interview_at)) ||
+          (filters.signalFocus === "feedback_ready" &&
+            Boolean(application.interview_signal.latest_feedback)) ||
+          (filters.signalFocus === "feedback_missing" &&
+            application.interview_signal.pending_feedback) ||
+          (filters.signalFocus === "favorable_feedback" &&
+            hasFavorableFeedback(application)) ||
+          (filters.signalFocus === "watchout_feedback" &&
+            hasWatchoutFeedback(application));
 
-        return matchesQuery && matchesStatus && matchesCv && matchesStage;
+        return matchesQuery && matchesStatus && matchesCv && matchesStage && matchesSignalFocus;
       })
       .sort((left, right) => {
-        const leftDate = new Date(left.created_at).getTime();
-        const rightDate = new Date(right.created_at).getTime();
+        if (filters.sort === "priority_desc") {
+          const leftScore = getApplicationPriorityScore(left);
+          const rightScore = getApplicationPriorityScore(right);
 
-        if (filters.sort === "oldest") {
-          return leftDate - rightDate;
+          if (leftScore !== rightScore) {
+            return rightScore - leftScore;
+          }
         }
 
-        return rightDate - leftDate;
+        const leftUpdated = new Date(left.updated_at ?? left.created_at).getTime();
+        const rightUpdated = new Date(right.updated_at ?? right.created_at).getTime();
+
+        if (filters.sort === "oldest") {
+          return leftUpdated - rightUpdated;
+        }
+
+        return rightUpdated - leftUpdated;
       });
-  }, [boardApplications, deferredQuery, filters.sort, filters.stage, filters.status, filters.withCvOnly]);
+  }, [
+    boardApplications,
+    deferredQuery,
+    filters.signalFocus,
+    filters.sort,
+    filters.stage,
+    filters.status,
+    filters.withCvOnly
+  ]);
 
   const statusCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -119,6 +227,33 @@ export function ManagedApplicationsBoard({
     }
 
     return counts;
+  }, [filteredApplications]);
+
+  const signalStats = useMemo(() => {
+    let upcoming = 0;
+    let pendingFeedback = 0;
+    let favorable = 0;
+    let ready = 0;
+
+    for (const application of filteredApplications) {
+      if (application.interview_signal.next_interview_at) {
+        upcoming += 1;
+      }
+
+      if (application.interview_signal.pending_feedback) {
+        pendingFeedback += 1;
+      }
+
+      if (application.interview_signal.latest_feedback) {
+        ready += 1;
+      }
+
+      if (hasFavorableFeedback(application)) {
+        favorable += 1;
+      }
+    }
+
+    return { upcoming, pendingFeedback, favorable, ready };
   }, [filteredApplications]);
 
   const pipelineColumns = useMemo(
@@ -135,8 +270,9 @@ export function ManagedApplicationsBoard({
     filters.status,
     filters.withCvOnly ? "cv" : "",
     filters.stage,
+    filters.signalFocus,
     filters.view !== "pipeline" ? filters.view : "",
-    filters.sort !== "recent" ? filters.sort : ""
+    filters.sort !== "priority_desc" ? filters.sort : ""
   ].filter(Boolean).length;
   const selectedCount = selectedApplicationIds.length;
   const allVisibleSelected =
@@ -316,13 +452,59 @@ export function ManagedApplicationsBoard({
     });
   }
 
+  function renderInterviewSignal(application: RecruiterApplication) {
+    const latestFeedback = application.interview_signal.latest_feedback;
+    const recommendation = latestFeedback
+      ? getInterviewRecommendationMeta(latestFeedback.recommendation)
+      : null;
+    const proposedDecision = latestFeedback
+      ? getInterviewProposedDecisionMeta(latestFeedback.proposed_decision)
+      : null;
+    const latestInterviewStatus = application.interview_signal.latest_interview_status
+      ? getInterviewStatusMeta(application.interview_signal.latest_interview_status)
+      : null;
+
+    return (
+      <div className="application-signal-card">
+        <div className="document-meta">
+          <span>{application.interview_signal.interviews_count} entretien(s)</span>
+          {latestInterviewStatus ? <span>{latestInterviewStatus.label}</span> : <span>Aucun entretien</span>}
+          {application.interview_signal.next_interview_at ? (
+            <span>Prochain le {formatDateTimeDisplay(application.interview_signal.next_interview_at)}</span>
+          ) : null}
+        </div>
+
+        {latestFeedback ? (
+          <>
+            <div className="dashboard-card__badges">
+              {recommendation ? (
+                <span className={`tag tag--${recommendation.tone}`}>{recommendation.label}</span>
+              ) : null}
+              {proposedDecision ? (
+                <span className={`tag tag--${proposedDecision.tone}`}>{proposedDecision.label}</span>
+              ) : null}
+            </div>
+            <p>{latestFeedback.summary}</p>
+            <small>{getInterviewNextActionLabel(latestFeedback.next_action)}</small>
+          </>
+        ) : application.interview_signal.pending_feedback ? (
+          <p className="form-caption">Entretien termine sans compte-rendu. Priorite de mise a jour.</p>
+        ) : application.interview_signal.next_interview_at ? (
+          <p className="form-caption">Un entretien est planifie. Le dossier est a preparer.</p>
+        ) : (
+          <p className="form-caption">Aucun signal entretien structure sur ce dossier pour le moment.</p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="jobs-board">
       <section className="dashboard-form">
         <div className="dashboard-form__head">
           <div>
             <p className="eyebrow">Gestion des candidatures</p>
-            <h2>Retrouvez rapidement les dossiers a traiter</h2>
+            <h2>Retrouvez rapidement les dossiers a traiter avec les signaux d'entretien et de decision</h2>
           </div>
           <span className="tag">{filteredApplications.length} dossier(s)</span>
         </div>
@@ -338,7 +520,7 @@ export function ManagedApplicationsBoard({
                   query: event.target.value
                 }))
               }
-              placeholder="Nom candidat, email, offre, lieu..."
+              placeholder="Nom candidat, email, offre, lieu, resume feedback..."
             />
           </label>
 
@@ -376,7 +558,28 @@ export function ManagedApplicationsBoard({
               <option value="">Tous les dossiers</option>
               <option value="active">En cours</option>
               <option value="shortlist">Shortlist</option>
+              <option value="interview">Entretiens</option>
               <option value="final">Finalises</option>
+            </select>
+          </label>
+
+          <label className="field">
+            <span>Signal entretien</span>
+            <select
+              value={filters.signalFocus}
+              onChange={(event) =>
+                setFilters((previous) => ({
+                  ...previous,
+                  signalFocus: event.target.value as Filters["signalFocus"]
+                }))
+              }
+            >
+              <option value="">Tous les signaux</option>
+              <option value="upcoming_interview">Entretien a venir</option>
+              <option value="feedback_ready">Feedback saisi</option>
+              <option value="feedback_missing">Feedback a saisir</option>
+              <option value="favorable_feedback">Feedback favorable</option>
+              <option value="watchout_feedback">Feedback avec reserves</option>
             </select>
           </label>
 
@@ -407,8 +610,9 @@ export function ManagedApplicationsBoard({
                 }))
               }
             >
-              <option value="recent">Plus recentes</option>
-              <option value="oldest">Plus anciennes</option>
+              <option value="priority_desc">Priorite d'action</option>
+              <option value="recent">Derniers mouvements</option>
+              <option value="oldest">Plus anciens</option>
             </select>
           </label>
 
@@ -438,6 +642,9 @@ export function ManagedApplicationsBoard({
                 </span>
               );
             })}
+            <span className="tag tag--info">{signalStats.upcoming} entretien(s) a venir</span>
+            <span className="tag tag--danger">{signalStats.pendingFeedback} feedback(s) a saisir</span>
+            <span className="tag tag--success">{signalStats.favorable} feedback(s) favorables</span>
           </div>
 
           {activeFilterCount > 0 ? (
@@ -495,8 +702,8 @@ export function ManagedApplicationsBoard({
 
         <p className="form-caption">
           {filters.view === "pipeline"
-            ? "Glissez une carte vers une autre colonne pour faire avancer le dossier dans le pipeline, ou utilisez les actions groupees."
-            : "Passez en vue pipeline pour reorganiser les dossiers par glisser-deposer, ou utilisez les actions groupees."}
+            ? "Glissez une carte vers une autre colonne pour faire avancer le dossier dans le pipeline, ou utilisez les filtres de priorisation pour faire ressortir les urgences."
+            : "Passez en vue pipeline pour reorganiser les dossiers par glisser-deposer, ou restez en liste pour traiter plus vite les signaux d'entretien et de feedback."}
         </p>
 
         {feedback ? (
@@ -591,12 +798,16 @@ export function ManagedApplicationsBoard({
                           </div>
 
                           <small>{application.candidate_email}</small>
+                          {renderInterviewSignal(application)}
                           <small className="pipeline-card__hint">
                             Glisser vers une autre etape pour changer le statut
                           </small>
 
                           <div className="job-card__footer">
-                            <small>Soumis le {formatDisplayDate(application.created_at)}</small>
+                            <small>
+                              Dernier mouvement le{" "}
+                              {formatDisplayDate(application.updated_at ?? application.created_at)}
+                            </small>
                             <Link href={`${basePath}/${application.id}`}>Ouvrir</Link>
                           </div>
                         </article>
@@ -621,13 +832,18 @@ export function ManagedApplicationsBoard({
               return (
                 <article
                   key={application.id}
-                  className={[
-                    "panel job-card jobs-result-card",
-                    isSelected ? "is-selected" : ""
-                  ]
+                  className={["panel jobs-result-card", isSelected ? "is-selected" : ""]
                     .filter(Boolean)
                     .join(" ")}
                 >
+                  <div className="jobs-result-card__head">
+                    <div>
+                      <h2>{application.candidate_name}</h2>
+                      <p>{application.job_title}</p>
+                    </div>
+                    <span className="tag tag--muted">{statusMeta.label}</span>
+                  </div>
+
                   <label className="checkbox-field jobs-result-card__select">
                     <input
                       type="checkbox"
@@ -637,25 +853,18 @@ export function ManagedApplicationsBoard({
                     <span>Selectionner ce dossier</span>
                   </label>
 
-                  <div className="jobs-result-card__head">
-                    <div className="jobs-result-card__badges">
-                      <span className="tag">{statusMeta.label}</span>
-                      {application.status === "shortlist" ? (
-                        <span className="tag tag--success">Prioritaire</span>
-                      ) : null}
-                    </div>
-                    <small>Soumis le {formatDisplayDate(application.created_at)}</small>
-                  </div>
-                  <h2>{application.candidate_name}</h2>
-                  <p>{application.job_title}</p>
                   <div className="job-card__meta">
                     <span>{application.candidate_email}</span>
                     <span>{application.job_location}</span>
                     <span>{application.has_cv ? "CV joint" : "CV non joint"}</span>
                   </div>
-                  <p className="match-caption">{statusMeta.description}</p>
+
+                  {renderInterviewSignal(application)}
+
                   <div className="job-card__footer">
-                    <small>{application.cover_letter ? "Message candidat present" : "Sans message candidat"}</small>
+                    <small>
+                      Dernier mouvement le {formatDisplayDate(application.updated_at ?? application.created_at)}
+                    </small>
                     <Link href={`${basePath}/${application.id}`}>Ouvrir le dossier</Link>
                   </div>
                 </article>
@@ -667,7 +876,7 @@ export function ManagedApplicationsBoard({
         <section className="jobs-results">
           <article className="panel jobs-empty">
             <h2>Aucun dossier ne correspond a ces filtres</h2>
-            <p>Affinez votre recherche ou revenez sur la vue globale du pipeline.</p>
+            <p>Elargissez les filtres ou repassez sur toute la pile pour retrouver les candidatures a traiter.</p>
           </article>
         </section>
       )}

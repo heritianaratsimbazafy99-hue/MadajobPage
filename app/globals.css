@@ -1461,8 +1461,17 @@ code {
   border-top: 1px dashed rgba(22, 49, 74, 0.12);
 }
 
+.application-signal-card {
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px dashed rgba(22, 49, 74, 0.12);
+}
+
 .shortlist-signal-card p,
-.shortlist-signal-card small {
+.shortlist-signal-card small,
+.application-signal-card p,
+.application-signal-card small {
   margin: 0;
 }
 
