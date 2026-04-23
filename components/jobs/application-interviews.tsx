@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import {
+  saveInterviewFeedbackAction,
   scheduleInterviewAction,
   updateInterviewStatusAction,
   type ApplicationActionState
@@ -13,8 +14,14 @@ import { SubmitButton } from "@/components/jobs/submit-button";
 import { formatDateTimeDisplay } from "@/lib/format";
 import {
   getInterviewFormatLabel,
+  getInterviewNextActionLabel,
+  getInterviewProposedDecisionMeta,
+  getInterviewRecommendationMeta,
   getInterviewStatusMeta,
-  interviewFormatOptions
+  interviewFormatOptions,
+  interviewNextActionOptions,
+  interviewProposedDecisionOptions,
+  interviewRecommendationOptions
 } from "@/lib/interviews";
 import type { ApplicationInterview } from "@/lib/types";
 
@@ -27,6 +34,191 @@ type ApplicationInterviewsProps = {
   applicationId: string;
   interviews: ApplicationInterview[];
 };
+
+type InterviewFeedbackEditorProps = {
+  applicationId: string;
+  interview: ApplicationInterview;
+};
+
+function InterviewFeedbackEditor({
+  applicationId,
+  interview
+}: InterviewFeedbackEditorProps) {
+  const router = useRouter();
+  const [state, formAction] = useActionState(saveInterviewFeedbackAction, initialState);
+  const [, startTransition] = useTransition();
+  const feedback = interview.feedback;
+  const recommendationMeta = feedback
+    ? getInterviewRecommendationMeta(feedback.recommendation)
+    : null;
+  const proposedDecisionMeta = feedback
+    ? getInterviewProposedDecisionMeta(feedback.proposed_decision)
+    : null;
+
+  useEffect(() => {
+    if (state.status === "success") {
+      startTransition(() => {
+        router.refresh();
+      });
+    }
+  }, [router, startTransition, state.status]);
+
+  return (
+    <div className="interview-feedback-editor">
+      {feedback ? (
+        <div className="interview-feedback-editor__summary">
+          <div className="dashboard-card__top">
+            <div>
+              <strong>{proposedDecisionMeta?.label}</strong>
+              <p>{getInterviewNextActionLabel(feedback.next_action)}</p>
+            </div>
+            <span className={`tag tag--${recommendationMeta?.tone ?? "muted"}`}>
+              {recommendationMeta?.label ?? "Feedback"}
+            </span>
+          </div>
+
+          <p>{feedback.summary}</p>
+
+          <div className="form-grid">
+            <div className="document-card">
+              <strong>Points forts</strong>
+              <p>{feedback.strengths}</p>
+            </div>
+            <div className="document-card">
+              <strong>Points de vigilance</strong>
+              <p>{feedback.concerns}</p>
+            </div>
+          </div>
+
+          <div className="document-meta">
+            <span>{feedback.author_name}</span>
+            {feedback.author_email ? <span>{feedback.author_email}</span> : null}
+            <span>Maj {formatDateTimeDisplay(feedback.updated_at)}</span>
+          </div>
+        </div>
+      ) : interview.status === "completed" ? (
+        <p className="form-caption">Compte-rendu encore manquant pour cet entretien termine.</p>
+      ) : (
+        <p className="form-caption">
+          Le compte-rendu structure pourra etre saisi ici des que l'entretien aura eu lieu.
+        </p>
+      )}
+
+      {interview.status !== "cancelled" ? (
+        <details
+          className="interview-feedback-editor__details"
+          open={interview.status === "completed" && !feedback}
+        >
+          <summary>{feedback ? "Modifier le compte-rendu" : "Ajouter le compte-rendu"}</summary>
+
+          <form action={formAction} className="status-form">
+            <input type="hidden" name="application_id" value={applicationId} />
+            <input type="hidden" name="interview_id" value={interview.id} />
+
+            <div className="form-grid">
+              <label className="field field--full">
+                <span>Synthese entretien</span>
+                <textarea
+                  name="summary"
+                  rows={3}
+                  defaultValue={feedback?.summary ?? ""}
+                  placeholder="Resume factuel, niveau de fit, signaux principaux..."
+                  required
+                />
+              </label>
+
+              <label className="field field--full">
+                <span>Points forts</span>
+                <textarea
+                  name="strengths"
+                  rows={3}
+                  defaultValue={feedback?.strengths ?? ""}
+                  placeholder="Ex. communication, maitrise metier, posture manageriale..."
+                  required
+                />
+              </label>
+
+              <label className="field field--full">
+                <span>Points de vigilance</span>
+                <textarea
+                  name="concerns"
+                  rows={3}
+                  defaultValue={feedback?.concerns ?? ""}
+                  placeholder="Ex. manque de profondeur technique, disponibilite, zones a creuser..."
+                  required
+                />
+              </label>
+
+              <label className="field">
+                <span>Recommandation</span>
+                <select
+                  name="recommendation"
+                  defaultValue={feedback?.recommendation ?? "yes"}
+                  required
+                >
+                  {interviewRecommendationOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="field">
+                <span>Decision proposee</span>
+                <select
+                  name="proposed_decision"
+                  defaultValue={feedback?.proposed_decision ?? "advance"}
+                  required
+                >
+                  {interviewProposedDecisionOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="field field--full">
+                <span>Prochaine action</span>
+                <select
+                  name="next_action"
+                  defaultValue={feedback?.next_action ?? "team_debrief"}
+                  required
+                >
+                  {interviewNextActionOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            {interview.status === "scheduled" ? (
+              <label className="checkbox-field">
+                <input type="checkbox" name="mark_completed" value="true" defaultChecked />
+                <span>Marquer aussi cet entretien comme termine</span>
+              </label>
+            ) : null}
+
+            {state.message ? (
+              <p className={state.status === "error" ? "form-feedback form-feedback--error" : "form-feedback"}>
+                {state.message}
+              </p>
+            ) : null}
+
+            <SubmitButton
+              className="btn btn-secondary btn-block"
+              idleLabel={feedback ? "Mettre a jour le compte-rendu" : "Enregistrer le compte-rendu"}
+              pendingLabel="Enregistrement..."
+            />
+          </form>
+        </details>
+      ) : null}
+    </div>
+  );
+}
 
 export function ApplicationInterviews({
   applicationId,
@@ -55,6 +247,7 @@ export function ApplicationInterviews({
 
   const scheduledCount = interviews.filter((interview) => interview.status === "scheduled").length;
   const completedCount = interviews.filter((interview) => interview.status === "completed").length;
+  const feedbackCount = interviews.filter((interview) => Boolean(interview.feedback)).length;
 
   return (
     <div className="application-interviews">
@@ -71,6 +264,10 @@ export function ApplicationInterviews({
           <strong>{completedCount}</strong>
           <p>entretien(s) termines</p>
         </article>
+        <article className="document-card">
+          <strong>{feedbackCount}</strong>
+          <p>compte-rendu(s) saisis</p>
+        </article>
       </div>
 
       <div className="application-interviews__list">
@@ -79,7 +276,11 @@ export function ApplicationInterviews({
             const statusMeta = getInterviewStatusMeta(interview.status);
 
             return (
-              <article key={interview.id} className="document-card interview-card">
+              <article
+                key={interview.id}
+                id={`interview-${interview.id}`}
+                className="document-card interview-card"
+              >
                 <div className="dashboard-card__top">
                   <div>
                     <strong>{getInterviewFormatLabel(interview.format)}</strong>
@@ -104,6 +305,8 @@ export function ApplicationInterviews({
                     </Link>
                   ) : null}
                 </div>
+
+                <InterviewFeedbackEditor applicationId={applicationId} interview={interview} />
 
                 {interview.status === "scheduled" ? (
                   <div className="application-interviews__actions">

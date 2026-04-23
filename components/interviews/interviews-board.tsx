@@ -7,6 +7,9 @@ import { getApplicationStatusMeta } from "@/lib/application-status";
 import { formatDateTimeDisplay } from "@/lib/format";
 import {
   getInterviewFormatLabel,
+  getInterviewNextActionLabel,
+  getInterviewProposedDecisionMeta,
+  getInterviewRecommendationMeta,
   getInterviewStatusMeta,
   interviewFormatOptions
 } from "@/lib/interviews";
@@ -249,6 +252,12 @@ export function InterviewsBoard({ interviews, jobs, role }: InterviewsBoardProps
                   const interviewStatus = getInterviewStatusMeta(interview.status);
                   const applicationStatus = getApplicationStatusMeta(interview.application_status);
                   const applicationTone = getApplicationStatusTone(interview.application_status);
+                  const recommendationMeta = interview.feedback
+                    ? getInterviewRecommendationMeta(interview.feedback.recommendation)
+                    : null;
+                  const proposedDecisionMeta = interview.feedback
+                    ? getInterviewProposedDecisionMeta(interview.feedback.proposed_decision)
+                    : null;
 
                   return (
                     <article key={interview.id} className="panel list-card dashboard-card">
@@ -272,8 +281,32 @@ export function InterviewsBoard({ interviews, jobs, role }: InterviewsBoardProps
                       <p>{interview.interviewer_name}</p>
                       {interview.location ? <p className="form-caption">Lieu : {interview.location}</p> : null}
 
+                      {interview.feedback ? (
+                        <div className="interview-feedback-preview">
+                          <div className="dashboard-card__top">
+                            <div>
+                              <strong>{proposedDecisionMeta?.label}</strong>
+                              <p>{getInterviewNextActionLabel(interview.feedback.next_action)}</p>
+                            </div>
+                            <span className={`tag tag--${recommendationMeta?.tone ?? "muted"}`}>
+                              {recommendationMeta?.label ?? "Feedback"}
+                            </span>
+                          </div>
+                          <p>{interview.feedback.summary}</p>
+                          <div className="document-meta">
+                            <span>{interview.feedback.author_name}</span>
+                            <span>Maj {formatDateTimeDisplay(interview.feedback.updated_at)}</span>
+                          </div>
+                        </div>
+                      ) : interview.status === "completed" ? (
+                        <p className="form-caption">Compte-rendu encore manquant pour cet entretien termine.</p>
+                      ) : null}
+
                       <div className="notification-card__actions">
                         <Link href={`${applicationsBasePath}/${interview.application_id}`}>Ouvrir le dossier</Link>
+                        <Link href={`${applicationsBasePath}/${interview.application_id}#interview-${interview.id}`}>
+                          {interview.feedback ? "Voir le feedback" : "Saisir le feedback"}
+                        </Link>
                         {interview.job_id ? (
                           <Link href={`${jobsBasePath}/${interview.job_id}`}>Ouvrir l'offre</Link>
                         ) : null}

@@ -5,7 +5,16 @@ import { revalidatePath } from "next/cache";
 import { applicationStatusValues } from "@/lib/application-status";
 import { requireRole } from "@/lib/auth";
 import { getApplicationStatusMeta } from "@/lib/application-status";
-import { interviewFormatOptions, interviewStatusOptions } from "@/lib/interviews";
+import {
+  getInterviewNextActionLabel,
+  getInterviewProposedDecisionMeta,
+  getInterviewRecommendationMeta,
+  interviewFormatOptions,
+  interviewNextActionOptions,
+  interviewProposedDecisionOptions,
+  interviewRecommendationOptions,
+  interviewStatusOptions
+} from "@/lib/interviews";
 import { createNotifications } from "@/lib/notifications";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -24,6 +33,15 @@ const defaultState: ApplicationActionState = {
 const allowedStatuses = new Set<string>(applicationStatusValues);
 const allowedInterviewStatuses = new Set<string>(interviewStatusOptions.map((option) => option.value));
 const allowedInterviewFormats = new Set<string>(interviewFormatOptions.map((option) => option.value));
+const allowedInterviewRecommendations = new Set<string>(
+  interviewRecommendationOptions.map((option) => option.value)
+);
+const allowedInterviewProposedDecisions = new Set<string>(
+  interviewProposedDecisionOptions.map((option) => option.value)
+);
+const allowedInterviewNextActions = new Set<string>(
+  interviewNextActionOptions.map((option) => option.value)
+);
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -101,7 +119,7 @@ async function getManageableInterviewForActor(
   let query = supabase
     .from("application_interviews")
     .select(
-      "id, application_id, status, applications!inner(id, candidate_id, status, job_posts!inner(organization_id, slug, title), candidate:profiles!applications_candidate_id_fkey(full_name, email))"
+      "id, application_id, status, starts_at, applications!inner(id, candidate_id, status, job_posts!inner(organization_id, slug, title), candidate:profiles!applications_candidate_id_fkey(full_name, email))"
     )
     .eq("id", interviewId);
 
@@ -116,6 +134,55 @@ async function getManageableInterviewForActor(
   }
 
   return data;
+}
+
+function extractInterviewContext(interviewRecord: Record<string, unknown>) {
+  const rawApplicationRelation =
+    (interviewRecord as {
+      applications?:
+        | {
+            id?: string | null;
+            candidate_id?: string | null;
+            status?: string | null;
+            candidate?: { full_name?: string | null; email?: string | null } | null;
+            job_posts?:
+              | { slug?: string | null; title?: string | null }
+              | Array<{ slug?: string | null; title?: string | null }>
+              | null;
+          }
+        | Array<{
+            id?: string | null;
+            candidate_id?: string | null;
+            status?: string | null;
+            candidate?: { full_name?: string | null; email?: string | null } | null;
+            job_posts?:
+              | { slug?: string | null; title?: string | null }
+              | Array<{ slug?: string | null; title?: string | null }>
+              | null;
+          }>
+        | null;
+    }).applications ?? null;
+  const application = Array.isArray(rawApplicationRelation)
+    ? rawApplicationRelation[0] ?? null
+    : rawApplicationRelation;
+  const rawJobRelation = application?.job_posts ?? null;
+  const currentJob = Array.isArray(rawJobRelation) ? rawJobRelation[0] ?? null : rawJobRelation;
+
+  return {
+    applicationId: typeof application?.id === "string" ? application.id : null,
+    candidateId: typeof application?.candidate_id === "string" ? application.candidate_id : null,
+    candidateName:
+      application?.candidate && typeof application.candidate.full_name === "string"
+        ? application.candidate.full_name
+        : null,
+    candidateEmail:
+      application?.candidate && typeof application.candidate.email === "string"
+        ? application.candidate.email
+        : null,
+    jobSlug: currentJob && typeof currentJob.slug === "string" ? currentJob.slug : null,
+    jobTitle:
+      currentJob && typeof currentJob.title === "string" ? currentJob.title : "votre offre"
+  };
 }
 
 async function updateApplicationStatusInternal(
@@ -605,49 +672,15 @@ export async function updateInterviewStatusAction(
     };
   }
 
-  const rawApplicationRelation =
-    (manageableInterview as {
-      applications?:
-        | {
-            id?: string | null;
-            candidate_id?: string | null;
-            status?: string | null;
-            candidate?: { full_name?: string | null; email?: string | null } | null;
-            job_posts?:
-              | { slug?: string | null; title?: string | null }
-              | Array<{ slug?: string | null; title?: string | null }>
-              | null;
-          }
-        | Array<{
-            id?: string | null;
-            candidate_id?: string | null;
-            status?: string | null;
-            candidate?: { full_name?: string | null; email?: string | null } | null;
-            job_posts?:
-              | { slug?: string | null; title?: string | null }
-              | Array<{ slug?: string | null; title?: string | null }>
-              | null;
-          }>
-        | null;
-    }).applications ?? null;
-  const application = Array.isArray(rawApplicationRelation)
-    ? rawApplicationRelation[0] ?? null
-    : rawApplicationRelation;
-  const rawJobRelation = application?.job_posts ?? null;
-  const currentJob = Array.isArray(rawJobRelation) ? rawJobRelation[0] ?? null : rawJobRelation;
-  const jobSlug = currentJob && typeof currentJob.slug === "string" ? currentJob.slug : null;
-  const jobTitle =
-    currentJob && typeof currentJob.title === "string" ? currentJob.title : "votre offre";
-  const applicationId = typeof application?.id === "string" ? application.id : null;
-  const candidateId = typeof application?.candidate_id === "string" ? application.candidate_id : null;
-  const candidateName =
-    application?.candidate && typeof application.candidate.full_name === "string"
-      ? application.candidate.full_name
-      : null;
-  const candidateEmail =
-    application?.candidate && typeof application.candidate.email === "string"
-      ? application.candidate.email
-      : null;
+  const interviewContext = extractInterviewContext(manageableInterview as Record<string, unknown>);
+  const {
+    applicationId,
+    candidateEmail,
+    candidateId,
+    candidateName,
+    jobSlug,
+    jobTitle
+  } = interviewContext;
 
   const supabase = await getApplicationMutationClient();
   const { error } = await supabase
@@ -712,5 +745,150 @@ export async function updateInterviewStatusAction(
         : nextStatus === "cancelled"
           ? "Entretien annule."
           : "Entretien mis a jour."
+  };
+}
+
+export async function saveInterviewFeedbackAction(
+  _previousState: ApplicationActionState = defaultState,
+  formData: FormData
+): Promise<ApplicationActionState> {
+  const profile = await requireRole(["recruteur", "admin"]);
+  const actorRole = profile.role === "admin" ? "admin" : "recruteur";
+  const interviewId = getTrimmedValue(formData, "interview_id");
+  const summary = getTrimmedValue(formData, "summary");
+  const strengths = getTrimmedValue(formData, "strengths");
+  const concerns = getTrimmedValue(formData, "concerns");
+  const recommendation = getTrimmedValue(formData, "recommendation");
+  const proposedDecision = getTrimmedValue(formData, "proposed_decision");
+  const nextAction = getTrimmedValue(formData, "next_action");
+  const markCompleted = getTrimmedValue(formData, "mark_completed") === "true";
+
+  if (
+    !interviewId ||
+    !uuidPattern.test(interviewId) ||
+    !summary ||
+    !strengths ||
+    !concerns ||
+    !allowedInterviewRecommendations.has(recommendation) ||
+    !allowedInterviewProposedDecisions.has(proposedDecision) ||
+    !allowedInterviewNextActions.has(nextAction)
+  ) {
+    return {
+      status: "error",
+      message: "Le compte-rendu d'entretien est incomplet."
+    };
+  }
+
+  const manageableInterview = await getManageableInterviewForActor(
+    actorRole,
+    profile.organization_id,
+    interviewId
+  );
+
+  if (!manageableInterview) {
+    return {
+      status: "error",
+      message: "Impossible de retrouver cet entretien."
+    };
+  }
+
+  const currentStatus = String(manageableInterview.status ?? "scheduled");
+
+  if (currentStatus === "cancelled") {
+    return {
+      status: "error",
+      message: "Impossible de journaliser un compte-rendu sur un entretien annule."
+    };
+  }
+
+  const interviewContext = extractInterviewContext(manageableInterview as Record<string, unknown>);
+  const { applicationId, jobSlug } = interviewContext;
+  const interviewStartsAt =
+    typeof (manageableInterview as { starts_at?: string | null }).starts_at === "string"
+      ? String((manageableInterview as { starts_at?: string | null }).starts_at)
+      : null;
+
+  if (!applicationId || !uuidPattern.test(applicationId)) {
+    return {
+      status: "error",
+      message: "Le dossier rattache a cet entretien est introuvable."
+    };
+  }
+
+  const supabase = await getApplicationMutationClient();
+  const { error: feedbackError } = await supabase
+    .from("application_interview_feedback")
+    .upsert(
+      {
+        interview_id: interviewId,
+        application_id: applicationId,
+        author_id: profile.id,
+        summary,
+        strengths,
+        concerns,
+        recommendation,
+        proposed_decision: proposedDecision,
+        next_action: nextAction
+      },
+      { onConflict: "interview_id" }
+    );
+
+  if (feedbackError) {
+    return {
+      status: "error",
+      message: feedbackError.message
+    };
+  }
+
+  if (markCompleted && currentStatus === "scheduled") {
+    const { error: interviewUpdateError } = await supabase
+      .from("application_interviews")
+      .update({ status: "completed" })
+      .eq("id", interviewId);
+
+    if (interviewUpdateError) {
+      return {
+        status: "error",
+        message: interviewUpdateError.message
+      };
+    }
+  }
+
+  const recommendationLabel = getInterviewRecommendationMeta(recommendation).label;
+  const decisionLabel = getInterviewProposedDecisionMeta(proposedDecision).label;
+  const nextActionLabel = getInterviewNextActionLabel(nextAction);
+  const interviewLabel = interviewStartsAt
+    ? new Intl.DateTimeFormat("fr-FR", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      }).format(new Date(interviewStartsAt))
+    : "cet entretien";
+
+  const { error: noteError } = await supabase.from("internal_notes").insert({
+    application_id: applicationId,
+    author_id: profile.id,
+    body: [
+      `Feedback entretien du ${interviewLabel}.`,
+      `Recommandation : ${recommendationLabel}.`,
+      `Decision proposee : ${decisionLabel}.`,
+      `Prochaine action : ${nextActionLabel}.`,
+      `Synthese : ${summary}`
+    ].join("\n")
+  });
+
+  revalidateApplicationSurfaces(applicationId, jobSlug);
+
+  return {
+    status: "success",
+    message: noteError
+      ? markCompleted && currentStatus === "scheduled"
+        ? "Compte-rendu enregistre et entretien marque comme termine. La note interne automatique n'a pas pu etre journalisee."
+        : "Compte-rendu enregistre. La note interne automatique n'a pas pu etre journalisee."
+      : markCompleted && currentStatus === "scheduled"
+        ? "Compte-rendu enregistre et entretien marque comme termine."
+        : "Compte-rendu enregistre."
   };
 }

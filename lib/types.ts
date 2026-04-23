@@ -200,6 +200,34 @@ export type InterviewStatus = "scheduled" | "completed" | "cancelled";
 
 export type InterviewFormat = "phone" | "video" | "onsite" | "other";
 
+export type InterviewRecommendation = "strong_yes" | "yes" | "mixed" | "no";
+
+export type InterviewProposedDecision = "advance" | "hold" | "reject" | "hire";
+
+export type InterviewNextAction =
+  | "schedule_next_interview"
+  | "team_debrief"
+  | "collect_references"
+  | "send_offer"
+  | "reject_candidate"
+  | "keep_warm";
+
+export type ApplicationInterviewFeedback = {
+  id: string;
+  interview_id: string;
+  application_id: string;
+  summary: string;
+  strengths: string;
+  concerns: string;
+  recommendation: InterviewRecommendation;
+  proposed_decision: InterviewProposedDecision;
+  next_action: InterviewNextAction;
+  author_name: string;
+  author_email: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ApplicationInterview = {
   id: string;
   application_id: string;
@@ -217,6 +245,7 @@ export type ApplicationInterview = {
   scheduled_by_email: string | null;
   created_at: string;
   updated_at: string;
+  feedback: ApplicationInterviewFeedback | null;
 };
 
 export type ApplicationDetail = {

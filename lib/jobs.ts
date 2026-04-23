@@ -9,6 +9,7 @@ import type {
   ApplicationCommunicationEvent,
   ApplicationDetail,
   ApplicationInterview,
+  ApplicationInterviewFeedback,
   ApplicationStatusHistoryEntry,
   CandidateApplicationDetail,
   CandidateApplicationHistoryEntry,
@@ -162,6 +163,22 @@ const fallbackInterviews: InterviewScheduleItem[] = [
     scheduled_by_email: "admin@madajob.com",
     created_at: "2026-04-23T09:00:00.000Z",
     updated_at: "2026-04-23T09:00:00.000Z",
+    feedback: {
+      id: "interview-feedback-1",
+      interview_id: "interview-1",
+      application_id: "recruiter-app-1",
+      summary:
+        "Echange fluide, bonne maitrise du cycle commercial B2B et capacite a structurer un pipe grands comptes.",
+      strengths: "Prospection structuree, ecoute active, exemples concrets de closing.",
+      concerns: "Besoin d'aligner davantage le discours sur les KPI de pilotage d'equipe.",
+      recommendation: "yes",
+      proposed_decision: "advance",
+      next_action: "schedule_next_interview",
+      author_name: "Admin Madajob",
+      author_email: "admin@madajob.com",
+      created_at: "2026-04-25T07:10:00.000Z",
+      updated_at: "2026-04-25T07:10:00.000Z"
+    },
     application_status: "interview",
     candidate_id: "candidate-1",
     candidate_name: "Miora Randriam",
@@ -242,10 +259,47 @@ function mapCandidateDocumentRecord(record: Record<string, unknown>): CandidateD
   };
 }
 
+function mapApplicationInterviewFeedbackRecord(
+  record: Record<string, unknown>
+): ApplicationInterviewFeedback {
+  const author =
+    (record.author as { full_name?: string | null; email?: string | null } | null) ?? null;
+
+  return {
+    id: String(record.id),
+    interview_id: String(record.interview_id ?? ""),
+    application_id: String(record.application_id ?? ""),
+    summary: String(record.summary ?? ""),
+    strengths: String(record.strengths ?? ""),
+    concerns: String(record.concerns ?? ""),
+    recommendation:
+      (String(record.recommendation ?? "mixed") as ApplicationInterviewFeedback["recommendation"]) ??
+      "mixed",
+    proposed_decision:
+      (String(record.proposed_decision ?? "hold") as ApplicationInterviewFeedback["proposed_decision"]) ??
+      "hold",
+    next_action:
+      (String(record.next_action ?? "team_debrief") as ApplicationInterviewFeedback["next_action"]) ??
+      "team_debrief",
+    author_name: author?.full_name || author?.email || "Equipe Madajob",
+    author_email: author?.email ?? null,
+    created_at: String(record.created_at ?? ""),
+    updated_at: String(record.updated_at ?? "")
+  };
+}
+
 function mapApplicationInterviewRecord(
   record: Record<string, unknown>,
   scheduler?: { full_name?: string | null; email?: string | null } | null
 ): ApplicationInterview {
+  const rawFeedback = record.feedback;
+  const feedbackRecord =
+    Array.isArray(rawFeedback)
+      ? rawFeedback.find((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object") ?? null
+      : rawFeedback && typeof rawFeedback === "object"
+        ? (rawFeedback as Record<string, unknown>)
+        : null;
+
   return {
     id: String(record.id),
     application_id: String(record.application_id ?? ""),
@@ -263,7 +317,8 @@ function mapApplicationInterviewRecord(
       scheduler?.full_name || scheduler?.email || String(record.interviewer_name ?? "Equipe Madajob"),
     scheduled_by_email: scheduler?.email ?? null,
     created_at: String(record.created_at ?? ""),
-    updated_at: String(record.updated_at ?? "")
+    updated_at: String(record.updated_at ?? ""),
+    feedback: feedbackRecord ? mapApplicationInterviewFeedbackRecord(feedbackRecord) : null
   };
 }
 
@@ -569,6 +624,7 @@ export async function getCandidateInterviews(
         scheduled_by_email: interview.scheduled_by_email,
         created_at: interview.created_at,
         updated_at: interview.updated_at,
+        feedback: null,
         job_title: interview.job_title,
         job_slug:
           fallbackJobs.find((job) => job.id === interview.job_id)?.slug ??
@@ -1506,7 +1562,7 @@ export async function getApplicationDetail(profile: Profile, applicationId: stri
     adminClient
       .from("application_interviews")
       .select(
-        "id, application_id, status, format, starts_at, ends_at, timezone, location, meeting_url, notes, interviewer_name, interviewer_email, created_at, updated_at, scheduler:profiles!application_interviews_scheduled_by_fkey(full_name, email)"
+        "id, application_id, status, format, starts_at, ends_at, timezone, location, meeting_url, notes, interviewer_name, interviewer_email, created_at, updated_at, scheduler:profiles!application_interviews_scheduled_by_fkey(full_name, email), feedback:application_interview_feedback(id, interview_id, application_id, summary, strengths, concerns, recommendation, proposed_decision, next_action, created_at, updated_at, author:profiles!application_interview_feedback_author_id_fkey(full_name, email))"
       )
       .eq("application_id", applicationId)
       .order("starts_at", { ascending: true }),
@@ -2244,7 +2300,9 @@ export async function getRecruiterInterviews(
   const supabase = await createClient();
   let interviewsQuery = supabase
     .from("application_interviews")
-    .select("id, application_id, scheduled_by, status, format, starts_at, ends_at, timezone, location, meeting_url, notes, interviewer_name, interviewer_email, created_at, updated_at")
+    .select(
+      "id, application_id, scheduled_by, status, format, starts_at, ends_at, timezone, location, meeting_url, notes, interviewer_name, interviewer_email, created_at, updated_at, feedback:application_interview_feedback(id, interview_id, application_id, summary, strengths, concerns, recommendation, proposed_decision, next_action, created_at, updated_at, author:profiles!application_interview_feedback_author_id_fkey(full_name, email))"
+    )
     .order("starts_at", { ascending: true });
 
   if (typeof limit === "number") {
@@ -2316,7 +2374,9 @@ export async function getAdminInterviews(options: { limit?: number } = {}): Prom
   const supabase = await createClient();
   let interviewsQuery = supabase
     .from("application_interviews")
-    .select("id, application_id, scheduled_by, status, format, starts_at, ends_at, timezone, location, meeting_url, notes, interviewer_name, interviewer_email, created_at, updated_at")
+    .select(
+      "id, application_id, scheduled_by, status, format, starts_at, ends_at, timezone, location, meeting_url, notes, interviewer_name, interviewer_email, created_at, updated_at, feedback:application_interview_feedback(id, interview_id, application_id, summary, strengths, concerns, recommendation, proposed_decision, next_action, created_at, updated_at, author:profiles!application_interview_feedback_author_id_fkey(full_name, email))"
+    )
     .order("starts_at", { ascending: true });
 
   if (typeof limit === "number") {

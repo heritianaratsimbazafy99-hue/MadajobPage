@@ -1491,7 +1491,7 @@ code {
 
 .application-interviews__stats {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 12px;
 }
 
@@ -1513,6 +1513,42 @@ code {
 
 .interview-card {
   gap: 10px;
+}
+
+.interview-feedback-editor,
+.interview-feedback-preview {
+  display: grid;
+  gap: 12px;
+}
+
+.interview-feedback-editor__summary,
+.interview-feedback-preview {
+  padding: 14px;
+  border: 1px solid rgba(20, 94, 76, 0.12);
+  border-radius: 18px;
+  background: rgba(245, 250, 247, 0.9);
+}
+
+.interview-feedback-editor__summary p,
+.interview-feedback-editor__summary strong,
+.interview-feedback-preview p,
+.interview-feedback-preview strong {
+  margin: 0;
+}
+
+.interview-feedback-editor__details {
+  border-top: 1px dashed rgba(15, 23, 42, 0.12);
+  padding-top: 12px;
+}
+
+.interview-feedback-editor__details summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.interview-feedback-editor__details summary::-webkit-details-marker {
+  display: none;
 }
 
 .pipeline-card__status {
