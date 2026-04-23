@@ -5,6 +5,13 @@ import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "r
 
 import { quickUpdateUserStatusAction } from "@/app/actions/admin-actions";
 import { formatDisplayDate } from "@/lib/format";
+import {
+  getManagedUserPriorityMeta,
+  hasManagedUserInvitationWatch,
+  isManagedUserDormant,
+  needsManagedCandidateReview,
+  summarizeManagedUsers
+} from "@/lib/managed-user-insights";
 import type { ManagedUserSummary, OrganizationOption } from "@/lib/types";
 
 type AdminUsersBoardProps = {
@@ -23,7 +30,10 @@ type Filters = {
     | "internal"
     | "inactive_accounts"
     | "inactive_internal"
+    | "internal_to_secure"
     | "recruiters_without_org"
+    | "invitation_watch"
+    | "dormant_internal"
     | "candidates_to_review";
   sort:
     | "recent"
@@ -34,6 +44,13 @@ type Filters = {
     | "name_asc";
 };
 
+type PriorityView = {
+  title: string;
+  count: number;
+  description: string;
+  focus: Exclude<Filters["focus"], "">;
+};
+
 const initialFilters: Filters = {
   query: "",
   role: "",
@@ -42,6 +59,43 @@ const initialFilters: Filters = {
   focus: "",
   sort: "recent"
 };
+
+function getToneClass(tone: "info" | "success" | "danger" | "muted") {
+  if (tone === "danger") {
+    return "tag tag--danger";
+  }
+
+  if (tone === "success") {
+    return "tag tag--success";
+  }
+
+  if (tone === "info") {
+    return "tag tag--info";
+  }
+
+  return "tag tag--muted";
+}
+
+function getUserContextLine(user: ManagedUserSummary) {
+  if (user.role === "recruteur" && !user.organization_id) {
+    return "Rattachez une organisation avant toute reactivation ou mise en production du compte.";
+  }
+
+  if (hasManagedUserInvitationWatch(user) && user.invitation_sent_at) {
+    return `Invitation envoyee le ${formatDisplayDate(user.invitation_sent_at)}.`;
+  }
+
+  if (isManagedUserDormant(user)) {
+    const dormantSince = user.last_admin_action_at ?? user.updated_at ?? user.created_at;
+    return `Aucun signal admin utile depuis le ${formatDisplayDate(dormantSince)}.`;
+  }
+
+  if (user.last_admin_action_at) {
+    return `Dernier arbitrage admin le ${formatDisplayDate(user.last_admin_action_at)}.`;
+  }
+
+  return `Compte cree le ${formatDisplayDate(user.created_at)}.`;
+}
 
 export function AdminUsersBoard({
   adminProfileId,
@@ -61,6 +115,39 @@ export function AdminUsersBoard({
     setBoardUsers(users);
     setFeedback(null);
   }, [users]);
+
+  const boardSummary = useMemo(() => summarizeManagedUsers(boardUsers), [boardUsers]);
+
+  const priorityViews = useMemo(
+    () =>
+      [
+        {
+          title: "Onboarding interne",
+          count: boardSummary.invitationWatchCount,
+          description: "Invitations recentes a suivre jusqu'au premier usage visible.",
+          focus: "invitation_watch"
+        },
+        {
+          title: "Recruteurs a rattacher",
+          count: boardSummary.recruitersWithoutOrganizationCount,
+          description: "Comptes recruteur sans organisation donc partiellement exploitables.",
+          focus: "recruiters_without_org"
+        },
+        {
+          title: "Acces a securiser",
+          count: boardSummary.inactiveInternalCount + boardSummary.dormantInternalCount,
+          description: "Comptes internes inactifs ou dormants qui demandent un arbitrage.",
+          focus: "internal_to_secure"
+        },
+        {
+          title: "Candidats a qualifier",
+          count: boardSummary.candidatesToReviewCount,
+          description: "Profils incomplets ou encore sans premiere traction dans le pipeline.",
+          focus: "candidates_to_review"
+        }
+      ] satisfies PriorityView[],
+    [boardSummary]
+  );
 
   const filteredUsers = useMemo(() => {
     const query = deferredQuery.trim().toLowerCase();
@@ -94,13 +181,15 @@ export function AdminUsersBoard({
           (filters.focus === "inactive_internal" &&
             user.role !== "candidat" &&
             !user.is_active) ||
+          (filters.focus === "internal_to_secure" &&
+            user.role !== "candidat" &&
+            (!user.is_active || isManagedUserDormant(user))) ||
           (filters.focus === "recruiters_without_org" &&
             user.role === "recruteur" &&
             !user.organization_id) ||
-          (filters.focus === "candidates_to_review" &&
-            user.role === "candidat" &&
-            ((user.candidate_profile_completion ?? 0) < 70 ||
-              user.applications_count === 0));
+          (filters.focus === "invitation_watch" && hasManagedUserInvitationWatch(user)) ||
+          (filters.focus === "dormant_internal" && isManagedUserDormant(user)) ||
+          (filters.focus === "candidates_to_review" && needsManagedCandidateReview(user));
 
         return (
           matchesQuery &&
@@ -111,7 +200,10 @@ export function AdminUsersBoard({
         );
       })
       .sort((left, right) => {
-        if (filters.sort === "applications_desc" && left.applications_count !== right.applications_count) {
+        if (
+          filters.sort === "applications_desc" &&
+          left.applications_count !== right.applications_count
+        ) {
           return right.applications_count - left.applications_count;
         }
 
@@ -121,9 +213,13 @@ export function AdminUsersBoard({
 
         if (
           filters.sort === "completion_desc" &&
-          (left.candidate_profile_completion ?? -1) !== (right.candidate_profile_completion ?? -1)
+          (left.candidate_profile_completion ?? -1) !==
+            (right.candidate_profile_completion ?? -1)
         ) {
-          return (right.candidate_profile_completion ?? -1) - (left.candidate_profile_completion ?? -1);
+          return (
+            (right.candidate_profile_completion ?? -1) -
+            (left.candidate_profile_completion ?? -1)
+          );
         }
 
         if (filters.sort === "name_asc") {
@@ -133,8 +229,12 @@ export function AdminUsersBoard({
           return leftLabel.localeCompare(rightLabel, "fr");
         }
 
-        const leftDate = new Date(left.updated_at || left.created_at).getTime();
-        const rightDate = new Date(right.updated_at || right.created_at).getTime();
+        const leftDate = new Date(
+          left.last_admin_action_at ?? left.updated_at ?? left.created_at
+        ).getTime();
+        const rightDate = new Date(
+          right.last_admin_action_at ?? right.updated_at ?? right.created_at
+        ).getTime();
 
         if (filters.sort === "oldest") {
           return leftDate - rightDate;
@@ -174,7 +274,8 @@ export function AdminUsersBoard({
           ? {
               ...user,
               is_active: nextIsActive,
-              updated_at: new Date().toISOString()
+              updated_at: new Date().toISOString(),
+              last_admin_action_at: new Date().toISOString()
             }
           : user
       )
@@ -212,8 +313,52 @@ export function AdminUsersBoard({
     });
   }
 
+  function applyFocus(nextFocus: Exclude<Filters["focus"], "">) {
+    setFilters((previous) => ({
+      ...previous,
+      focus: previous.focus === nextFocus ? "" : nextFocus
+    }));
+  }
+
   return (
     <div className="jobs-board">
+      <section className="dashboard-section">
+        <div className="dashboard-section__head">
+          <div>
+            <p className="eyebrow">Vues actionnables</p>
+            <h2>Commencez par les comptes qui ralentissent le plus le pilotage RH</h2>
+          </div>
+          <span className="tag">{boardSummary.total} utilisateur(s)</span>
+        </div>
+
+        <div className="supervision-grid">
+          {priorityViews.map((view) => {
+            const isActive = filters.focus === view.focus;
+
+            return (
+              <article key={view.title} className="panel list-card dashboard-card">
+                <div className="dashboard-card__top">
+                  <h3>{view.title}</h3>
+                  <span className={view.count > 0 ? "tag tag--danger" : "tag tag--muted"}>
+                    {view.count}
+                  </span>
+                </div>
+                <p>{view.description}</p>
+                <div className="dashboard-action-stack">
+                  <button
+                    type="button"
+                    className={isActive ? "btn btn-secondary btn-block" : "btn btn-ghost btn-block"}
+                    onClick={() => applyFocus(view.focus)}
+                  >
+                    {isActive ? "Retirer la vue" : "Filtrer cette vue"}
+                  </button>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      </section>
+
       <section className="dashboard-form">
         <div className="dashboard-form__head">
           <div>
@@ -299,7 +444,10 @@ export function AdminUsersBoard({
               <option value="internal">Comptes internes</option>
               <option value="inactive_accounts">Comptes inactifs</option>
               <option value="inactive_internal">Internes inactifs</option>
+              <option value="internal_to_secure">Internes a securiser</option>
               <option value="recruiters_without_org">Recruteurs sans organisation</option>
+              <option value="invitation_watch">Onboarding interne</option>
+              <option value="dormant_internal">Internes dormants</option>
               <option value="candidates_to_review">Candidats a revoir</option>
             </select>
           </label>
@@ -327,15 +475,11 @@ export function AdminUsersBoard({
 
         <div className="dashboard-card__top">
           <div className="dashboard-card__badges">
-            <span className="tag tag--success">
-              {boardUsers.filter((user) => user.is_active).length} actif(s)
-            </span>
+            <span className="tag tag--success">{boardSummary.activeCount} actif(s)</span>
             <span className="tag tag--muted">
-              {boardUsers.filter((user) => !user.is_active).length} inactif(s)
+              {boardSummary.total - boardSummary.activeCount} inactif(s)
             </span>
-            <span className="tag tag--info">
-              {boardUsers.filter((user) => user.role !== "candidat").length} interne(s)
-            </span>
+            <span className="tag tag--info">{boardSummary.internalCount} interne(s)</span>
           </div>
 
           {activeFilterCount > 0 ? (
@@ -353,7 +497,11 @@ export function AdminUsersBoard({
           <p className="form-caption">
             {activeFilterCount} filtre(s) actif(s) pour isoler les comptes prioritaires.
           </p>
-        ) : null}
+        ) : (
+          <p className="form-caption">
+            Utilisez les vues actionnables pour passer rapidement de l'onboarding interne aux comptes a securiser.
+          </p>
+        )}
 
         {feedback ? (
           <p className={feedback.kind === "error" ? "form-feedback form-feedback--error" : "form-feedback"}>
@@ -368,6 +516,7 @@ export function AdminUsersBoard({
             const isSelf = user.id === adminProfileId;
             const isReactivationBlocked =
               !user.is_active && user.role === "recruteur" && !user.organization_id;
+            const priorityMeta = getManagedUserPriorityMeta(user);
 
             return (
               <article key={user.id} className="panel job-card jobs-result-card">
@@ -377,12 +526,9 @@ export function AdminUsersBoard({
                     <span className={`tag ${user.is_active ? "tag--success" : "tag--muted"}`}>
                       {user.is_active ? "Actif" : "Inactif"}
                     </span>
-                    {user.role === "recruteur" && !user.organization_id ? (
-                      <span className="tag tag--danger">Sans organisation</span>
-                    ) : null}
-                    {user.role === "candidat" &&
-                    (user.candidate_profile_completion ?? 0) < 70 ? (
-                      <span className="tag tag--muted">Profil a completer</span>
+                    <span className={getToneClass(priorityMeta.tone)}>{priorityMeta.label}</span>
+                    {hasManagedUserInvitationWatch(user) ? (
+                      <span className="tag tag--info">Invitation recente</span>
                     ) : null}
                   </div>
                   <small>Mise a jour le {formatDisplayDate(user.updated_at)}</small>
@@ -395,6 +541,7 @@ export function AdminUsersBoard({
                       ? "Compte candidat sans organisation rattachee"
                       : "Sans organisation rattachee")}
                 </p>
+                <p className="form-caption">{priorityMeta.description}</p>
 
                 <div className="job-card__meta">
                   {user.email ? <span>{user.email}</span> : null}
@@ -405,14 +552,13 @@ export function AdminUsersBoard({
                   {user.role === "candidat" ? (
                     <span>{user.candidate_profile_completion ?? 0}% profil</span>
                   ) : null}
+                  {user.invitation_sent_at ? (
+                    <span>Invitation {formatDisplayDate(user.invitation_sent_at)}</span>
+                  ) : null}
                 </div>
 
                 <div className="job-card__footer">
-                  <small>
-                    {isReactivationBlocked
-                      ? "Rattachez une organisation avant reactivation"
-                      : `Cree le ${formatDisplayDate(user.created_at)}`}
-                  </small>
+                  <small>{getUserContextLine(user)}</small>
                   <div className="dashboard-card__badges">
                     {isSelf ? (
                       <span className="tag tag--info">Votre compte</span>

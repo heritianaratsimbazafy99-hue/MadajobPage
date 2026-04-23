@@ -146,6 +146,17 @@ async function getExistingUserAccess(userId: string) {
   };
 }
 
+async function getActiveAdminCount() {
+  const supabase = createAdminClient() ?? (await createClient());
+  const { count } = await supabase
+    .from("profiles")
+    .select("id", { count: "exact", head: true })
+    .eq("role", "admin")
+    .eq("is_active", true);
+
+  return count ?? 0;
+}
+
 async function updateUserAccessInternal(
   profile: Awaited<ReturnType<typeof requireRole>>,
   input: UserAccessUpdateInput,
@@ -191,6 +202,17 @@ async function updateUserAccessInternal(
       status: "error",
       message: "Utilisateur introuvable."
     };
+  }
+
+  if (existingUser.role === "admin" && existingUser.is_active && (!isActive || role !== "admin")) {
+    const activeAdminCount = await getActiveAdminCount();
+
+    if (activeAdminCount <= 1) {
+      return {
+        status: "error",
+        message: "Impossible de retirer le dernier admin actif de la plateforme."
+      };
+    }
   }
 
   const nextOrganizationId = role === "candidat" ? null : organizationId || null;

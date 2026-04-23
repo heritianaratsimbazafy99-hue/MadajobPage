@@ -3288,6 +3288,8 @@ export async function getAdminUsers() {
         is_active: true,
         created_at: "2026-04-01T08:00:00.000Z",
         updated_at: "2026-04-20T08:00:00.000Z",
+        invitation_sent_at: null,
+        last_admin_action_at: null,
         headline: "",
         city: "",
         current_position: "",
@@ -3306,6 +3308,8 @@ export async function getAdminUsers() {
         is_active: true,
         created_at: "2026-04-05T08:00:00.000Z",
         updated_at: "2026-04-20T08:00:00.000Z",
+        invitation_sent_at: null,
+        last_admin_action_at: null,
         headline: "",
         city: "",
         current_position: "",
@@ -3322,20 +3326,37 @@ export async function getAdminUsers() {
     return [] as ManagedUserSummary[];
   }
 
-  const [{ data: profileRows }, organizations, { data: candidateRows }, { data: applicationRows }, { data: jobRows }] =
-    await Promise.all([
-      adminClient
-        .from("profiles")
-        .select("id, email, full_name, role, organization_id, phone, is_active, created_at, updated_at")
-        .order("updated_at", { ascending: false })
-        .limit(250),
-      getAdminOrganizations(),
-      adminClient
-        .from("candidate_profiles")
-        .select("user_id, headline, city, current_position, profile_completion"),
-      adminClient.from("applications").select("id, candidate_id"),
-      adminClient.from("job_posts").select("id, created_by")
-    ]);
+  const [
+    { data: profileRows },
+    organizations,
+    { data: candidateRows },
+    { data: applicationRows },
+    { data: jobRows }
+  ] = await Promise.all([
+    adminClient
+      .from("profiles")
+      .select("id, email, full_name, role, organization_id, phone, is_active, created_at, updated_at")
+      .order("updated_at", { ascending: false })
+      .limit(250),
+    getAdminOrganizations(),
+    adminClient
+      .from("candidate_profiles")
+      .select("user_id, headline, city, current_position, profile_completion"),
+    adminClient.from("applications").select("id, candidate_id"),
+    adminClient.from("job_posts").select("id, created_by")
+  ]);
+  const profileIds = (profileRows ?? [])
+    .map((row) => String(row.id ?? ""))
+    .filter(Boolean);
+  const { data: profileAuditRows } =
+    profileIds.length > 0
+      ? await adminClient
+          .from("audit_events")
+          .select("entity_id, action, created_at")
+          .eq("entity_type", "profile")
+          .in("entity_id", profileIds)
+          .in("action", ["user_invited", "profile_access_updated"])
+      : { data: [] as Array<Record<string, unknown>> };
 
   const organizationMap = new Map(organizations.map((item) => [item.id, item.name]));
   const candidateMap = new Map(
@@ -3343,6 +3364,8 @@ export async function getAdminUsers() {
   );
   const applicationCountMap = new Map<string, number>();
   const jobsCountMap = new Map<string, number>();
+  const invitationMap = new Map<string, string>();
+  const adminActionMap = new Map<string, string>();
 
   for (const row of applicationRows ?? []) {
     const candidateId = String(row.candidate_id ?? "");
@@ -3354,6 +3377,35 @@ export async function getAdminUsers() {
     const ownerId = String(row.created_by ?? "");
     if (!ownerId) continue;
     jobsCountMap.set(ownerId, (jobsCountMap.get(ownerId) ?? 0) + 1);
+  }
+
+  for (const row of profileAuditRows ?? []) {
+    const entityId = String(row.entity_id ?? "");
+    const action = String(row.action ?? "");
+    const createdAt = typeof row.created_at === "string" ? row.created_at : null;
+
+    if (!entityId || !createdAt) {
+      continue;
+    }
+
+    const previousActionDate = adminActionMap.get(entityId);
+
+    if (!previousActionDate || new Date(createdAt).getTime() > new Date(previousActionDate).getTime()) {
+      adminActionMap.set(entityId, createdAt);
+    }
+
+    if (action !== "user_invited") {
+      continue;
+    }
+
+    const previousInvitationDate = invitationMap.get(entityId);
+
+    if (
+      !previousInvitationDate ||
+      new Date(createdAt).getTime() > new Date(previousInvitationDate).getTime()
+    ) {
+      invitationMap.set(entityId, createdAt);
+    }
   }
 
   return (profileRows ?? []).map((row) => {
@@ -3373,6 +3425,8 @@ export async function getAdminUsers() {
       is_active: Boolean(row.is_active),
       created_at: String(row.created_at ?? ""),
       updated_at: String(row.updated_at ?? ""),
+      invitation_sent_at: invitationMap.get(String(row.id)) ?? null,
+      last_admin_action_at: adminActionMap.get(String(row.id)) ?? null,
       headline: String(candidate?.headline ?? ""),
       city: String(candidate?.city ?? ""),
       current_position: String(candidate?.current_position ?? ""),

@@ -475,6 +475,8 @@ export type ManagedUserSummary = {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+  invitation_sent_at: string | null;
+  last_admin_action_at: string | null;
   headline: string;
   city: string;
   current_position: string;

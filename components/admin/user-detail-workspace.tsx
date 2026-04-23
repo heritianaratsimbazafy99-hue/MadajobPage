@@ -3,6 +3,12 @@ import Link from "next/link";
 import { UserAccessForm } from "@/components/admin/user-access-form";
 import { DashboardShell } from "@/components/dashboard/shell";
 import { formatDisplayDate } from "@/lib/format";
+import {
+  getManagedUserPriorityMeta,
+  hasManagedUserInvitationWatch,
+  isManagedUserDormant,
+  needsManagedCandidateReview
+} from "@/lib/managed-user-insights";
 import type { ManagedUserDetail, OrganizationOption, Profile } from "@/lib/types";
 
 type UserDetailWorkspaceProps = {
@@ -11,11 +17,54 @@ type UserDetailWorkspaceProps = {
   organizations: OrganizationOption[];
 };
 
+function getToneClass(tone: "info" | "success" | "danger" | "muted") {
+  if (tone === "danger") {
+    return "tag tag--danger";
+  }
+
+  if (tone === "success") {
+    return "tag tag--success";
+  }
+
+  if (tone === "info") {
+    return "tag tag--info";
+  }
+
+  return "tag tag--muted";
+}
+
+function getRecommendedAction(user: ManagedUserDetail) {
+  if (user.role === "recruteur" && !user.organization_id) {
+    return "Rattacher une organisation avant reactivation ou usage du cockpit recruteur.";
+  }
+
+  if (user.role === "admin" && !user.is_active) {
+    return "Confirmer si ce compte admin doit etre reactive ou retire definitivement du perimetre.";
+  }
+
+  if (hasManagedUserInvitationWatch(user)) {
+    return "Verifier la prise en main du compte invite et relancer si l'onboarding n'avance pas.";
+  }
+
+  if (isManagedUserDormant(user)) {
+    return "Valider si l'acces doit rester ouvert ou etre nettoye pour garder un parc de droits propre.";
+  }
+
+  if (needsManagedCandidateReview(user)) {
+    return "Completer le profil candidat ou l'orienter vers une premiere opportunite exploitable.";
+  }
+
+  return "Le compte est exploitable. Continuez le suivi depuis la fiche la plus proche du metier.";
+}
+
 export function UserDetailWorkspace({
   profile,
   user,
   organizations
 }: UserDetailWorkspaceProps) {
+  const priorityMeta = getManagedUserPriorityMeta(user);
+  const recommendedAction = getRecommendedAction(user);
+
   return (
     <DashboardShell
       title={user.full_name || user.email || "Utilisateur Madajob"}
@@ -49,6 +98,39 @@ export function UserDetailWorkspace({
       <section className="dashboard-workspace">
         <div className="dashboard-column">
           <UserAccessForm adminProfile={profile} user={user} organizations={organizations} />
+
+          <div className="dashboard-form">
+            <div className="dashboard-form__head">
+              <div>
+                <p className="eyebrow">Signal d'acces</p>
+                <h2>Pourquoi ce compte remonte dans le pilotage admin</h2>
+              </div>
+              <span className={getToneClass(priorityMeta.tone)}>{priorityMeta.label}</span>
+            </div>
+
+            <p>{priorityMeta.description}</p>
+
+            <div className="form-grid">
+              <div className="document-card">
+                <strong>Invitation interne</strong>
+                <p>
+                  {user.invitation_sent_at
+                    ? `Envoyee le ${formatDisplayDate(user.invitation_sent_at)}`
+                    : "Aucune invitation recente tracee"}
+                </p>
+              </div>
+              <div className="document-card">
+                <strong>Dernier arbitrage admin</strong>
+                <p>
+                  {user.last_admin_action_at
+                    ? formatDisplayDate(user.last_admin_action_at)
+                    : "Aucun arbitrage recent"}
+                </p>
+              </div>
+            </div>
+
+            <p className="form-caption">{recommendedAction}</p>
+          </div>
 
           {user.role === "candidat" ? (
             <div className="dashboard-form">
@@ -169,8 +251,8 @@ export function UserDetailWorkspace({
               <Link className="btn btn-secondary btn-block" href="/app/admin/utilisateurs">
                 Retour a la liste utilisateurs
               </Link>
-              <Link className="btn btn-ghost btn-block" href="/app/admin">
-                Retour au cockpit admin
+              <Link className="btn btn-ghost btn-block" href="/app/admin/audit">
+                Ouvrir l'audit interne
               </Link>
             </div>
           </div>
@@ -197,6 +279,15 @@ export function UserDetailWorkspace({
             <div className="document-card">
               <strong>Etat du compte</strong>
               <p>{user.is_active ? "Actif" : "Inactif"}</p>
+            </div>
+
+            <div className="document-card">
+              <strong>Signal onboarding</strong>
+              <p>
+                {hasManagedUserInvitationWatch(user)
+                  ? "Invitation recente a suivre"
+                  : "Pas de relance onboarding immediate"}
+              </p>
             </div>
           </div>
         </aside>
