@@ -18,6 +18,8 @@ import type {
   CandidateApplication,
   CandidateDetail,
   CandidateDocumentData,
+  CandidateInterviewInsight,
+  CandidatePipelineSummary,
   CandidateProfileData,
   InterviewScheduleItem,
   InternalApplicationNote,
@@ -1977,7 +1979,20 @@ export async function getManagedCandidateDetail(profile: Profile, candidateId: s
       skills_text: "",
       cv_text: "",
       primary_cv_download_url: null,
+      pipeline_summary: {
+        submitted: 0,
+        screening: 0,
+        shortlist: 0,
+        interview: 0,
+        hired: 0,
+        rejected: 0,
+        active: 0,
+        final: 0
+      },
       applications: [],
+      recent_interviews: [],
+      next_interview: null,
+      latest_feedback: null,
       recent_notes: []
     } satisfies CandidateDetail;
   }
@@ -2013,7 +2028,7 @@ export async function getManagedCandidateDetail(profile: Profile, candidateId: s
 
   const applicationIds = candidateApplications.map((row) => String(row.id));
 
-  const [{ data: organizations }, { data: noteRows }] = await Promise.all([
+  const [{ data: organizations }, { data: noteRows }, { data: interviewRows }] = await Promise.all([
     organizationIds.length
       ? adminClient
           .from("organizations")
@@ -2026,6 +2041,15 @@ export async function getManagedCandidateDetail(profile: Profile, candidateId: s
           .select("id, application_id, body, created_at, author:profiles(full_name, email)")
           .in("application_id", applicationIds)
           .order("created_at", { ascending: false })
+      : Promise.resolve({ data: [] }),
+    applicationIds.length
+      ? adminClient
+          .from("application_interviews")
+          .select(
+            "id, application_id, status, format, starts_at, ends_at, timezone, location, meeting_url, notes, interviewer_name, interviewer_email, created_at, updated_at, feedback:application_interview_feedback(id, interview_id, application_id, summary, strengths, concerns, recommendation, proposed_decision, next_action, created_at, updated_at, author:profiles!application_interview_feedback_author_id_fkey(full_name, email))"
+          )
+          .in("application_id", applicationIds)
+          .order("starts_at", { ascending: false })
       : Promise.resolve({ data: [] })
   ]);
 
@@ -2053,6 +2077,40 @@ export async function getManagedCandidateDetail(profile: Profile, candidateId: s
   }
 
   const primaryCvDownloadUrl = await createSignedUrlForDocument(adminClient, summary.primary_cv);
+  const pipelineSummary = candidateApplications.reduce<CandidatePipelineSummary>(
+    (accumulator, row) => {
+      const status = String(row.status ?? "submitted");
+
+      if (
+        status === "submitted" ||
+        status === "screening" ||
+        status === "shortlist" ||
+        status === "interview" ||
+        status === "hired" ||
+        status === "rejected"
+      ) {
+        accumulator[status] += 1;
+      }
+
+      if (status === "hired" || status === "rejected") {
+        accumulator.final += 1;
+      } else {
+        accumulator.active += 1;
+      }
+
+      return accumulator;
+    },
+    {
+      submitted: 0,
+      screening: 0,
+      shortlist: 0,
+      interview: 0,
+      hired: 0,
+      rejected: 0,
+      active: 0,
+      final: 0
+    }
+  );
 
   const applications = candidateApplications.map((row) => {
     const job = normalizeJobRelation(row.job_posts);
@@ -2077,6 +2135,41 @@ export async function getManagedCandidateDetail(profile: Profile, candidateId: s
     } satisfies CandidateApplicationSummary;
   });
 
+  const applicationMap = new Map(candidateApplications.map((row) => [String(row.id), row]));
+  const recentInterviews = (interviewRows ?? [])
+    .map((item: Record<string, unknown>) => {
+      const interview = mapApplicationInterviewRecord(item);
+      const applicationRow = applicationMap.get(interview.application_id);
+      const job = normalizeJobRelation(applicationRow?.job_posts ?? null);
+      const organizationId = String(job?.organization_id ?? "");
+
+      return {
+        ...interview,
+        job_title: String(job?.title ?? "Offre Madajob"),
+        organization_name: organizationMap.get(organizationId) ?? "Madajob",
+        application_status: String(applicationRow?.status ?? "submitted")
+      } satisfies CandidateInterviewInsight;
+    })
+    .sort((left, right) => new Date(right.starts_at).getTime() - new Date(left.starts_at).getTime());
+
+  const nextInterview =
+    recentInterviews
+      .filter(
+        (interview) =>
+          interview.status === "scheduled" && new Date(interview.starts_at).getTime() >= Date.now()
+      )
+      .sort((left, right) => new Date(left.starts_at).getTime() - new Date(right.starts_at).getTime())[0] ??
+    null;
+
+  const latestFeedback =
+    recentInterviews
+      .filter((interview) => Boolean(interview.feedback))
+      .sort((left, right) => {
+        const leftTime = new Date(left.feedback?.updated_at ?? left.updated_at).getTime();
+        const rightTime = new Date(right.feedback?.updated_at ?? right.updated_at).getTime();
+        return rightTime - leftTime;
+      })[0]?.feedback ?? null;
+
   return {
     id: summary.id,
     full_name: summary.full_name,
@@ -2100,7 +2193,11 @@ export async function getManagedCandidateDetail(profile: Profile, candidateId: s
         : summary.profile_completion,
     primary_cv: summary.primary_cv,
     primary_cv_download_url: primaryCvDownloadUrl,
+    pipeline_summary: pipelineSummary,
     applications,
+    recent_interviews: recentInterviews.slice(0, 6),
+    next_interview: nextInterview,
+    latest_feedback: latestFeedback,
     recent_notes: notes.slice(0, 8)
   } satisfies CandidateDetail;
 }

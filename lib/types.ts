@@ -353,6 +353,23 @@ export type CandidateApplicationSummary = {
   notes_count: number;
 };
 
+export type CandidatePipelineSummary = {
+  submitted: number;
+  screening: number;
+  shortlist: number;
+  interview: number;
+  hired: number;
+  rejected: number;
+  active: number;
+  final: number;
+};
+
+export type CandidateInterviewInsight = ApplicationInterview & {
+  job_title: string;
+  organization_name: string;
+  application_status: string;
+};
+
 export type CandidateDetail = {
   id: string;
   full_name: string;
@@ -370,7 +387,11 @@ export type CandidateDetail = {
   profile_completion: number;
   primary_cv: CandidateDocumentData | null;
   primary_cv_download_url: string | null;
+  pipeline_summary: CandidatePipelineSummary;
   applications: CandidateApplicationSummary[];
+  recent_interviews: CandidateInterviewInsight[];
+  next_interview: CandidateInterviewInsight | null;
+  latest_feedback: ApplicationInterviewFeedback | null;
   recent_notes: InternalApplicationNote[];
 };
 
