@@ -1,10 +1,13 @@
 import Link from "next/link";
 
+import { DashboardInterviewSignalCard } from "@/components/dashboard/interview-signal-card";
+import { DashboardShell } from "@/components/dashboard/shell";
 import { JobEditForm } from "@/components/jobs/job-edit-form";
 import { JobHistoryPanel } from "@/components/jobs/job-history-panel";
 import { JobStatusPanel } from "@/components/jobs/job-status-panel";
 import { getApplicationStatusMeta } from "@/lib/application-status";
 import { formatDisplayDate } from "@/lib/format";
+import { summarizeJobManagementApplications } from "@/lib/job-management-insights";
 import type { JobMatchResult } from "@/lib/matching";
 import type {
   JobAuditEvent,
@@ -13,7 +16,6 @@ import type {
   Profile,
   RecruiterApplication
 } from "@/lib/types";
-import { DashboardShell } from "@/components/dashboard/shell";
 
 type JobManagementWorkspaceProps = {
   profile: Profile;
@@ -41,15 +43,16 @@ export function JobManagementWorkspace({
     profile.role === "admin" ? "/app/admin/candidatures" : "/app/recruteur/candidatures";
   const candidatesBasePath =
     profile.role === "admin" ? "/app/admin/candidats" : "/app/recruteur/candidats";
-  const advancedApplications = relatedApplications.filter((application) =>
-    ["shortlist", "interview", "hired"].includes(application.status)
-  ).length;
-  const applicationsWithCv = relatedApplications.filter((application) => application.has_cv).length;
+  const summary = summarizeJobManagementApplications(relatedApplications);
+  const topApplication = summary.topApplication;
+  const topApplicationStatus = topApplication
+    ? getApplicationStatusMeta(topApplication.status)
+    : null;
 
   return (
     <DashboardShell
       title={job.title}
-      description="Gerez le contenu, le statut, la visibilite et l'historique de cette offre depuis la plateforme."
+      description="Gerez le contenu, le statut, la visibilite et les signaux de pipeline de cette offre depuis la plateforme."
       profile={profile}
       currentPath={currentPath}
     >
@@ -60,52 +63,142 @@ export function JobManagementWorkspace({
           <small>etat actuel de l'annonce</small>
         </article>
         <article className="panel metric-panel">
-          <span>Candidatures</span>
-          <strong>{job.applications_count}</strong>
-          <small>profils recus sur cette offre</small>
+          <span>Candidatures actives</span>
+          <strong>{summary.activeCount}</strong>
+          <small>{job.applications_count} profil(s) recus sur cette offre</small>
         </article>
         <article className="panel metric-panel">
-          <span>Dossiers avances</span>
-          <strong>{advancedApplications}</strong>
-          <small>shortlist, entretiens et profils retenus</small>
+          <span>Entretiens a venir</span>
+          <strong>{summary.upcomingInterviewCount}</strong>
+          <small>{summary.pendingFeedbackCount} feedback(s) encore a saisir</small>
         </article>
         <article className="panel metric-panel">
-          <span>Couverture CV</span>
-          <strong>{applicationsWithCv}</strong>
-          <small>{relatedApplications.length - applicationsWithCv} dossier(s) sans CV joint</small>
+          <span>Decisions prêtes</span>
+          <strong>{summary.readyDecisionCount}</strong>
+          <small>{summary.favorableFeedbackCount} feedback(s) favorables</small>
         </article>
       </section>
 
       <section className="dashboard-workspace">
         <div className="dashboard-column">
+          <div className="dashboard-form">
+            <div className="dashboard-form__head">
+              <div>
+                <p className="eyebrow">Centre d'action</p>
+                <h2>Ce qui merite votre attention maintenant</h2>
+              </div>
+              <span className="tag">{relatedApplications.length} dossier(s)</span>
+            </div>
+
+            <div className="job-management-summary-grid">
+              <article className="document-card job-management-summary-card">
+                <div className="dashboard-card__top">
+                  <strong>Dossier prioritaire</strong>
+                  <span className="tag">{topApplicationStatus?.label ?? "Aucun"}</span>
+                </div>
+                <h3>{topApplication?.candidate_name ?? "Aucun dossier actif sur cette offre"}</h3>
+                <p>
+                  {topApplication?.interview_signal.pending_feedback
+                    ? "Un entretien est termine sans compte-rendu. La priorite est de saisir le feedback."
+                    : topApplication?.interview_signal.latest_feedback
+                      ? "Un feedback existe deja. La prochaine etape est d'arbitrer et d'appliquer la decision."
+                      : topApplication?.interview_signal.next_interview_at
+                        ? "Un entretien est planifie. Le dossier est a preparer avant le rendez-vous."
+                        : topApplicationStatus?.description ??
+                          "Les prochains signaux forts de cette offre remonteront ici automatiquement."}
+                </p>
+                <small>
+                  {topApplication
+                    ? `Derniere mise a jour le ${formatDisplayDate(topApplication.updated_at ?? topApplication.created_at)}.`
+                    : "Le centre d'action se nourrit des candidatures et entretiens lies a cette offre."}
+                </small>
+                <div className="notification-card__actions">
+                  {topApplication ? (
+                    <Link href={`${applicationsBasePath}/${topApplication.id}`}>
+                      Ouvrir le dossier prioritaire
+                    </Link>
+                  ) : (
+                    <Link href={backHref}>Retour a la liste des offres</Link>
+                  )}
+                </div>
+              </article>
+
+              <article className="document-card job-management-summary-card">
+                <strong>Sante du pipeline</strong>
+                <p>
+                  {summary.advancedCount} dossier(s) avance(s), {summary.upcomingInterviewCount} entretien(s)
+                  a venir et {summary.readyDecisionCount} decision(s) exploitables.
+                </p>
+                <small>
+                  {summary.pendingFeedbackCount > 0
+                    ? `${summary.pendingFeedbackCount} compte-rendu(s) d'entretien restent encore a saisir.`
+                    : "Aucun feedback en retard sur cette offre pour le moment."}
+                </small>
+              </article>
+
+              <article className="document-card job-management-summary-card">
+                <strong>Qualite des dossiers</strong>
+                <p>
+                  {summary.applicationsWithCv} dossier(s) ont un CV joint, soit{" "}
+                  {relatedApplications.length > 0
+                    ? Math.round((summary.applicationsWithCv / relatedApplications.length) * 100)
+                    : 0}
+                  % du pipeline de cette offre.
+                </p>
+                <small>
+                  {relatedApplications.length - summary.applicationsWithCv > 0
+                    ? `${relatedApplications.length - summary.applicationsWithCv} dossier(s) restent sans CV joint.`
+                    : "Tous les dossiers visibles sur cette offre disposent d'un CV joint."}
+                </small>
+              </article>
+            </div>
+          </div>
+
           <JobEditForm job={job} />
 
           <div className="dashboard-form">
             <div className="dashboard-form__head">
               <div>
                 <p className="eyebrow">Pipeline sur l'offre</p>
-                <h2>Les dossiers actifs rattaches a cette annonce</h2>
+                <h2>Les dossiers les plus actionnables rattaches a cette annonce</h2>
               </div>
-              <span className="tag">{relatedApplications.length} dossier(s)</span>
+              <span className="tag">{summary.prioritizedApplications.length} dossier(s)</span>
             </div>
 
             <div className="dashboard-list">
-              {relatedApplications.length > 0 ? (
-                relatedApplications.map((application) => (
+              {summary.prioritizedApplications.length > 0 ? (
+                summary.prioritizedApplications.map((application) => (
                   <article key={application.id} className="panel list-card dashboard-card">
                     <div className="dashboard-card__top">
-                      <h3>{application.candidate_name}</h3>
-                      <span className="tag">
-                        {getApplicationStatusMeta(application.status).label}
-                      </span>
+                      <div>
+                        <h3>{application.candidate_name}</h3>
+                        <p>{application.candidate_email}</p>
+                      </div>
+                      <div className="dashboard-card__badges">
+                        <span className="tag">
+                          {getApplicationStatusMeta(application.status).label}
+                        </span>
+                        {application.interview_signal.pending_feedback ? (
+                          <span className="tag tag--danger">Feedback a saisir</span>
+                        ) : null}
+                        {application.interview_signal.latest_feedback ? (
+                          <span className="tag tag--info">Decision exploitable</span>
+                        ) : null}
+                      </div>
                     </div>
-                    <p>{application.candidate_email}</p>
+
                     <div className="job-card__meta">
                       <span>{application.has_cv ? "CV joint" : "CV manquant"}</span>
                       <span>Soumis le {formatDisplayDate(application.created_at)}</span>
-                      <span>Mise a jour le {formatDisplayDate(application.updated_at ?? application.created_at)}</span>
+                      <span>
+                        Mise a jour le {formatDisplayDate(application.updated_at ?? application.created_at)}
+                      </span>
                     </div>
+
                     {application.cover_letter ? <p>{application.cover_letter}</p> : null}
+
+                    <DashboardInterviewSignalCard application={application} />
+
                     <div className="job-card__footer">
                       <small>{application.job_title}</small>
                       <div className="dashboard-card__badges">
@@ -117,6 +210,11 @@ export function JobManagementWorkspace({
                         <Link href={`${applicationsBasePath}/${application.id}`}>
                           Ouvrir le dossier
                         </Link>
+                        {application.interview_signal.latest_feedback ? (
+                          <Link href={`${applicationsBasePath}/${application.id}#decision-post-entretien`}>
+                            Appliquer la decision
+                          </Link>
+                        ) : null}
                       </div>
                     </div>
                   </article>
@@ -191,12 +289,12 @@ export function JobManagementWorkspace({
               <Link className="btn btn-secondary btn-block" href={backHref}>
                 Retour a la liste des offres
               </Link>
-              {relatedApplications[0] ? (
+              {topApplication ? (
                 <Link
                   className="btn btn-ghost btn-block"
-                  href={`${applicationsBasePath}/${relatedApplications[0].id}`}
+                  href={`${applicationsBasePath}/${topApplication.id}`}
                 >
-                  Ouvrir le dernier dossier
+                  Ouvrir le dossier prioritaire
                 </Link>
               ) : null}
               {job.status === "published" ? (
