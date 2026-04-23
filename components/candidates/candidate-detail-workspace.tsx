@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { CandidateCvAnalysisPanel } from "@/components/profile/candidate-cv-analysis-panel";
+import { getCandidateCvAnalysis } from "@/lib/candidate-cv-analysis";
 import { getApplicationStatusMeta } from "@/lib/application-status";
 import { MatchBreakdown } from "@/components/jobs/match-breakdown";
 import { DashboardShell } from "@/components/dashboard/shell";
@@ -43,6 +45,7 @@ export function CandidateDetailWorkspace({
   const latestFeedbackDecision = latestFeedback
     ? getInterviewProposedDecisionMeta(latestFeedback.proposed_decision)
     : null;
+  const cvAnalysis = getCandidateCvAnalysis(candidate);
 
   return (
     <DashboardShell
@@ -139,6 +142,12 @@ export function CandidateDetailWorkspace({
               </div>
             ) : null}
           </div>
+
+          <CandidateCvAnalysisPanel
+            analysis={cvAnalysis}
+            eyebrow="Lecture dossier"
+            title="Analyse simple du CV et du positionnement"
+          />
 
           <div className="dashboard-form">
             <div className="dashboard-form__head">

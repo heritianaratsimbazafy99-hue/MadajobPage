@@ -1,12 +1,14 @@
 import Link from "next/link";
 
 import { DashboardShell } from "@/components/dashboard/shell";
+import { CandidateCvAnalysisPanel } from "@/components/profile/candidate-cv-analysis-panel";
 import { CandidateCvUpload } from "@/components/profile/candidate-cv-upload";
 import { CandidateProfileForm } from "@/components/profile/candidate-profile-form";
 import {
   getApplicationStatusMeta,
   isFinalApplicationStatus
 } from "@/lib/application-status";
+import { getCandidateCvAnalysis } from "@/lib/candidate-cv-analysis";
 import { getCandidateProfileInsights } from "@/lib/candidate-profile";
 import { requireRole } from "@/lib/auth";
 import { formatDateTimeDisplay, formatDisplayDate } from "@/lib/format";
@@ -191,6 +193,10 @@ export default async function CandidateDashboardPage() {
   ]);
 
   const profileInsights = getCandidateProfileInsights(candidateProfile);
+  const cvAnalysis = getCandidateCvAnalysis({
+    ...candidateProfile,
+    documentsCount: candidateProfile.recent_documents.length
+  });
   const prioritizedApplications = sortCandidateApplicationsByPriority(applications);
   const topPriorityApplications = prioritizedApplications.slice(0, 4);
   const latestApplication = prioritizedApplications[0] ?? null;
@@ -371,6 +377,12 @@ export default async function CandidateDashboardPage() {
               </article>
             </div>
           </div>
+
+          <CandidateCvAnalysisPanel
+            analysis={cvAnalysis}
+            eyebrow="Lecture dossier"
+            title="Analyse simple du CV et du profil"
+          />
 
           <div className="dashboard-section">
             <div className="dashboard-section__head">

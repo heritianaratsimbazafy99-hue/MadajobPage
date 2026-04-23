@@ -1,9 +1,11 @@
 import Link from "next/link";
 
 import { DashboardShell } from "@/components/dashboard/shell";
+import { CandidateCvAnalysisPanel } from "@/components/profile/candidate-cv-analysis-panel";
 import { CandidateDocumentsManager } from "@/components/profile/candidate-documents-manager";
 import { CandidateCvUpload } from "@/components/profile/candidate-cv-upload";
 import { requireRole } from "@/lib/auth";
+import { getCandidateCvAnalysis } from "@/lib/candidate-cv-analysis";
 import { summarizeCandidateDocuments } from "@/lib/candidate-document-insights";
 import { formatDisplayDate } from "@/lib/format";
 import { getCandidateDocuments, getCandidateWorkspace } from "@/lib/jobs";
@@ -16,6 +18,10 @@ export default async function CandidateDocumentsPage() {
   ]);
 
   const summary = summarizeCandidateDocuments(documents);
+  const cvAnalysis = getCandidateCvAnalysis({
+    ...candidateProfile,
+    documentsCount: documents.length
+  });
   const latestDocument = summary.latestDocument;
 
   return (
@@ -109,6 +115,12 @@ export default async function CandidateDocumentsPage() {
               </article>
             </div>
           </div>
+
+          <CandidateCvAnalysisPanel
+            analysis={cvAnalysis}
+            eyebrow="Lecture documentaire"
+            title="Ce que votre CV raconte deja vraiment"
+          />
 
           <CandidateDocumentsManager candidateId={profile.id} documents={documents} />
         </div>
