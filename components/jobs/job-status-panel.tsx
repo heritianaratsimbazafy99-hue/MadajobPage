@@ -3,6 +3,8 @@
 import { useActionState } from "react";
 
 import { updateJobStatusAction, type JobActionState } from "@/app/actions/job-actions";
+import { JobQualityPanel } from "@/components/jobs/job-quality-panel";
+import { getJobQualityReport } from "@/lib/job-quality";
 import type { ManagedJob } from "@/lib/types";
 
 const initialState: JobActionState = {
@@ -46,6 +48,7 @@ function getActions(status: ManagedJob["status"]) {
 export function JobStatusPanel({ job }: JobStatusPanelProps) {
   const [state, formAction] = useActionState(updateJobStatusAction, initialState);
   const actions = getActions(job.status);
+  const qualityReport = getJobQualityReport(job);
 
   return (
     <div className="dashboard-form job-status-panel">
@@ -58,6 +61,8 @@ export function JobStatusPanel({ job }: JobStatusPanelProps) {
       </div>
 
       <div className="job-lifecycle">
+        <JobQualityPanel report={qualityReport} title="Controle publication" compact />
+
         <div className="document-card">
           <strong>Etat actuel</strong>
           <div className="document-meta">
@@ -71,7 +76,11 @@ export function JobStatusPanel({ job }: JobStatusPanelProps) {
             <form key={action.value} action={formAction}>
               <input type="hidden" name="job_id" value={job.id} />
               <input type="hidden" name="status" value={action.value} />
-              <button className={action.variant} type="submit">
+              <button
+                className={action.variant}
+                type="submit"
+                disabled={action.value === "published" && !qualityReport.readyForPublication}
+              >
                 {action.label}
               </button>
             </form>

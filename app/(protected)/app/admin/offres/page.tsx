@@ -7,6 +7,7 @@ import { summarizeManagedJobs } from "@/lib/managed-job-insights";
 import { requireRole } from "@/lib/auth";
 import { formatDisplayDate } from "@/lib/format";
 import { getAdminOrganizations, getManagedJobs } from "@/lib/jobs";
+import { getJobQualityReport } from "@/lib/job-quality";
 
 export default async function AdminJobsPage() {
   const profile = await requireRole(["admin"]);
@@ -19,6 +20,7 @@ export default async function AdminJobsPage() {
   const madajobPublishedCount = jobs.filter(
     (job) => job.status === "published" && (job.organization_name ?? "").toLowerCase() === "madajob"
   ).length;
+  const qualityIssuesCount = jobs.filter((job) => !getJobQualityReport(job).readyForPublication).length;
 
   return (
     <DashboardShell
@@ -46,7 +48,7 @@ export default async function AdminJobsPage() {
         <article className="panel metric-panel">
           <span>Diffusion Madajob</span>
           <strong>{madajobPublishedCount}</strong>
-          <small>{summary.featuredCount} mise(s) en avant, {summary.closingSoonCount} cloture(s) proche(s)</small>
+          <small>{qualityIssuesCount} annonce(s) a renforcer avant publication</small>
         </article>
       </section>
 
@@ -100,8 +102,8 @@ export default async function AdminJobsPage() {
 
               <article className="document-card managed-jobs-summary-card">
                 <strong>Moderation a arbitrer</strong>
-                <p>{summary.draftCount} brouillon(s) et {summary.closingSoonCount} cloture(s) proche(s).</p>
-                <small>La fiche detaillee pilote ensuite contenu, statut, diffusion et pipeline rattache.</small>
+                <p>{summary.draftCount} brouillon(s) et {qualityIssuesCount} score(s) qualite a renforcer.</p>
+                <small>Le score controle le titre, les competences, le salaire et la date de cloture.</small>
               </article>
             </div>
           </section>

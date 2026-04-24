@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState, useEffect, useRef } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 
 import { createJobAction, type JobActionState } from "@/app/actions/job-actions";
+import { JobQualityPanel } from "@/components/jobs/job-quality-panel";
 import { SubmitButton } from "@/components/jobs/submit-button";
 import {
   JOB_CONTRACT_TYPE_OPTIONS,
@@ -11,6 +12,7 @@ import {
   JOB_SECTOR_OPTIONS,
   JOB_WORK_MODE_OPTIONS
 } from "@/lib/job-options";
+import { getJobQualityReport, type JobQualityInput } from "@/lib/job-quality";
 import type { OrganizationOption } from "@/lib/types";
 
 const initialState: JobActionState = {
@@ -31,6 +33,7 @@ export function JobCreateForm({
 }: JobCreateFormProps) {
   const formRef = useRef<HTMLFormElement>(null);
   const [state, formAction] = useActionState(createJobAction, initialState);
+  const [qualityInput, setQualityInput] = useState<JobQualityInput>({});
   const activeOrganizations = organizationOptions.filter((organization) => organization.is_active);
   const defaultSelectedOrganizationId =
     defaultOrganizationId ||
@@ -41,11 +44,33 @@ export function JobCreateForm({
   useEffect(() => {
     if (state.status === "success") {
       formRef.current?.reset();
+      setQualityInput({});
     }
   }, [state.status]);
 
+  function updateQualityInput(form: HTMLFormElement) {
+    const formData = new FormData(form);
+
+    setQualityInput({
+      title: String(formData.get("title") ?? ""),
+      summary: String(formData.get("summary") ?? ""),
+      responsibilities: String(formData.get("responsibilities") ?? ""),
+      requirements: String(formData.get("requirements") ?? ""),
+      benefits: String(formData.get("benefits") ?? ""),
+      closing_at: String(formData.get("closing_at") ?? "")
+    });
+  }
+
+  const qualityReport = getJobQualityReport(qualityInput);
+
   return (
-    <form ref={formRef} action={formAction} className="dashboard-form job-create-form">
+    <form
+      ref={formRef}
+      action={formAction}
+      className="dashboard-form job-create-form"
+      onInput={(event) => updateQualityInput(event.currentTarget)}
+      onChange={(event) => updateQualityInput(event.currentTarget)}
+    >
       <div className="dashboard-form__head">
         <div>
           <p className="eyebrow">Creation d'offre</p>
@@ -142,6 +167,11 @@ export function JobCreateForm({
           </select>
         </label>
 
+        <label className="field">
+          <span>Date de cloture cible</span>
+          <input name="closing_at" type="date" />
+        </label>
+
         <label className="field field--full">
           <span>Resume</span>
           <textarea
@@ -175,10 +205,12 @@ export function JobCreateForm({
           <textarea
             name="benefits"
             rows={3}
-            placeholder="Elements de contexte, benefices, environnement..."
+            placeholder="Salaire, package, variable, avantages, environnement..."
           />
         </label>
       </div>
+
+      <JobQualityPanel report={qualityReport} title="Score avant publication" />
 
       <label className="checkbox-field">
         <input type="checkbox" name="is_featured" />

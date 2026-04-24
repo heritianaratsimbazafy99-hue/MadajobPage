@@ -13,6 +13,10 @@ import {
   createNotifications,
   getActiveProfileIdsByRole
 } from "@/lib/notifications";
+import {
+  getJobPublicationBlockerMessage,
+  getJobQualityReport
+} from "@/lib/job-quality";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { enqueueTransactionalEmails } from "@/lib/transactional-emails";
@@ -33,6 +37,22 @@ const uuidPattern =
 
 function getTrimmedValue(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
+}
+
+function getOptionalDateValue(formData: FormData, key: string) {
+  const value = getTrimmedValue(formData, key);
+
+  if (!value) {
+    return null;
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return undefined;
+  }
+
+  const parsedDate = new Date(`${value}T23:59:59.000Z`);
+
+  return Number.isNaN(parsedDate.getTime()) ? undefined : parsedDate.toISOString();
 }
 
 async function getJobMutationClient() {
@@ -132,7 +152,9 @@ async function getManageableJobForActor(
   const supabase = await getJobMutationClient();
   let query = supabase
     .from("job_posts")
-    .select("id, slug, title, status, published_at, closing_at, organization_id")
+    .select(
+      "id, slug, title, status, published_at, closing_at, organization_id, summary, responsibilities, requirements, benefits"
+    )
     .eq("id", jobId);
 
   if (role === "recruteur") {
@@ -191,12 +213,18 @@ async function updateJobStatusInternal(
   };
 
   if (nextStatus === "published") {
-    patch.published_at = now;
-    patch.closing_at = null;
+    const qualityReport = getJobQualityReport(job);
+
+    if (!qualityReport.readyForPublication) {
+      return {
+        status: "error",
+        message: getJobPublicationBlockerMessage(qualityReport)
+      };
+    }
+
+    patch.published_at = job.published_at ? String(job.published_at) : now;
   } else if (nextStatus === "closed") {
     patch.closing_at = now;
-  } else if (nextStatus === "draft") {
-    patch.closing_at = null;
   }
 
   const supabase = await getJobMutationClient();
@@ -299,6 +327,7 @@ export async function createJobAction(
   const responsibilities = getTrimmedValue(formData, "responsibilities");
   const requirements = getTrimmedValue(formData, "requirements");
   const benefits = getTrimmedValue(formData, "benefits");
+  const closingAt = getOptionalDateValue(formData, "closing_at");
   const status = getTrimmedValue(formData, "status") || "draft";
   const isFeatured = formData.get("is_featured") === "on";
 
@@ -306,6 +335,29 @@ export async function createJobAction(
     return {
       status: "error",
       message: "Le titre et le resume sont obligatoires pour creer une offre."
+    };
+  }
+
+  if (closingAt === undefined) {
+    return {
+      status: "error",
+      message: "La date de cloture est invalide."
+    };
+  }
+
+  const qualityReport = getJobQualityReport({
+    title,
+    summary,
+    responsibilities,
+    requirements,
+    benefits,
+    closing_at: closingAt
+  });
+
+  if (status === "published" && !qualityReport.readyForPublication) {
+    return {
+      status: "error",
+      message: getJobPublicationBlockerMessage(qualityReport)
     };
   }
 
@@ -329,7 +381,8 @@ export async function createJobAction(
     benefits,
     status,
     is_featured: isFeatured,
-    published_at: publishedAt
+    published_at: publishedAt,
+    closing_at: closingAt
   });
 
   if (error) {
@@ -411,12 +464,36 @@ export async function updateJobAction(
   const responsibilities = getTrimmedValue(formData, "responsibilities");
   const requirements = getTrimmedValue(formData, "requirements");
   const benefits = getTrimmedValue(formData, "benefits");
+  const closingAt = getOptionalDateValue(formData, "closing_at");
   const isFeatured = formData.get("is_featured") === "on";
 
   if (!title || !summary) {
     return {
       status: "error",
       message: "Le titre et le resume sont obligatoires."
+    };
+  }
+
+  if (closingAt === undefined) {
+    return {
+      status: "error",
+      message: "La date de cloture est invalide."
+    };
+  }
+
+  const qualityReport = getJobQualityReport({
+    title,
+    summary,
+    responsibilities,
+    requirements,
+    benefits,
+    closing_at: closingAt
+  });
+
+  if (job.status === "published" && !qualityReport.readyForPublication) {
+    return {
+      status: "error",
+      message: getJobPublicationBlockerMessage(qualityReport)
     };
   }
 
@@ -434,6 +511,7 @@ export async function updateJobAction(
       responsibilities: responsibilities || null,
       requirements: requirements || null,
       benefits: benefits || null,
+      closing_at: closingAt,
       is_featured: isFeatured
     })
     .eq("id", jobId);

@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 
 import { updateJobAction, type JobActionState } from "@/app/actions/job-actions";
+import { JobQualityPanel } from "@/components/jobs/job-quality-panel";
 import { SubmitButton } from "@/components/jobs/submit-button";
 import {
   JOB_CONTRACT_TYPE_OPTIONS,
@@ -11,6 +12,7 @@ import {
   JOB_SECTOR_OPTIONS,
   JOB_WORK_MODE_OPTIONS
 } from "@/lib/job-options";
+import { getJobQualityReport, type JobQualityInput } from "@/lib/job-quality";
 import type { ManagedJob } from "@/lib/types";
 
 const initialState: JobActionState = {
@@ -24,9 +26,36 @@ type JobEditFormProps = {
 
 export function JobEditForm({ job }: JobEditFormProps) {
   const [state, formAction] = useActionState(updateJobAction, initialState);
+  const [qualityInput, setQualityInput] = useState<JobQualityInput>({
+    title: job.title,
+    summary: job.summary,
+    responsibilities: job.responsibilities ?? "",
+    requirements: job.requirements ?? "",
+    benefits: job.benefits ?? "",
+    closing_at: job.closing_at
+  });
+  const qualityReport = getJobQualityReport(qualityInput);
+
+  function updateQualityInput(form: HTMLFormElement) {
+    const formData = new FormData(form);
+
+    setQualityInput({
+      title: String(formData.get("title") ?? ""),
+      summary: String(formData.get("summary") ?? ""),
+      responsibilities: String(formData.get("responsibilities") ?? ""),
+      requirements: String(formData.get("requirements") ?? ""),
+      benefits: String(formData.get("benefits") ?? ""),
+      closing_at: String(formData.get("closing_at") ?? "")
+    });
+  }
 
   return (
-    <form action={formAction} className="dashboard-form">
+    <form
+      action={formAction}
+      className="dashboard-form"
+      onInput={(event) => updateQualityInput(event.currentTarget)}
+      onChange={(event) => updateQualityInput(event.currentTarget)}
+    >
       <input type="hidden" name="job_id" value={job.id} />
 
       <div className="dashboard-form__head">
@@ -103,6 +132,11 @@ export function JobEditForm({ job }: JobEditFormProps) {
           </select>
         </label>
 
+        <label className="field">
+          <span>Date de cloture cible</span>
+          <input name="closing_at" type="date" defaultValue={job.closing_at?.slice(0, 10) ?? ""} />
+        </label>
+
         <label className="field field--full">
           <span>Resume</span>
           <textarea name="summary" rows={4} defaultValue={job.summary} required />
@@ -123,6 +157,8 @@ export function JobEditForm({ job }: JobEditFormProps) {
           <textarea name="benefits" rows={4} defaultValue={job.benefits ?? ""} />
         </label>
       </div>
+
+      <JobQualityPanel report={qualityReport} title="Score avant publication" />
 
       <label className="checkbox-field">
         <input type="checkbox" name="is_featured" defaultChecked={job.is_featured} />

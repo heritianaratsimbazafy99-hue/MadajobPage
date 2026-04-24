@@ -5,9 +5,11 @@ import { MatchBreakdown } from "@/components/jobs/match-breakdown";
 import { DashboardShell } from "@/components/dashboard/shell";
 import { JobEditForm } from "@/components/jobs/job-edit-form";
 import { JobHistoryPanel } from "@/components/jobs/job-history-panel";
+import { JobQualityPanel } from "@/components/jobs/job-quality-panel";
 import { JobStatusPanel } from "@/components/jobs/job-status-panel";
 import { getApplicationStatusMeta } from "@/lib/application-status";
 import { formatDisplayDate } from "@/lib/format";
+import { getJobQualityReport } from "@/lib/job-quality";
 import { summarizeJobManagementApplications } from "@/lib/job-management-insights";
 import type { JobMatchResult } from "@/lib/matching";
 import type {
@@ -46,6 +48,7 @@ export function JobManagementWorkspace({
     profile.role === "admin" ? "/app/admin/candidats" : "/app/recruteur/candidats";
   const summary = summarizeJobManagementApplications(relatedApplications);
   const topApplication = summary.topApplication;
+  const qualityReport = getJobQualityReport(job);
   const topApplicationStatus = topApplication
     ? getApplicationStatusMeta(topApplication.status)
     : null;
@@ -74,9 +77,9 @@ export function JobManagementWorkspace({
           <small>{summary.pendingFeedbackCount} feedback(s) encore a saisir</small>
         </article>
         <article className="panel metric-panel">
-          <span>Decisions prêtes</span>
-          <strong>{summary.readyDecisionCount}</strong>
-          <small>{summary.favorableFeedbackCount} feedback(s) favorables</small>
+          <span>Qualite annonce</span>
+          <strong>{qualityReport.score}%</strong>
+          <small>{qualityReport.label}</small>
         </article>
       </section>
 
@@ -306,6 +309,8 @@ export function JobManagementWorkspace({
               ) : null}
             </div>
           </div>
+
+          <JobQualityPanel report={qualityReport} title="Controle publication" />
 
           <JobStatusPanel job={job} />
         </aside>

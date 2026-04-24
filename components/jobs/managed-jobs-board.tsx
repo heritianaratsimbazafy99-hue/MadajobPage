@@ -5,7 +5,9 @@ import { useDeferredValue, useEffect, useMemo, useState, useTransition } from "r
 
 import { quickUpdateJobStatusAction } from "@/app/actions/job-actions";
 import { DashboardEmptyState } from "@/components/dashboard/empty-state";
+import { JobQualityPanel } from "@/components/jobs/job-quality-panel";
 import { formatDisplayDate } from "@/lib/format";
+import { getJobQualityReport } from "@/lib/job-quality";
 import {
   getManagedJobPriorityMeta,
   getManagedJobPriorityScore,
@@ -24,7 +26,7 @@ type ManagedFilters = {
   status: string;
   location: string;
   organizationId: string;
-  focus: "" | ManagedJobPriorityKey;
+  focus: "" | ManagedJobPriorityKey | "quality_low";
   sort: "priority_desc" | "recent" | "oldest" | "applications_desc";
 };
 
@@ -81,6 +83,7 @@ export function ManagedJobsBoard({ jobs, basePath }: ManagedJobsBoardProps) {
     return boardJobs
       .filter((job) => {
         const priorityMeta = getManagedJobPriorityMeta(job);
+        const qualityReport = getJobQualityReport(job);
         const matchesQuery =
           !query ||
           [
@@ -92,7 +95,9 @@ export function ManagedJobsBoard({ jobs, basePath }: ManagedJobsBoardProps) {
             job.sector,
             job.organization_name,
             priorityMeta.label,
-            priorityMeta.description
+            priorityMeta.description,
+            qualityReport.label,
+            ...qualityReport.alerts.map((alert) => alert.label)
           ]
             .filter((value): value is string => typeof value === "string" && value.length > 0)
             .some((value) => value.toLowerCase().includes(query));
@@ -101,7 +106,11 @@ export function ManagedJobsBoard({ jobs, basePath }: ManagedJobsBoardProps) {
         const matchesLocation = !filters.location || job.location === filters.location;
         const matchesOrganization =
           !filters.organizationId || job.organization_id === filters.organizationId;
-        const matchesFocus = !filters.focus || priorityMeta.key === filters.focus;
+        const matchesFocus =
+          !filters.focus ||
+          (filters.focus === "quality_low"
+            ? !qualityReport.readyForPublication
+            : priorityMeta.key === filters.focus);
 
         return matchesQuery && matchesStatus && matchesLocation && matchesOrganization && matchesFocus;
       })
@@ -139,6 +148,10 @@ export function ManagedJobsBoard({ jobs, basePath }: ManagedJobsBoardProps) {
   ]);
 
   const filteredSummary = useMemo(() => summarizeManagedJobs(filteredJobs), [filteredJobs]);
+  const filteredQualityIssuesCount = useMemo(
+    () => filteredJobs.filter((job) => !getJobQualityReport(job).readyForPublication).length,
+    [filteredJobs]
+  );
 
   const activeFilterCount = [
     filters.query,
@@ -153,6 +166,18 @@ export function ManagedJobsBoard({ jobs, basePath }: ManagedJobsBoardProps) {
     const targetJob = boardJobs.find((job) => job.id === jobId);
 
     if (!targetJob || targetJob.status === nextStatus || isPending) {
+      return;
+    }
+
+    const qualityReport = getJobQualityReport(targetJob);
+
+    if (nextStatus === "published" && !qualityReport.readyForPublication) {
+      setFeedback({
+        kind: "error",
+        message: `Avant publication, corrigez le score qualite : ${qualityReport.alerts
+          .map((alert) => alert.label.toLowerCase())
+          .join(", ")}.`
+      });
       return;
     }
 
@@ -345,6 +370,7 @@ export function ManagedJobsBoard({ jobs, basePath }: ManagedJobsBoardProps) {
               <option value="to_publish">
                 {isAdminView ? "A publier en priorite" : "Brouillons a publier"}
               </option>
+              <option value="quality_low">Score qualite a renforcer</option>
               <option value="closing_soon">Cloture proche</option>
               <option value="live_without_candidates">Publiees sans candidatures</option>
               <option value="active_pipeline">Pipeline actif</option>
@@ -383,6 +409,10 @@ export function ManagedJobsBoard({ jobs, basePath }: ManagedJobsBoardProps) {
           <article className="document-card">
             <strong>{filteredSummary.closingSoonCount}</strong>
             <p>cloture(s) proche(s)</p>
+          </article>
+          <article className="document-card">
+            <strong>{filteredQualityIssuesCount}</strong>
+            <p>score qualite a renforcer</p>
           </article>
           <article className="document-card">
             <strong>{filteredSummary.activePipelineCount}</strong>
@@ -425,6 +455,7 @@ export function ManagedJobsBoard({ jobs, basePath }: ManagedJobsBoardProps) {
         {filteredJobs.length > 0 ? (
           filteredJobs.map((job) => {
             const priorityMeta = getManagedJobPriorityMeta(job);
+            const qualityReport = getJobQualityReport(job);
 
             return (
               <article key={job.id} className="panel job-card jobs-result-card">
@@ -432,6 +463,7 @@ export function ManagedJobsBoard({ jobs, basePath }: ManagedJobsBoardProps) {
                   <div className="jobs-result-card__badges">
                     <span className="tag">{job.status}</span>
                     <span className={`tag tag--${priorityMeta.tone}`}>{priorityMeta.label}</span>
+                    <span className={`tag tag--${qualityReport.tone}`}>Qualite {qualityReport.score}%</span>
                     {job.is_featured ? <span className="tag tag--success">Mise en avant</span> : null}
                   </div>
                   <small>Mise a jour le {formatDisplayDate(job.updated_at)}</small>
@@ -462,6 +494,8 @@ export function ManagedJobsBoard({ jobs, basePath }: ManagedJobsBoardProps) {
                   </p>
                 </div>
 
+                <JobQualityPanel report={qualityReport} title="Controle avant publication" compact />
+
                 <div className="job-card__footer">
                   <small>
                     Publiee le {formatDisplayDate(job.published_at)}{job.department ? ` · ${job.department}` : ""}
@@ -480,7 +514,10 @@ export function ManagedJobsBoard({ jobs, basePath }: ManagedJobsBoardProps) {
                       key={action.value}
                       type="button"
                       className={action.variant}
-                      disabled={isPending}
+                      disabled={
+                        isPending ||
+                        (action.value === "published" && !qualityReport.readyForPublication)
+                      }
                       onClick={() => void handleQuickStatusUpdate(job.id, action.value)}
                     >
                       {action.label}

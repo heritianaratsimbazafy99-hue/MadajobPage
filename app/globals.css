@@ -1319,8 +1319,77 @@ code {
   gap: 14px;
 }
 
+.job-quality-panel {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.job-quality-panel--compact {
+  padding: 14px;
+}
+
+.job-quality-panel__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.job-quality-panel h3 {
+  margin: 4px 0 0;
+  font-size: 1.08rem;
+}
+
+.job-quality-meter {
+  height: 9px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(22, 49, 74, 0.09);
+}
+
+.job-quality-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--blue-soft), var(--lime));
+}
+
+.job-quality-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.job-quality-list li {
+  display: grid;
+  gap: 3px;
+  color: var(--muted);
+}
+
+.job-quality-list strong {
+  color: var(--ink);
+}
+
+.job-quality-panel__ready {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
 .job-status-panel form {
   margin: 0;
+}
+
+.btn:disabled,
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
 }
 
 .application-notes {

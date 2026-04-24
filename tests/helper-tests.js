@@ -52,6 +52,9 @@ const {
   getAdminPlatformRecommendations,
   getRecruiterPlatformRecommendations
 } = require("../lib/platform-recommendations.ts");
+const {
+  getJobQualityReport
+} = require("../lib/job-quality.ts");
 
 const fixedNow = new Date("2026-04-23T12:00:00.000Z").getTime();
 
@@ -396,4 +399,37 @@ test("recommendations: remonte les risques admin avant les signaux secondaires",
       (recommendation) => recommendation.id === "admin-organizations-without-recruiter"
     )
   );
+});
+
+test("job quality: bloque une annonce trop vague avant publication", () => {
+  const report = getJobQualityReport({
+    title: "Manager",
+    summary: "Poste a pourvoir rapidement.",
+    responsibilities: "",
+    requirements: "",
+    benefits: "",
+    closing_at: null
+  });
+
+  assert.equal(report.readyForPublication, false);
+  assert.ok(report.score < 70);
+  assert.deepEqual(
+    report.alerts.map((alert) => alert.key),
+    ["vague_title", "missing_skills", "missing_salary", "missing_closing_date"]
+  );
+});
+
+test("job quality: valide une annonce exploitable avec salaire et cloture", () => {
+  const report = getJobQualityReport({
+    title: "Responsable commercial B2B grands comptes",
+    summary: "Piloter la prospection, le pipeline et le developpement des comptes strategiques.",
+    responsibilities: "Structurer les campagnes de prospection, qualifier les leads et suivre le CRM.",
+    requirements: "Experience B2B, negociation, CRM et gestion de pipeline commercial.",
+    benefits: "Salaire fixe + variable, primes de performance et accompagnement terrain.",
+    closing_at: "2026-05-30T23:59:59.000Z"
+  });
+
+  assert.equal(report.readyForPublication, true);
+  assert.equal(report.alerts.length, 0);
+  assert.ok(report.score >= 85);
 });
