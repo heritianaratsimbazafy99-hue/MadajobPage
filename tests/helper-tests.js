@@ -80,6 +80,10 @@ const {
   getJobCanonicalUrl,
   getJobSeoDescription
 } = require("../lib/job-posting-seo.ts");
+const {
+  EXPECTED_PRODUCTION_SITE_URL,
+  getLaunchReadinessChecks
+} = require("../lib/launch-readiness.ts");
 
 const fixedNow = new Date("2026-04-23T12:00:00.000Z").getTime();
 
@@ -868,4 +872,31 @@ test("job SEO: genere un JSON-LD JobPosting complet pour Google Jobs", () => {
     "https://madajob-page.vercel.app/carrieres/responsable-commercial-seo"
   );
   assert.match(getJobSeoDescription(job), /Developper un portefeuille B2B/i);
+});
+
+test("launch readiness: verifie les prerequis Vercel et Supabase prod", () => {
+  const readyChecks = getLaunchReadinessChecks({
+    NEXT_PUBLIC_SUPABASE_URL: "https://project.supabase.co",
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "publishable-key",
+    SUPABASE_SERVICE_ROLE_KEY: "service-role-key",
+    NEXT_PUBLIC_SITE_URL: EXPECTED_PRODUCTION_SITE_URL
+  });
+
+  assert.equal(readyChecks.find((check) => check.id === "launch-vercel-env-vars").status, "ok");
+  assert.equal(readyChecks.find((check) => check.id === "launch-site-url").status, "ok");
+  assert.equal(
+    readyChecks.find((check) => check.id === "launch-supabase-auth-redirects").value,
+    "A confirmer"
+  );
+
+  const missingChecks = getLaunchReadinessChecks({
+    NEXT_PUBLIC_SUPABASE_URL: "",
+    NEXT_PUBLIC_SITE_URL: "http://localhost:3000"
+  });
+
+  assert.equal(
+    missingChecks.find((check) => check.id === "launch-vercel-env-vars").status,
+    "danger"
+  );
+  assert.equal(missingChecks.find((check) => check.id === "launch-site-url").status, "warning");
 });

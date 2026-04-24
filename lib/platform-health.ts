@@ -1,6 +1,7 @@
 import { unstable_noStore as noStore } from "next/cache";
 
 import { appEnv, isSupabaseConfigured } from "@/lib/env";
+import { getLaunchReadinessChecks } from "@/lib/launch-readiness";
 import { summarizeManagedUsers } from "@/lib/managed-user-insights";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -211,6 +212,7 @@ async function buildRlsChecks() {
     audit,
     interviews,
     feedback,
+    cvLibrary,
     isAdmin,
     isRecruiter,
     currentUserOrgId
@@ -222,6 +224,7 @@ async function buildRlsChecks() {
     checkRlsTable("audit_events", "Audit interne"),
     checkRlsTable("application_interviews", "Entretiens"),
     checkRlsTable("application_interview_feedback", "Feedbacks entretien"),
+    checkRlsTable("cv_library_documents", "CVtheque independante"),
     checkRlsFunction("is_admin", "Fonction is_admin()", true),
     checkRlsFunction("is_recruiter", "Fonction is_recruiter()"),
     checkRlsFunction("current_user_org_id", "Fonction current_user_org_id()")
@@ -235,6 +238,7 @@ async function buildRlsChecks() {
     audit,
     interviews,
     feedback,
+    cvLibrary,
     isAdmin,
     isRecruiter,
     currentUserOrgId
@@ -332,7 +336,7 @@ async function buildStorageChecks(): Promise<PlatformHealthCheck[]> {
     ]);
 
   const bucketIds = new Set((buckets ?? []).map((bucket) => bucket.id));
-  const expectedBuckets = ["candidate-cv", "candidate-documents", "brand-assets"];
+  const expectedBuckets = ["candidate-cv", "candidate-documents", "brand-assets", "cv-library"];
   const bucketChecks = expectedBuckets.map<PlatformHealthCheck>((bucketId) => ({
     id: `storage-bucket-${bucketId}`,
     title: `Bucket ${bucketId}`,
@@ -464,6 +468,12 @@ export async function getPlatformHealthSnapshot({
       title: "Configuration",
       description: "Variables critiques pour Supabase, Auth et operations admin.",
       checks: buildEnvironmentChecks()
+    },
+    {
+      id: "launch-readiness",
+      title: "Pre-lancement",
+      description: "Controle des prerequis production Supabase et Vercel avant ouverture.",
+      checks: getLaunchReadinessChecks()
     },
     {
       id: "rls",
