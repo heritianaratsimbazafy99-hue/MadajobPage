@@ -246,6 +246,19 @@ const fallbackCandidateProfile: CandidateProfileData = {
 };
 
 function mapJobRecord(record: Record<string, unknown>): Job {
+  const salaryMin =
+    typeof record.salary_min === "number"
+      ? record.salary_min
+      : typeof record.salary_min === "string"
+        ? Number(record.salary_min)
+        : null;
+  const salaryMax =
+    typeof record.salary_max === "number"
+      ? record.salary_max
+      : typeof record.salary_max === "string"
+        ? Number(record.salary_max)
+        : null;
+
   return {
     id: String(record.id),
     title: String(record.title ?? ""),
@@ -260,6 +273,11 @@ function mapJobRecord(record: Record<string, unknown>): Job {
       typeof record.responsibilities === "string" ? record.responsibilities : "",
     requirements: typeof record.requirements === "string" ? record.requirements : "",
     benefits: typeof record.benefits === "string" ? record.benefits : "",
+    salary_min: Number.isFinite(salaryMin) ? salaryMin : null,
+    salary_max: Number.isFinite(salaryMax) ? salaryMax : null,
+    salary_currency: typeof record.salary_currency === "string" ? record.salary_currency : "MGA",
+    salary_period: typeof record.salary_period === "string" ? record.salary_period : "month",
+    salary_is_visible: Boolean(record.salary_is_visible),
     status: (record.status as Job["status"]) ?? "draft",
     is_featured: Boolean(record.is_featured),
     published_at: (record.published_at as string | null) ?? null,
@@ -272,6 +290,19 @@ function mapJobRecord(record: Record<string, unknown>): Job {
 }
 
 function mapManagedJobRecord(record: Record<string, unknown>): ManagedJob {
+  const salaryMin =
+    typeof record.salary_min === "number"
+      ? record.salary_min
+      : typeof record.salary_min === "string"
+        ? Number(record.salary_min)
+        : null;
+  const salaryMax =
+    typeof record.salary_max === "number"
+      ? record.salary_max
+      : typeof record.salary_max === "string"
+        ? Number(record.salary_max)
+        : null;
+
   return {
     ...mapJobRecord(record),
     organization_id: typeof record.organization_id === "string" ? record.organization_id : null,
@@ -280,6 +311,11 @@ function mapManagedJobRecord(record: Record<string, unknown>): ManagedJob {
       typeof record.responsibilities === "string" ? record.responsibilities : "",
     requirements: typeof record.requirements === "string" ? record.requirements : "",
     benefits: typeof record.benefits === "string" ? record.benefits : "",
+    salary_min: Number.isFinite(salaryMin) ? salaryMin : null,
+    salary_max: Number.isFinite(salaryMax) ? salaryMax : null,
+    salary_currency: typeof record.salary_currency === "string" ? record.salary_currency : "MGA",
+    salary_period: typeof record.salary_period === "string" ? record.salary_period : "month",
+    salary_is_visible: Boolean(record.salary_is_visible),
     created_at: String(record.created_at ?? ""),
     updated_at: String(record.updated_at ?? ""),
     closing_at: typeof record.closing_at === "string" ? record.closing_at : null,
@@ -537,7 +573,7 @@ export async function getPublicJobs(options: PublicJobsOptions = {}) {
   let query = supabase
     .from("job_posts")
     .select(
-      "id, title, slug, department, location, contract_type, work_mode, sector, summary, responsibilities, requirements, benefits, status, is_featured, published_at, closing_at, created_at"
+      "id, title, slug, department, location, contract_type, work_mode, sector, summary, responsibilities, requirements, benefits, salary_min, salary_max, salary_currency, salary_period, salary_is_visible, status, is_featured, published_at, closing_at, created_at"
     )
     .eq("status", "published");
 
@@ -575,7 +611,7 @@ export async function getPublicJobBySlug(slug: string) {
   const { data, error } = await supabase
     .from("job_posts")
     .select(
-      "id, title, slug, department, location, contract_type, work_mode, sector, summary, responsibilities, requirements, benefits, status, is_featured, published_at, closing_at, created_at"
+      "id, title, slug, department, location, contract_type, work_mode, sector, summary, responsibilities, requirements, benefits, salary_min, salary_max, salary_currency, salary_period, salary_is_visible, status, is_featured, published_at, closing_at, created_at"
     )
     .eq("slug", slug)
     .eq("status", "published")
@@ -603,7 +639,7 @@ export async function getPublishedJobById(jobId: string) {
   const { data, error } = await supabase
     .from("job_posts")
     .select(
-      "id, title, slug, department, location, contract_type, work_mode, sector, summary, responsibilities, requirements, benefits, status, is_featured, published_at, closing_at, created_at"
+      "id, title, slug, department, location, contract_type, work_mode, sector, summary, responsibilities, requirements, benefits, salary_min, salary_max, salary_currency, salary_period, salary_is_visible, status, is_featured, published_at, closing_at, created_at"
     )
     .eq("id", jobId)
     .eq("status", "published")
@@ -1275,7 +1311,7 @@ export async function getRecruiterSnapshot(profile: Profile) {
   const supabase = await createClient();
   const { data: jobsData, error: jobsError } = await supabase
     .from("job_posts")
-    .select("id, title, slug, location, contract_type, work_mode, sector, summary, status, is_featured, published_at")
+    .select("id, title, slug, location, contract_type, work_mode, sector, summary, salary_min, salary_max, salary_currency, salary_period, salary_is_visible, status, is_featured, published_at")
     .eq("organization_id", profile.organization_id)
     .order("created_at", { ascending: false })
     .limit(6);
@@ -1341,7 +1377,7 @@ export async function getManagedJobs(profile: Profile, options: { limit?: number
   let query = supabase
     .from("job_posts")
     .select(
-      "id, title, slug, organization_id, department, location, contract_type, work_mode, sector, summary, responsibilities, requirements, benefits, status, is_featured, published_at, closing_at, created_at, updated_at"
+      "id, title, slug, organization_id, department, location, contract_type, work_mode, sector, summary, responsibilities, requirements, benefits, salary_min, salary_max, salary_currency, salary_period, salary_is_visible, status, is_featured, published_at, closing_at, created_at, updated_at"
     )
     .order("created_at", { ascending: false });
 
@@ -1423,7 +1459,7 @@ export async function getManagedJobById(profile: Profile, jobId: string) {
   let query = supabase
     .from("job_posts")
     .select(
-      "id, title, slug, organization_id, department, location, contract_type, work_mode, sector, summary, responsibilities, requirements, benefits, status, is_featured, published_at, closing_at, created_at, updated_at"
+      "id, title, slug, organization_id, department, location, contract_type, work_mode, sector, summary, responsibilities, requirements, benefits, salary_min, salary_max, salary_currency, salary_period, salary_is_visible, status, is_featured, published_at, closing_at, created_at, updated_at"
     )
     .eq("id", jobId);
 
@@ -2998,7 +3034,7 @@ export async function getAdminOrganizationDetail(organizationId: string) {
     adminClient
       .from("job_posts")
       .select(
-        "id, title, slug, department, location, contract_type, work_mode, sector, summary, responsibilities, requirements, benefits, status, is_featured, published_at, closing_at, created_at, updated_at"
+        "id, title, slug, department, location, contract_type, work_mode, sector, summary, responsibilities, requirements, benefits, salary_min, salary_max, salary_currency, salary_period, salary_is_visible, status, is_featured, published_at, closing_at, created_at, updated_at"
       )
       .eq("organization_id", organizationId)
       .order("created_at", { ascending: false })
@@ -3493,7 +3529,7 @@ export async function getAdminUserDetail(userId: string) {
     adminClient
       .from("job_posts")
       .select(
-        "id, title, slug, location, contract_type, work_mode, sector, summary, status, is_featured, published_at, created_at, updated_at, closing_at"
+        "id, title, slug, location, contract_type, work_mode, sector, summary, salary_min, salary_max, salary_currency, salary_period, salary_is_visible, status, is_featured, published_at, created_at, updated_at, closing_at"
       )
       .eq("created_by", userId)
       .order("created_at", { ascending: false })
@@ -3586,7 +3622,7 @@ export async function getAdminSnapshot() {
     supabase.from("applications").select("id", { count: "exact", head: true }),
     supabase
       .from("job_posts")
-      .select("id, title, slug, location, contract_type, work_mode, sector, summary, status, is_featured, published_at")
+      .select("id, title, slug, location, contract_type, work_mode, sector, summary, salary_min, salary_max, salary_currency, salary_period, salary_is_visible, status, is_featured, published_at")
       .order("created_at", { ascending: false })
       .limit(5)
   ]);

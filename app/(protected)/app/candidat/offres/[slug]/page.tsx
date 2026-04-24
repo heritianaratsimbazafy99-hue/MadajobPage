@@ -12,6 +12,7 @@ import { getCandidateProfileInsights } from "@/lib/candidate-profile";
 import { buildCandidateJobOpportunities } from "@/lib/candidate-job-insights";
 import { getCandidateSavedJobsMap } from "@/lib/candidate-saved-jobs";
 import { formatDateTimeDisplay, formatDisplayDate } from "@/lib/format";
+import { formatJobSalary } from "@/lib/job-salary";
 import {
   getCandidateApplicationSummaries,
   getCandidateWorkspace,
@@ -73,6 +74,7 @@ export default async function CandidateJobDetailPage({
   const responsibilities = splitDetailBlock(job.responsibilities);
   const requirements = splitDetailBlock(job.requirements);
   const benefits = splitDetailBlock(job.benefits);
+  const salaryLabel = formatJobSalary(job);
 
   return (
     <DashboardShell
@@ -138,6 +140,7 @@ export default async function CandidateJobDetailPage({
               <span>{job.contract_type}</span>
               <span>{job.work_mode}</span>
               <span>{job.sector}</span>
+              {salaryLabel ? <span>{salaryLabel}</span> : null}
               {currentOpportunity?.isSaved ? <span>Offre sauvegardee</span> : null}
             </div>
             <p className="detail-date">Publication : {formatDisplayDate(job.published_at)}</p>
@@ -235,6 +238,7 @@ export default async function CandidateJobDetailPage({
 
               <article className="document-card">
                 <strong>Avantages et cadre</strong>
+                {salaryLabel ? <p>{salaryLabel}</p> : null}
                 {benefits.length > 0 ? (
                   <ul className="dashboard-mini-list dashboard-mini-list--compact">
                     {benefits.map((item) => (

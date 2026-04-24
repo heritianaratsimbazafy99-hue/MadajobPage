@@ -81,6 +81,11 @@ function buildJob(overrides = {}) {
     responsibilities: "Prospection, CRM, closing et suivi grands comptes.",
     requirements: "Experience B2B, negociation, CRM et gestion de pipeline.",
     benefits: "Package fixe et variable.",
+    salary_min: null,
+    salary_max: null,
+    salary_currency: "MGA",
+    salary_period: "month",
+    salary_is_visible: false,
     status: "published",
     is_featured: false,
     published_at: "2026-04-10T08:00:00.000Z",
@@ -425,7 +430,12 @@ test("job quality: valide une annonce exploitable avec salaire et cloture", () =
     summary: "Piloter la prospection, le pipeline et le developpement des comptes strategiques.",
     responsibilities: "Structurer les campagnes de prospection, qualifier les leads et suivre le CRM.",
     requirements: "Experience B2B, negociation, CRM et gestion de pipeline commercial.",
-    benefits: "Salaire fixe + variable, primes de performance et accompagnement terrain.",
+    benefits: "Primes de performance et accompagnement terrain.",
+    salary_min: 1200000,
+    salary_max: 1800000,
+    salary_currency: "MGA",
+    salary_period: "month",
+    salary_is_visible: true,
     closing_at: "2026-05-30T23:59:59.000Z"
   });
 

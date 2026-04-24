@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useDeferredValue, useMemo, useState } from "react";
 
 import { formatDisplayDate } from "@/lib/format";
+import { formatJobSalary } from "@/lib/job-salary";
 import type { Job } from "@/lib/types";
 
 type PublicCareersBoardProps = {
@@ -64,7 +65,8 @@ export function PublicCareersBoard({ jobs }: PublicCareersBoardProps) {
             job.contract_type,
             job.work_mode,
             job.sector,
-            job.organization_name
+            job.organization_name,
+            formatJobSalary(job)
           ]
             .filter((value): value is string => typeof value === "string" && value.length > 0)
             .some((value) => value.toLowerCase().includes(query));
@@ -246,29 +248,34 @@ export function PublicCareersBoard({ jobs }: PublicCareersBoardProps) {
 
       <section className="career-results-grid">
         {filteredJobs.length > 0 ? (
-          filteredJobs.map((job) => (
-            <article key={job.id} className="panel job-card career-job-card">
-              <div className="career-job-card__head">
-                <div className="dashboard-card__badges">
-                  {job.is_featured ? <span className="tag tag--success">Mise en avant</span> : null}
-                  <span className="tag tag--muted">{job.sector || "Madajob"}</span>
+          filteredJobs.map((job) => {
+            const salaryLabel = formatJobSalary(job);
+
+            return (
+              <article key={job.id} className="panel job-card career-job-card">
+                <div className="career-job-card__head">
+                  <div className="dashboard-card__badges">
+                    {job.is_featured ? <span className="tag tag--success">Mise en avant</span> : null}
+                    <span className="tag tag--muted">{job.sector || "Madajob"}</span>
+                  </div>
+                  <small>Publie le {formatDisplayDate(job.published_at)}</small>
                 </div>
-                <small>Publie le {formatDisplayDate(job.published_at)}</small>
-              </div>
-              <h2>{job.title}</h2>
-              <p>{job.summary}</p>
-              <div className="job-card__meta">
-                <span>{job.organization_name || "Madajob"}</span>
-                <span>{job.location}</span>
-                <span>{job.contract_type}</span>
-                <span>{job.work_mode}</span>
-              </div>
-              <div className="job-card__footer">
-                <small>{job.department || "Offre publiee sur Madajob"}</small>
-                <Link href={`/carrieres/${job.slug}`}>Voir le detail</Link>
-              </div>
-            </article>
-          ))
+                <h2>{job.title}</h2>
+                <p>{job.summary}</p>
+                <div className="job-card__meta">
+                  <span>{job.organization_name || "Madajob"}</span>
+                  <span>{job.location}</span>
+                  <span>{job.contract_type}</span>
+                  <span>{job.work_mode}</span>
+                  {salaryLabel ? <span>{salaryLabel}</span> : null}
+                </div>
+                <div className="job-card__footer">
+                  <small>{job.department || "Offre publiee sur Madajob"}</small>
+                  <Link href={`/carrieres/${job.slug}`}>Voir le detail</Link>
+                </div>
+              </article>
+            );
+          })
         ) : (
           <article className="panel job-card career-job-card">
             <h2>Aucune offre ne correspond a ces filtres</h2>

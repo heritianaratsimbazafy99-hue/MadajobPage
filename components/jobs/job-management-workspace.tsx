@@ -10,6 +10,7 @@ import { JobStatusPanel } from "@/components/jobs/job-status-panel";
 import { getApplicationStatusMeta } from "@/lib/application-status";
 import { formatDisplayDate } from "@/lib/format";
 import { getJobQualityReport } from "@/lib/job-quality";
+import { formatJobSalary } from "@/lib/job-salary";
 import { summarizeJobManagementApplications } from "@/lib/job-management-insights";
 import type { JobMatchResult } from "@/lib/matching";
 import type {
@@ -50,6 +51,7 @@ export function JobManagementWorkspace({
   const summary = summarizeJobManagementApplications(relatedApplications);
   const topApplication = summary.topApplication;
   const qualityReport = getJobQualityReport(job);
+  const salaryLabel = formatJobSalary(job);
   const topApplicationStatus = topApplication
     ? getApplicationStatusMeta(topApplication.status)
     : null;
@@ -289,6 +291,7 @@ export function JobManagementWorkspace({
               <li>Slug public : /carrieres/{job.slug}</li>
               <li>Cloture : {job.closing_at ? formatDisplayDate(job.closing_at) : "non definie"}</li>
               <li>Secteur : {job.sector || "non renseigne"}</li>
+              <li>Remuneration : {salaryLabel || "non affichee"}</li>
               <li>Publication : {job.published_at ? formatDisplayDate(job.published_at) : "non publiee"}</li>
             </ul>
             <div className="dashboard-action-stack">

@@ -95,6 +95,11 @@ export type Job = {
   responsibilities?: string;
   requirements?: string;
   benefits?: string;
+  salary_min?: number | null;
+  salary_max?: number | null;
+  salary_currency?: string | null;
+  salary_period?: string | null;
+  salary_is_visible?: boolean;
   status: "draft" | "published" | "closed" | "archived";
   is_featured: boolean;
   published_at: string | null;
@@ -108,6 +113,11 @@ export type ManagedJob = Job & {
   responsibilities?: string;
   requirements?: string;
   benefits?: string;
+  salary_min?: number | null;
+  salary_max?: number | null;
+  salary_currency?: string | null;
+  salary_period?: string | null;
+  salary_is_visible?: boolean;
   created_at: string;
   updated_at: string;
   closing_at: string | null;

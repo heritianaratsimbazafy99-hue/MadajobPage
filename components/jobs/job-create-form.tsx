@@ -68,6 +68,11 @@ export function JobCreateForm({
       requirements: String(formData.get("requirements") ?? ""),
       benefits: String(formData.get("benefits") ?? ""),
       closing_at: String(formData.get("closing_at") ?? ""),
+      salary_min: Number(formData.get("salary_min") || 0) || null,
+      salary_max: Number(formData.get("salary_max") || 0) || null,
+      salary_currency: String(formData.get("salary_currency") ?? "MGA"),
+      salary_period: String(formData.get("salary_period") ?? "month"),
+      salary_is_visible: formData.get("salary_is_visible") === "on",
       organization_name: selectedOrganization?.name ?? (roleLabel === "Admin" ? "Madajob" : "Votre organisation"),
       is_featured: formData.get("is_featured") === "on",
       status: String(formData.get("status") ?? "draft")
@@ -221,7 +226,41 @@ export function JobCreateForm({
             placeholder="Salaire, package, variable, avantages, environnement..."
           />
         </label>
+
+        <label className="field">
+          <span>Salaire minimum</span>
+          <input name="salary_min" type="number" min="0" step="1000" placeholder="Ex. 1200000" />
+        </label>
+
+        <label className="field">
+          <span>Salaire maximum</span>
+          <input name="salary_max" type="number" min="0" step="1000" placeholder="Ex. 1800000" />
+        </label>
+
+        <label className="field">
+          <span>Devise</span>
+          <select name="salary_currency" defaultValue="MGA">
+            <option value="MGA">MGA</option>
+            <option value="EUR">EUR</option>
+            <option value="USD">USD</option>
+          </select>
+        </label>
+
+        <label className="field">
+          <span>Periode</span>
+          <select name="salary_period" defaultValue="month">
+            <option value="month">Mensuel</option>
+            <option value="year">Annuel</option>
+            <option value="day">Journalier</option>
+            <option value="hour">Horaire</option>
+          </select>
+        </label>
       </div>
+
+      <label className="checkbox-field">
+        <input type="checkbox" name="salary_is_visible" />
+        <span>Afficher cette remuneration sur la page publique</span>
+      </label>
 
       <JobQualityPanel report={qualityReport} title="Score avant publication" />
 

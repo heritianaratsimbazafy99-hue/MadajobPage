@@ -1,4 +1,5 @@
 import type { ManagedJob } from "@/lib/types";
+import { hasVisibleSalary } from "@/lib/job-salary";
 
 export type JobQualityAlertKey =
   | "vague_title"
@@ -9,7 +10,17 @@ export type JobQualityAlertKey =
 export type JobQualityInput = Partial<
   Pick<
     ManagedJob,
-    "title" | "summary" | "responsibilities" | "requirements" | "benefits" | "closing_at"
+    | "title"
+    | "summary"
+    | "responsibilities"
+    | "requirements"
+    | "benefits"
+    | "closing_at"
+    | "salary_min"
+    | "salary_max"
+    | "salary_currency"
+    | "salary_period"
+    | "salary_is_visible"
   >
 >;
 
@@ -123,7 +134,7 @@ export function getJobQualityReport(input: JobQualityInput): JobQualityReport {
     strengths.push("Competences ou exigences exploitables pour le matching.");
   }
 
-  if (!salaryPattern.test(benefitsText) && !salaryPattern.test(normalizedContent)) {
+  if (!hasVisibleSalary(input) && !salaryPattern.test(benefitsText) && !salaryPattern.test(normalizedContent)) {
     alerts.push({
       key: "missing_salary",
       label: "Salaire absent",

@@ -39,6 +39,11 @@ export function JobEditForm({ job }: JobEditFormProps) {
     requirements: job.requirements ?? "",
     benefits: job.benefits ?? "",
     closing_at: job.closing_at,
+    salary_min: job.salary_min ?? null,
+    salary_max: job.salary_max ?? null,
+    salary_currency: job.salary_currency ?? "MGA",
+    salary_period: job.salary_period ?? "month",
+    salary_is_visible: job.salary_is_visible,
     organization_name: job.organization_name ?? "Madajob",
     is_featured: job.is_featured,
     status: job.status
@@ -60,6 +65,11 @@ export function JobEditForm({ job }: JobEditFormProps) {
       requirements: String(formData.get("requirements") ?? ""),
       benefits: String(formData.get("benefits") ?? ""),
       closing_at: String(formData.get("closing_at") ?? ""),
+      salary_min: Number(formData.get("salary_min") || 0) || null,
+      salary_max: Number(formData.get("salary_max") || 0) || null,
+      salary_currency: String(formData.get("salary_currency") ?? "MGA"),
+      salary_period: String(formData.get("salary_period") ?? "month"),
+      salary_is_visible: formData.get("salary_is_visible") === "on",
       organization_name: job.organization_name ?? "Madajob",
       is_featured: formData.get("is_featured") === "on",
       status: job.status
@@ -173,7 +183,41 @@ export function JobEditForm({ job }: JobEditFormProps) {
           <span>Avantages</span>
           <textarea name="benefits" rows={4} defaultValue={job.benefits ?? ""} />
         </label>
+
+        <label className="field">
+          <span>Salaire minimum</span>
+          <input name="salary_min" type="number" min="0" step="1000" defaultValue={job.salary_min ?? ""} />
+        </label>
+
+        <label className="field">
+          <span>Salaire maximum</span>
+          <input name="salary_max" type="number" min="0" step="1000" defaultValue={job.salary_max ?? ""} />
+        </label>
+
+        <label className="field">
+          <span>Devise</span>
+          <select name="salary_currency" defaultValue={job.salary_currency ?? "MGA"}>
+            <option value="MGA">MGA</option>
+            <option value="EUR">EUR</option>
+            <option value="USD">USD</option>
+          </select>
+        </label>
+
+        <label className="field">
+          <span>Periode</span>
+          <select name="salary_period" defaultValue={job.salary_period ?? "month"}>
+            <option value="month">Mensuel</option>
+            <option value="year">Annuel</option>
+            <option value="day">Journalier</option>
+            <option value="hour">Horaire</option>
+          </select>
+        </label>
       </div>
+
+      <label className="checkbox-field">
+        <input type="checkbox" name="salary_is_visible" defaultChecked={job.salary_is_visible} />
+        <span>Afficher cette remuneration sur la page publique</span>
+      </label>
 
       <JobQualityPanel report={qualityReport} title="Score avant publication" />
 

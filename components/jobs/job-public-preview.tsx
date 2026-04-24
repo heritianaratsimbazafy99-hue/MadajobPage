@@ -1,4 +1,5 @@
 import { formatDisplayDate } from "@/lib/format";
+import { formatJobSalary } from "@/lib/job-salary";
 
 export type JobPublicPreviewInput = {
   title?: string | null;
@@ -9,6 +10,11 @@ export type JobPublicPreviewInput = {
   work_mode?: string | null;
   sector?: string | null;
   closing_at?: string | null;
+  salary_min?: number | null;
+  salary_max?: number | null;
+  salary_currency?: string | null;
+  salary_period?: string | null;
+  salary_is_visible?: boolean | null;
   organization_name?: string | null;
   is_featured?: boolean;
   status?: string | null;
@@ -30,6 +36,7 @@ export function JobPublicPreview({ job, title = "Apercu public" }: JobPublicPrev
     "Resume court de l'annonce visible sur la page carriere."
   );
   const statusLabel = job.status === "published" ? "Publication" : "Brouillon";
+  const salaryLabel = formatJobSalary(job);
 
   return (
     <section className="job-public-preview">
@@ -60,6 +67,7 @@ export function JobPublicPreview({ job, title = "Apercu public" }: JobPublicPrev
           <span>{getPreviewText(job.location, "Lieu")}</span>
           <span>{getPreviewText(job.contract_type, "Contrat")}</span>
           <span>{getPreviewText(job.work_mode, "Mode")}</span>
+          {salaryLabel ? <span>{salaryLabel}</span> : null}
         </div>
 
         <div className="job-card__footer">

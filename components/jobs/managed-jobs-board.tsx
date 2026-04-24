@@ -8,6 +8,7 @@ import { DashboardEmptyState } from "@/components/dashboard/empty-state";
 import { JobQualityPanel } from "@/components/jobs/job-quality-panel";
 import { formatDisplayDate } from "@/lib/format";
 import { getJobQualityReport } from "@/lib/job-quality";
+import { formatJobSalary } from "@/lib/job-salary";
 import {
   getManagedJobPriorityMeta,
   getManagedJobPriorityScore,
@@ -456,6 +457,7 @@ export function ManagedJobsBoard({ jobs, basePath }: ManagedJobsBoardProps) {
           filteredJobs.map((job) => {
             const priorityMeta = getManagedJobPriorityMeta(job);
             const qualityReport = getJobQualityReport(job);
+            const salaryLabel = formatJobSalary(job);
 
             return (
               <article key={job.id} className="panel job-card jobs-result-card">
@@ -478,6 +480,7 @@ export function ManagedJobsBoard({ jobs, basePath }: ManagedJobsBoardProps) {
                   <span>{job.contract_type}</span>
                   <span>{job.work_mode}</span>
                   <span>{job.applications_count} candidature(s)</span>
+                  {salaryLabel ? <span>{salaryLabel}</span> : null}
                   {job.closing_at ? <span>Cloture le {formatDisplayDate(job.closing_at)}</span> : null}
                 </div>
 

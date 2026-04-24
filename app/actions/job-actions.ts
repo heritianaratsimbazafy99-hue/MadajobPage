@@ -55,6 +55,50 @@ function getOptionalDateValue(formData: FormData, key: string) {
   return Number.isNaN(parsedDate.getTime()) ? undefined : parsedDate.toISOString();
 }
 
+function getOptionalNumberValue(formData: FormData, key: string) {
+  const value = getTrimmedValue(formData, key).replace(",", ".");
+
+  if (!value) {
+    return null;
+  }
+
+  const parsedValue = Number(value);
+
+  return Number.isFinite(parsedValue) && parsedValue >= 0 ? parsedValue : undefined;
+}
+
+function getSalaryPayload(formData: FormData) {
+  const salaryMin = getOptionalNumberValue(formData, "salary_min");
+  const salaryMax = getOptionalNumberValue(formData, "salary_max");
+  const salaryCurrency = getTrimmedValue(formData, "salary_currency") || "MGA";
+  const salaryPeriod = getTrimmedValue(formData, "salary_period") || "month";
+  const salaryIsVisible = formData.get("salary_is_visible") === "on";
+
+  if (salaryMin === undefined || salaryMax === undefined) {
+    return { error: "La remuneration doit contenir uniquement des montants positifs." } as const;
+  }
+
+  if (salaryMin !== null && salaryMax !== null && salaryMin > salaryMax) {
+    return { error: "La remuneration minimale ne peut pas depasser la remuneration maximale." } as const;
+  }
+
+  if (!["MGA", "EUR", "USD"].includes(salaryCurrency)) {
+    return { error: "La devise de remuneration est invalide." } as const;
+  }
+
+  if (!["month", "year", "day", "hour"].includes(salaryPeriod)) {
+    return { error: "La periode de remuneration est invalide." } as const;
+  }
+
+  return {
+    salary_min: salaryMin,
+    salary_max: salaryMax,
+    salary_currency: salaryCurrency,
+    salary_period: salaryPeriod,
+    salary_is_visible: salaryIsVisible
+  } as const;
+}
+
 async function getJobMutationClient() {
   return createAdminClient() ?? (await createClient());
 }
@@ -153,7 +197,7 @@ async function getManageableJobForActor(
   let query = supabase
     .from("job_posts")
     .select(
-      "id, slug, title, status, published_at, closing_at, organization_id, summary, responsibilities, requirements, benefits"
+      "id, slug, title, status, published_at, closing_at, organization_id, summary, responsibilities, requirements, benefits, salary_min, salary_max, salary_currency, salary_period, salary_is_visible"
     )
     .eq("id", jobId);
 
@@ -328,6 +372,7 @@ export async function createJobAction(
   const requirements = getTrimmedValue(formData, "requirements");
   const benefits = getTrimmedValue(formData, "benefits");
   const closingAt = getOptionalDateValue(formData, "closing_at");
+  const salaryPayload = getSalaryPayload(formData);
   const status = getTrimmedValue(formData, "status") || "draft";
   const isFeatured = formData.get("is_featured") === "on";
 
@@ -345,13 +390,21 @@ export async function createJobAction(
     };
   }
 
+  if ("error" in salaryPayload && salaryPayload.error) {
+    return {
+      status: "error",
+      message: salaryPayload.error
+    };
+  }
+
   const qualityReport = getJobQualityReport({
     title,
     summary,
     responsibilities,
     requirements,
     benefits,
-    closing_at: closingAt
+    closing_at: closingAt,
+    ...salaryPayload
   });
 
   if (status === "published" && !qualityReport.readyForPublication) {
@@ -379,6 +432,7 @@ export async function createJobAction(
     responsibilities,
     requirements,
     benefits,
+    ...salaryPayload,
     status,
     is_featured: isFeatured,
     published_at: publishedAt,
@@ -465,6 +519,7 @@ export async function updateJobAction(
   const requirements = getTrimmedValue(formData, "requirements");
   const benefits = getTrimmedValue(formData, "benefits");
   const closingAt = getOptionalDateValue(formData, "closing_at");
+  const salaryPayload = getSalaryPayload(formData);
   const isFeatured = formData.get("is_featured") === "on";
 
   if (!title || !summary) {
@@ -481,13 +536,21 @@ export async function updateJobAction(
     };
   }
 
+  if ("error" in salaryPayload && salaryPayload.error) {
+    return {
+      status: "error",
+      message: salaryPayload.error
+    };
+  }
+
   const qualityReport = getJobQualityReport({
     title,
     summary,
     responsibilities,
     requirements,
     benefits,
-    closing_at: closingAt
+    closing_at: closingAt,
+    ...salaryPayload
   });
 
   if (job.status === "published" && !qualityReport.readyForPublication) {
@@ -511,6 +574,7 @@ export async function updateJobAction(
       responsibilities: responsibilities || null,
       requirements: requirements || null,
       benefits: benefits || null,
+      ...salaryPayload,
       closing_at: closingAt,
       is_featured: isFeatured
     })

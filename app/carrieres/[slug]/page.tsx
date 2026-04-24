@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { JobApplyForm } from "@/components/jobs/job-apply-form";
 import { getCurrentProfile } from "@/lib/auth";
 import { formatDisplayDate } from "@/lib/format";
+import { formatJobSalary } from "@/lib/job-salary";
 import {
   getCandidateApplicationForJob,
   getCandidatePrimaryDocument,
@@ -37,6 +38,12 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
     profile?.role === "candidat"
       ? await getCandidatePrimaryDocument(profile.id)
       : null;
+  const salaryLabel = formatJobSalary(job);
+  const packageText = salaryLabel
+    ? `${salaryLabel}${hasContent(job.benefits) ? `\n${job.benefits}` : ""}`
+    : hasContent(job.benefits)
+      ? job.benefits
+      : "Les avantages, le contexte et la remuneration seront partages dans la suite du processus.";
 
   return (
     <main className="page-shell">
@@ -57,6 +64,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
               <span>{job.work_mode}</span>
               <span>{job.sector}</span>
               {job.department ? <span>{job.department}</span> : null}
+              {salaryLabel ? <span>{salaryLabel}</span> : null}
             </div>
             <p className="detail-date">
               Publication : {formatDisplayDate(job.published_at)}
@@ -135,11 +143,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
           <article className="panel detail-card">
             <p className="eyebrow">Package</p>
             <h2>Avantages et remuneration</h2>
-            <p>
-              {hasContent(job.benefits)
-                ? job.benefits
-                : "Les avantages, le contexte et la remuneration seront partages dans la suite du processus."}
-            </p>
+            <p>{packageText}</p>
           </article>
         </div>
       </section>

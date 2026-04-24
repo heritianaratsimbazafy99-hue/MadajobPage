@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { formatDisplayDate } from "@/lib/format";
 import { getJobQualityReport } from "@/lib/job-quality";
+import { formatJobSalary } from "@/lib/job-salary";
 import type { ManagedJob } from "@/lib/types";
 
 type JobPublicDetailPreviewProps = {
@@ -20,6 +21,12 @@ export function JobPublicDetailPreview({
   publicHref = null
 }: JobPublicDetailPreviewProps) {
   const qualityReport = getJobQualityReport(job);
+  const salaryLabel = formatJobSalary(job);
+  const packageText = salaryLabel
+    ? `${salaryLabel}${hasContent(job.benefits) ? `\n${job.benefits}` : ""}`
+    : hasContent(job.benefits)
+      ? job.benefits
+      : "Le salaire, le package ou les avantages ne sont pas encore renseignes.";
 
   return (
     <div className="job-public-detail-preview">
@@ -51,6 +58,7 @@ export function JobPublicDetailPreview({
               <span>{job.contract_type || "Contrat a definir"}</span>
               <span>{job.work_mode || "Mode a definir"}</span>
               <span>{job.sector || "Secteur a definir"}</span>
+              {salaryLabel ? <span>{salaryLabel}</span> : null}
             </div>
 
             <p className="detail-date">
@@ -105,11 +113,7 @@ export function JobPublicDetailPreview({
           <article className="panel detail-card">
             <p className="eyebrow">Package</p>
             <h2>Avantages et remuneration</h2>
-            <p>
-              {hasContent(job.benefits)
-                ? job.benefits
-                : "Le salaire, le package ou les avantages ne sont pas encore renseignes."}
-            </p>
+            <p>{packageText}</p>
           </article>
         </div>
       </section>

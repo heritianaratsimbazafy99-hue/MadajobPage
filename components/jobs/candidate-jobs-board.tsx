@@ -15,6 +15,7 @@ import type {
   CandidateJobOpportunity
 } from "@/lib/candidate-job-insights";
 import { formatDateTimeDisplay, formatDisplayDate } from "@/lib/format";
+import { formatJobSalary } from "@/lib/job-salary";
 
 type CandidateJobsBoardProps = {
   opportunities: CandidateJobOpportunity[];
@@ -445,6 +446,7 @@ export function CandidateJobsBoard({ opportunities }: CandidateJobsBoardProps) {
               : null;
             const shouldHighlightMatch =
               entry.isAvailable && match.hasSignal && match.score >= 40;
+            const salaryLabel = formatJobSalary(job);
 
             return (
               <article key={job.id} className="panel job-card jobs-result-card">
@@ -496,6 +498,7 @@ export function CandidateJobsBoard({ opportunities }: CandidateJobsBoardProps) {
                   <span>{job.contract_type}</span>
                   <span>{job.work_mode}</span>
                   <span>{job.sector}</span>
+                  {salaryLabel ? <span>{salaryLabel}</span> : null}
                   {shouldHighlightMatch && match.matchedKeywords.length > 0 ? (
                     <span>{match.matchedKeywords.join(", ")}</span>
                   ) : null}
