@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { supplementaryDocumentTypeOptions } from "@/lib/candidate-documents";
 import { syncCandidateProfileTextFromUploadedFile } from "@/lib/candidate-cv-text";
 import { getCandidateProfileInsights } from "@/lib/candidate-profile";
+import { validateCandidateUploadFile } from "@/lib/candidate-document-validation";
 import { requireRole } from "@/lib/auth";
 import {
   CANDIDATE_EXPERIENCE_LEVEL_OPTIONS,
@@ -78,14 +79,6 @@ function getUploadFile(formData: FormData, key: string) {
   return value;
 }
 
-function validateCandidateDocumentFile(file: File) {
-  if (file.size > 10 * 1024 * 1024) {
-    return "Le fichier ne doit pas depasser 10 Mo.";
-  }
-
-  return "";
-}
-
 async function cleanupUploadedFile(bucketId: string, storagePath: string) {
   const adminClient = createAdminClient();
 
@@ -116,7 +109,7 @@ export async function uploadCandidateCvAction(formData: FormData): Promise<Profi
     };
   }
 
-  const validationError = validateCandidateDocumentFile(file);
+  const validationError = validateCandidateUploadFile(file, "cv");
 
   if (validationError) {
     return {
@@ -238,7 +231,7 @@ export async function uploadCandidateDocumentAction(
     };
   }
 
-  const validationError = validateCandidateDocumentFile(file);
+  const validationError = validateCandidateUploadFile(file, "supplementary");
 
   if (validationError) {
     return {

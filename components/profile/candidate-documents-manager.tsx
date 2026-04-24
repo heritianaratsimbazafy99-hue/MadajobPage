@@ -9,6 +9,7 @@ import {
   supplementaryDocumentTypeOptions
 } from "@/lib/candidate-documents";
 import { summarizeCandidateDocuments } from "@/lib/candidate-document-insights";
+import { validateCandidateUploadFile } from "@/lib/candidate-document-validation";
 import { isSupabaseConfigured } from "@/lib/env";
 import { formatDisplayDate, formatFileSize } from "@/lib/format";
 import { createClient } from "@/lib/supabase/client";
@@ -201,10 +202,12 @@ export function CandidateDocumentsManager({
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
+    const validationError = validateCandidateUploadFile(file, "supplementary");
+
+    if (validationError) {
       setStatus({
         kind: "error",
-        message: "Le document ne doit pas depasser 10 Mo."
+        message: validationError
       });
       return;
     }

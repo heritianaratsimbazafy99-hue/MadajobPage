@@ -87,6 +87,9 @@ const {
 const {
   getEmailProviderReadinessChecks
 } = require("../lib/email-provider-readiness.ts");
+const {
+  validateCandidateUploadFile
+} = require("../lib/candidate-document-validation.ts");
 
 const fixedNow = new Date("2026-04-23T12:00:00.000Z").getTime();
 
@@ -933,4 +936,42 @@ test("email provider readiness: prepare Resend ou Brevo sans activer l'envoi", (
   assert.equal(unsafeChecks.find((check) => check.id === "email-provider-from").status, "warning");
   assert.equal(unsafeChecks.find((check) => check.id === "email-provider-send-lock").status, "warning");
   assert.equal(unsafeChecks.find((check) => check.id === "email-provider-queue-health").status, "danger");
+});
+
+test("candidate documents: valide les formats d'upload cote serveur", () => {
+  assert.equal(
+    validateCandidateUploadFile(
+      { name: "cv-heritiana.pdf", type: "application/pdf", size: 200_000 },
+      "cv"
+    ),
+    ""
+  );
+  assert.equal(
+    validateCandidateUploadFile(
+      { name: "scan-identite.jpg", type: "image/jpeg", size: 200_000 },
+      "supplementary"
+    ),
+    ""
+  );
+  assert.match(
+    validateCandidateUploadFile(
+      { name: "archive.zip", type: "application/zip", size: 200_000 },
+      "supplementary"
+    ),
+    /Format non accepte/
+  );
+  assert.match(
+    validateCandidateUploadFile(
+      { name: "cv.exe", type: "", size: 200_000 },
+      "cv"
+    ),
+    /Format non accepte/
+  );
+  assert.match(
+    validateCandidateUploadFile(
+      { name: "cv.pdf", type: "application/pdf", size: 11 * 1024 * 1024 },
+      "cv"
+    ),
+    /10 Mo/
+  );
 });

@@ -4,6 +4,7 @@ import { startTransition, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { uploadCandidateCvAction } from "@/app/actions/profile-actions";
+import { validateCandidateUploadFile } from "@/lib/candidate-document-validation";
 import { formatDisplayDate, formatFileSize } from "@/lib/format";
 import type { CandidateDocumentData } from "@/lib/types";
 
@@ -48,10 +49,12 @@ export function CandidateCvUpload({
       return;
     }
 
-    if (file.size > 10 * 1024 * 1024) {
+    const validationError = validateCandidateUploadFile(file, "cv");
+
+    if (validationError) {
       setStatus({
         kind: "error",
-        message: "Le CV ne doit pas depasser 10 Mo."
+        message: validationError
       });
       return;
     }
