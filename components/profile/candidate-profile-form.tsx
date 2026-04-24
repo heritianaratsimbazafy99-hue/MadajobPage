@@ -122,7 +122,7 @@ export function CandidateProfileForm({ profile }: CandidateProfileFormProps) {
           />
         </label>
 
-        <div className="document-card field--full">
+        <div className="document-card field--full" id="candidate-search-preferences">
           <strong>Preferences de recherche</strong>
           <p>
             Ces criteres servent a prioriser les offres dans votre espace candidat, sans masquer les autres opportunites.
@@ -172,6 +172,15 @@ export function CandidateProfileForm({ profile }: CandidateProfileFormProps) {
             <option value="EUR">EUR</option>
             <option value="USD">USD</option>
           </select>
+        </label>
+
+        <label className="checkbox-field field--full">
+          <input
+            type="checkbox"
+            name="job_alerts_enabled"
+            defaultChecked={profile.job_alerts_enabled}
+          />
+          <span>Recevoir les alertes lorsqu'une nouvelle offre correspond a mes preferences</span>
         </label>
 
         <label className="field field--full">

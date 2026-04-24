@@ -242,6 +242,7 @@ const fallbackCandidateProfile: CandidateProfileData = {
   desired_work_mode: "",
   desired_salary_min: null,
   desired_salary_currency: "MGA",
+  job_alerts_enabled: true,
   skills_text: "",
   cv_text: "",
   profile_completion: 0,
@@ -1258,7 +1259,7 @@ export async function getCandidateWorkspace(profile: Profile): Promise<Candidate
     supabase
       .from("candidate_profiles")
       .select(
-        "headline, city, country, bio, experience_years, current_position, desired_position, desired_contract_type, desired_work_mode, desired_salary_min, desired_salary_currency, skills_text, cv_text, profile_completion"
+        "headline, city, country, bio, experience_years, current_position, desired_position, desired_contract_type, desired_work_mode, desired_salary_min, desired_salary_currency, job_alerts_enabled, skills_text, cv_text, profile_completion"
       )
       .eq("user_id", profile.id)
       .maybeSingle(),
@@ -1304,6 +1305,7 @@ export async function getCandidateWorkspace(profile: Profile): Promise<Candidate
     desired_work_mode: String(candidateData?.desired_work_mode ?? ""),
     desired_salary_min: getNumericRecordValue(candidateData, "desired_salary_min"),
     desired_salary_currency: String(candidateData?.desired_salary_currency ?? "MGA"),
+    job_alerts_enabled: candidateData?.job_alerts_enabled !== false,
     skills_text: String(candidateData?.skills_text ?? ""),
     cv_text: String(candidateData?.cv_text ?? ""),
     profile_completion: profileInsights.completion,

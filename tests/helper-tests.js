@@ -45,6 +45,10 @@ const {
   getCandidateJobAlertEligibility
 } = require("../lib/candidate-job-alert-eligibility.ts");
 const {
+  getCandidateJobAlertPreferenceSignals,
+  summarizeCandidateJobAlerts
+} = require("../lib/candidate-job-alert-insights.ts");
+const {
   getCandidateCvAnalysis
 } = require("../lib/candidate-cv-analysis.ts");
 const {
@@ -176,6 +180,26 @@ function buildNotification(overrides = {}) {
     read_at: null,
     created_at: "2026-04-22T08:00:00.000Z",
     metadata: {},
+    ...overrides
+  };
+}
+
+function buildCandidateJobAlert(overrides = {}) {
+  return {
+    id: "candidate-alert-1",
+    candidate_id: "candidate-1",
+    job_post_id: "job-commercial",
+    match_score: 84,
+    match_level: "fort",
+    match_reason: "Contrat, mode de travail et competences alignes.",
+    metadata: {},
+    created_at: "2026-04-22T08:00:00.000Z",
+    updated_at: "2026-04-22T08:00:00.000Z",
+    job: buildJob({
+      salary_min: 1200000,
+      salary_max: 1800000,
+      salary_is_visible: true
+    }),
     ...overrides
   };
 }
@@ -400,6 +424,40 @@ test("candidate job alerts: bloque une offre sous le salaire minimum visible", (
 
   assert.equal(eligibility.eligible, false);
   assert.match(eligibility.blockedReasons.join(" "), /sous le minimum souhaite/i);
+});
+
+test("candidate job alert insights: resume le centre candidat par preferences", () => {
+  const profile = buildCandidate({
+    desired_contract_type: "CDI",
+    desired_work_mode: "Hybride",
+    desired_salary_min: 1500000,
+    desired_salary_currency: "MGA"
+  });
+  const alerts = [
+    buildCandidateJobAlert(),
+    buildCandidateJobAlert({
+      id: "candidate-alert-2",
+      match_score: 62,
+      match_level: "bon",
+      created_at: "2026-04-01T08:00:00.000Z",
+      job: buildJob({
+        id: "job-2",
+        salary_is_visible: false
+      })
+    })
+  ];
+  const summary = summarizeCandidateJobAlerts(alerts, profile, fixedNow);
+  const preferenceSignals = getCandidateJobAlertPreferenceSignals(profile);
+
+  assert.equal(summary.totalCount, 2);
+  assert.equal(summary.strongCount, 1);
+  assert.equal(summary.recentCount, 1);
+  assert.equal(summary.visibleSalaryCount, 1);
+  assert.equal(summary.topAlert.id, "candidate-alert-1");
+  assert.deepEqual(
+    preferenceSignals.map((signal) => signal.label),
+    ["Contrat", "Mode", "Salaire minimum"]
+  );
 });
 
 test("cv analysis: exploite le texte extrait du CV meme sans profil formulaire", () => {

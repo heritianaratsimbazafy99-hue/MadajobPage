@@ -1477,6 +1477,35 @@ code {
   font-weight: 800;
 }
 
+.candidate-alerts-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.candidate-alert-signal-card h3 {
+  margin: 0;
+  font-family: var(--font-display), sans-serif;
+  font-size: 1.2rem;
+  line-height: 1.16;
+}
+
+.candidate-alert-preferences {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.candidate-alert-preference-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.candidate-alert-card .application-signal-card {
+  margin-top: 12px;
+}
+
 .job-public-preview {
   display: grid;
   gap: 14px;
@@ -2489,6 +2518,7 @@ button:disabled {
   }
 
   .admin-jobs-command-grid,
+  .candidate-alerts-summary-grid,
   .career-hero,
   .career-results-grid,
   .job-public-detail-preview__content {

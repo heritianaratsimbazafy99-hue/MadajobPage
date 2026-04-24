@@ -302,6 +302,7 @@ export async function updateCandidateProfileAction(
   const desiredWorkMode = getTrimmedValue(formData, "desired_work_mode");
   const desiredSalaryMin = getNullableNumber(formData, "desired_salary_min");
   const desiredSalaryCurrency = getTrimmedValue(formData, "desired_salary_currency") || "MGA";
+  const jobAlertsEnabled = formData.get("job_alerts_enabled") === "on";
   const skillsText = getTrimmedValue(formData, "skills_text");
   const cvText = getTrimmedValue(formData, "cv_text");
 
@@ -390,6 +391,7 @@ export async function updateCandidateProfileAction(
         desired_work_mode: desiredWorkMode || null,
         desired_salary_min: desiredSalaryMin,
         desired_salary_currency: desiredSalaryCurrency,
+        job_alerts_enabled: jobAlertsEnabled,
         skills_text: skillsText || null,
         cv_text: cvText || null,
         profile_completion: profileInsights.completion
@@ -406,6 +408,7 @@ export async function updateCandidateProfileAction(
 
   revalidatePath("/app/candidat");
   revalidatePath("/app/candidat/offres");
+  revalidatePath("/app/candidat/alertes");
 
   return {
     status: "success",
@@ -413,5 +416,39 @@ export async function updateCandidateProfileAction(
       profileInsights.missingItems.length > 0
         ? `Profil mis a jour. Taux de completion actuel : ${profileInsights.completion}%. Il reste ${profileInsights.missingItems.length} point(s) prioritaire(s) a completer.`
         : `Profil mis a jour. Taux de completion actuel : ${profileInsights.completion}%. Votre dossier couvre toutes les rubriques prioritaires.`
+  };
+}
+
+export async function updateCandidateJobAlertsPreferenceAction(
+  _previousState: ProfileActionState,
+  formData: FormData
+): Promise<ProfileActionState> {
+  const profile = await requireRole(["candidat"]);
+  const jobAlertsEnabled = formData.get("job_alerts_enabled") === "on";
+  const supabase = await createClient();
+
+  const { error } = await supabase
+    .from("candidate_profiles")
+    .update({
+      job_alerts_enabled: jobAlertsEnabled
+    })
+    .eq("user_id", profile.id);
+
+  if (error) {
+    return {
+      status: "error",
+      message: error.message
+    };
+  }
+
+  revalidatePath("/app/candidat");
+  revalidatePath("/app/candidat/offres");
+  revalidatePath("/app/candidat/alertes");
+
+  return {
+    status: "success",
+    message: jobAlertsEnabled
+      ? "Alertes d'offres activees. Les nouvelles offres compatibles pourront remonter ici."
+      : "Alertes d'offres desactivees. Les alertes existantes restent consultables."
   };
 }

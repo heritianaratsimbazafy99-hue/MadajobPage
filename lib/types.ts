@@ -67,6 +67,7 @@ export type CandidateProfileData = {
   desired_work_mode: string;
   desired_salary_min: number | null;
   desired_salary_currency: string;
+  job_alerts_enabled: boolean;
   skills_text: string;
   cv_text: string;
   profile_completion: number;
@@ -110,6 +111,19 @@ export type Job = {
   created_at?: string | null;
   closing_at?: string | null;
   organization_name?: string;
+};
+
+export type CandidateJobAlert = {
+  id: string;
+  candidate_id: string;
+  job_post_id: string;
+  match_score: number;
+  match_level: string;
+  match_reason: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  job: Job;
 };
 
 export type ManagedJob = Job & {

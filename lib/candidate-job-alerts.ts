@@ -3,14 +3,20 @@ import {
   getCandidateJobAlertEligibility,
   hasCandidateJobAlertPreference
 } from "@/lib/candidate-job-alert-eligibility";
+import { unstable_noStore as noStore } from "next/cache";
+
+import { isSupabaseConfigured } from "@/lib/env";
 import type { MatchableJob, MatchingCandidateProfile } from "@/lib/matching";
 import { createNotifications } from "@/lib/notifications";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+import type { CandidateJobAlert, Job } from "@/lib/types";
 
 type CandidateJobAlertProfile = MatchingCandidateProfile & {
   id: string;
   full_name: string | null;
   email: string | null;
+  job_alerts_enabled: boolean;
 };
 
 type CandidateJobAlertRow = {
@@ -42,6 +48,62 @@ function getNumberValue(record: Record<string, unknown>, key: string) {
   return null;
 }
 
+function getBooleanValue(record: Record<string, unknown>, key: string, fallback = false) {
+  return typeof record[key] === "boolean" ? Boolean(record[key]) : fallback;
+}
+
+function mapAlertJobRecord(record: Record<string, unknown>): Job {
+  const salaryMin = getNumberValue(record, "salary_min");
+  const salaryMax = getNumberValue(record, "salary_max");
+
+  return {
+    id: getStringValue(record, "id"),
+    title: getStringValue(record, "title"),
+    slug: getStringValue(record, "slug"),
+    department: getStringValue(record, "department"),
+    location: getStringValue(record, "location"),
+    contract_type: getStringValue(record, "contract_type"),
+    work_mode: getStringValue(record, "work_mode"),
+    sector: getStringValue(record, "sector"),
+    summary: getStringValue(record, "summary"),
+    responsibilities: getStringValue(record, "responsibilities"),
+    requirements: getStringValue(record, "requirements"),
+    benefits: getStringValue(record, "benefits"),
+    salary_min: salaryMin,
+    salary_max: salaryMax,
+    salary_currency: getStringValue(record, "salary_currency") || "MGA",
+    salary_period: getStringValue(record, "salary_period") || "month",
+    salary_is_visible: getBooleanValue(record, "salary_is_visible"),
+    status: (getStringValue(record, "status") as Job["status"]) || "published",
+    is_featured: getBooleanValue(record, "is_featured"),
+    published_at: getNullableStringValue(record, "published_at"),
+    created_at: getNullableStringValue(record, "created_at"),
+    closing_at: getNullableStringValue(record, "closing_at"),
+    organization_name: getStringValue(record, "organization_name") || "Madajob"
+  };
+}
+
+function mapCandidateJobAlertRecord(
+  record: Record<string, unknown>,
+  job: Job
+): CandidateJobAlert {
+  return {
+    id: getStringValue(record, "id"),
+    candidate_id: getStringValue(record, "candidate_id"),
+    job_post_id: getStringValue(record, "job_post_id"),
+    match_score: getNumberValue(record, "match_score") ?? 0,
+    match_level: getStringValue(record, "match_level") || "faible",
+    match_reason: getNullableStringValue(record, "match_reason"),
+    metadata:
+      typeof record.metadata === "object" && record.metadata !== null
+        ? (record.metadata as Record<string, unknown>)
+        : {},
+    created_at: getStringValue(record, "created_at"),
+    updated_at: getStringValue(record, "updated_at"),
+    job
+  };
+}
+
 async function getActiveCandidateProfiles() {
   const adminClient = createAdminClient();
 
@@ -52,7 +114,7 @@ async function getActiveCandidateProfiles() {
   const { data: candidateRows, error: candidateError } = await adminClient
     .from("candidate_profiles")
     .select(
-      "user_id, headline, city, current_position, desired_position, desired_contract_type, desired_work_mode, desired_salary_min, desired_salary_currency, skills_text, cv_text, profile_completion"
+      "user_id, headline, city, current_position, desired_position, desired_contract_type, desired_work_mode, desired_salary_min, desired_salary_currency, job_alerts_enabled, skills_text, cv_text, profile_completion"
     );
 
   if (candidateError || !candidateRows?.length) {
@@ -112,14 +174,77 @@ async function getActiveCandidateProfiles() {
         desired_work_mode: getNullableStringValue(row, "desired_work_mode"),
         desired_salary_min: getNumberValue(row, "desired_salary_min"),
         desired_salary_currency: getNullableStringValue(row, "desired_salary_currency") ?? "MGA",
+        job_alerts_enabled: getBooleanValue(row, "job_alerts_enabled", true),
         skills_text: getNullableStringValue(row, "skills_text"),
         cv_text: getNullableStringValue(row, "cv_text"),
         profile_completion: getNumberValue(row, "profile_completion")
       } satisfies CandidateJobAlertProfile;
     })
     .filter((profile): profile is CandidateJobAlertProfile =>
-      Boolean(profile && hasCandidateJobAlertPreference(profile))
+      Boolean(profile && profile.job_alerts_enabled && hasCandidateJobAlertPreference(profile))
     );
+}
+
+export async function getCandidateJobAlerts(
+  candidateId: string,
+  options: { limit?: number } = {}
+) {
+  noStore();
+
+  if (!isSupabaseConfigured) {
+    return [] as CandidateJobAlert[];
+  }
+
+  const { limit = 80 } = options;
+  const supabase = await createClient();
+  const { data: alertRows, error: alertError } = await supabase
+    .from("candidate_job_alerts")
+    .select(
+      "id, candidate_id, job_post_id, match_score, match_level, match_reason, metadata, created_at, updated_at"
+    )
+    .eq("candidate_id", candidateId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (alertError || !alertRows?.length) {
+    return [] as CandidateJobAlert[];
+  }
+
+  const jobIds = Array.from(
+    new Set(
+      alertRows
+        .map((row: Record<string, unknown>) => getStringValue(row, "job_post_id"))
+        .filter(Boolean)
+    )
+  );
+
+  if (!jobIds.length) {
+    return [] as CandidateJobAlert[];
+  }
+
+  const { data: jobRows, error: jobError } = await supabase
+    .from("job_posts")
+    .select(
+      "id, title, slug, department, location, contract_type, work_mode, sector, summary, responsibilities, requirements, benefits, salary_min, salary_max, salary_currency, salary_period, salary_is_visible, status, is_featured, published_at, created_at, closing_at"
+    )
+    .in("id", jobIds)
+    .eq("status", "published");
+
+  if (jobError || !jobRows?.length) {
+    return [] as CandidateJobAlert[];
+  }
+
+  const jobsById = new Map(
+    (jobRows as Record<string, unknown>[]).map((row) => [getStringValue(row, "id"), mapAlertJobRecord(row)])
+  );
+
+  return (alertRows as Record<string, unknown>[])
+    .map((row) => {
+      const job = jobsById.get(getStringValue(row, "job_post_id"));
+
+      return job ? mapCandidateJobAlertRecord(row, job) : null;
+    })
+    .filter((alert): alert is CandidateJobAlert => Boolean(alert));
 }
 
 export async function createCandidateJobAlertsForPublishedJob(job: MatchableJob) {
