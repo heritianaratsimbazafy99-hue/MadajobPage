@@ -407,6 +407,46 @@ code {
   margin-top: 20px;
 }
 
+.legal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.legal-stack {
+  display: grid;
+  gap: 18px;
+  max-width: 900px;
+}
+
+.legal-card {
+  display: grid;
+  gap: 10px;
+}
+
+.legal-card h2 {
+  margin: 0;
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(1.25rem, 2.6vw, 1.7rem);
+  line-height: 1.08;
+}
+
+.legal-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.legal-related {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.section--compact {
+  padding-top: 8px;
+}
+
 .tag {
   display: inline-flex;
   align-items: center;
@@ -2602,7 +2642,8 @@ button:disabled {
   .split-grid,
   .metric-grid,
   .testimonial-grid,
-  .process-grid {
+  .process-grid,
+  .legal-grid {
     grid-template-columns: 1fr;
   }
 
@@ -2684,7 +2725,8 @@ button:disabled {
   }
 
   .dashboard-empty-actions .btn,
-  .dashboard-empty-actions a {
+  .dashboard-empty-actions a,
+  .legal-related .btn {
     width: 100%;
   }
 

@@ -13,6 +13,9 @@ export function SiteFooter() {
           <Link href="/externalisation">Externalisation</Link>
           <Link href="/entreprise">Entreprise</Link>
           <Link href="/espace">Notre plateforme de recrutement</Link>
+          <Link href="/mentions-legales">Mentions legales</Link>
+          <Link href="/politique-confidentialite">Confidentialite</Link>
+          <Link href="/conditions-utilisation">Conditions</Link>
         </div>
       </div>
     </footer>
