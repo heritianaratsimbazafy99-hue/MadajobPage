@@ -51,7 +51,7 @@ export function JobStatusPanel({ job }: JobStatusPanelProps) {
   const qualityReport = getJobQualityReport(job);
 
   return (
-    <div className="dashboard-form job-status-panel">
+    <div className="dashboard-form job-status-panel" id="job-status-panel">
       <div className="dashboard-form__head">
         <div>
           <p className="eyebrow">Cycle de vie</p>

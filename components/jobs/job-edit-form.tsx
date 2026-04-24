@@ -80,6 +80,7 @@ export function JobEditForm({ job }: JobEditFormProps) {
     <form
       action={formAction}
       className="dashboard-form"
+      id="job-edit-form"
       onInput={(event) => updateDraftInput(event.currentTarget)}
       onChange={(event) => updateDraftInput(event.currentTarget)}
     >

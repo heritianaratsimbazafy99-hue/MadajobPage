@@ -5,6 +5,7 @@ import { MatchBreakdown } from "@/components/jobs/match-breakdown";
 import { DashboardShell } from "@/components/dashboard/shell";
 import { JobEditForm } from "@/components/jobs/job-edit-form";
 import { JobHistoryPanel } from "@/components/jobs/job-history-panel";
+import { JobPublicationChecklist } from "@/components/jobs/job-publication-checklist";
 import { JobQualityPanel } from "@/components/jobs/job-quality-panel";
 import { JobStatusPanel } from "@/components/jobs/job-status-panel";
 import { getApplicationStatusMeta } from "@/lib/application-status";
@@ -316,6 +317,12 @@ export function JobManagementWorkspace({
               ) : null}
             </div>
           </div>
+
+          <JobPublicationChecklist
+            job={job}
+            previewHref={previewHref}
+            qualityReport={qualityReport}
+          />
 
           <JobQualityPanel report={qualityReport} title="Controle publication" />
 

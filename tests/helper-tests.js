@@ -59,6 +59,9 @@ const {
   getJobQualityReport
 } = require("../lib/job-quality.ts");
 const {
+  getJobPublicationChecklist
+} = require("../lib/job-publication-checklist.ts");
+const {
   buildJobPostingJsonLd,
   getJobCanonicalUrl,
   getJobSeoDescription
@@ -559,6 +562,34 @@ test("job quality: valide une annonce exploitable avec salaire et cloture", () =
   assert.equal(report.readyForPublication, true);
   assert.equal(report.alerts.length, 0);
   assert.ok(report.score >= 85);
+});
+
+test("job publication checklist: remonte les points avant diffusion", () => {
+  const job = buildJob({
+    status: "draft",
+    salary_min: 1200000,
+    salary_max: 1800000,
+    salary_is_visible: true,
+    closing_at: "2026-05-30T23:59:59.000Z"
+  });
+  const report = getJobQualityReport(job);
+  const checklist = getJobPublicationChecklist(job, report, {
+    previewHref: "/app/admin/offres/job-commercial/apercu"
+  });
+
+  assert.equal(checklist.totalCount, 5);
+  assert.equal(checklist.readyCount, 4);
+  assert.equal(checklist.tone, "info");
+  assert.equal(checklist.items.find((item) => item.id === "quality").complete, true);
+  assert.equal(checklist.items.find((item) => item.id === "salary").complete, true);
+  assert.equal(checklist.items.find((item) => item.id === "closing").complete, true);
+  assert.equal(checklist.items.find((item) => item.id === "preview").actionHref, "/app/admin/offres/job-commercial/apercu");
+  assert.deepEqual(
+    checklist.items
+      .filter((item) => !item.complete)
+      .map((item) => item.id),
+    ["status"]
+  );
 });
 
 test("job SEO: genere un JSON-LD JobPosting complet pour Google Jobs", () => {

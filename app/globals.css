@@ -1386,6 +1386,97 @@ code {
   line-height: 1.55;
 }
 
+.job-publication-checklist {
+  gap: 14px;
+}
+
+.job-publication-checklist__summary {
+  margin: -4px 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.job-publication-checklist__items {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.job-publication-checklist__item {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.job-publication-checklist__item:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.job-publication-checklist__marker {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  background: rgba(22, 49, 74, 0.08);
+  color: var(--muted);
+}
+
+.job-publication-checklist__marker--success {
+  background: rgba(178, 210, 33, 0.18);
+  color: var(--lime-soft);
+}
+
+.job-publication-checklist__marker--info {
+  background: rgba(77, 142, 197, 0.14);
+  color: #356b99;
+}
+
+.job-publication-checklist__marker--warning {
+  background: rgba(233, 171, 62, 0.18);
+  color: #9a641c;
+}
+
+.job-publication-checklist__marker--danger {
+  background: rgba(220, 78, 78, 0.12);
+  color: #b64242;
+}
+
+.job-publication-checklist__row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.job-publication-checklist__row .tag {
+  max-width: 58%;
+  justify-content: center;
+  text-align: center;
+  white-space: normal;
+}
+
+.job-publication-checklist__item p {
+  margin: 7px 0 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.job-publication-checklist__action {
+  display: inline-flex;
+  margin-top: 8px;
+  color: var(--blue);
+  font-weight: 800;
+}
+
 .job-public-preview {
   display: grid;
   gap: 14px;
@@ -2534,6 +2625,15 @@ button:disabled {
   .dashboard-empty-actions .btn,
   .dashboard-empty-actions a {
     width: 100%;
+  }
+
+  .job-publication-checklist__row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .job-publication-checklist__row .tag {
+    max-width: 100%;
   }
 
   .pipeline-board {
