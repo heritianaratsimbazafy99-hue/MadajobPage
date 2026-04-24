@@ -84,6 +84,9 @@ const {
   EXPECTED_PRODUCTION_SITE_URL,
   getLaunchReadinessChecks
 } = require("../lib/launch-readiness.ts");
+const {
+  getEmailProviderReadinessChecks
+} = require("../lib/email-provider-readiness.ts");
 
 const fixedNow = new Date("2026-04-23T12:00:00.000Z").getTime();
 
@@ -899,4 +902,35 @@ test("launch readiness: verifie les prerequis Vercel et Supabase prod", () => {
     "danger"
   );
   assert.equal(missingChecks.find((check) => check.id === "launch-site-url").status, "warning");
+});
+
+test("email provider readiness: prepare Resend ou Brevo sans activer l'envoi", () => {
+  const checks = getEmailProviderReadinessChecks(
+    [buildEmail({ status: "queued" })],
+    {
+      TRANSACTIONAL_EMAIL_PROVIDER: "resend",
+      RESEND_API_KEY: "re_test_key",
+      TRANSACTIONAL_EMAIL_FROM: "Madajob <no-reply@madajob.mg>",
+      TRANSACTIONAL_EMAILS_ENABLED: "false"
+    }
+  );
+
+  assert.equal(checks.find((check) => check.id === "email-provider-choice").status, "ok");
+  assert.equal(checks.find((check) => check.id === "email-provider-api-key").status, "ok");
+  assert.equal(checks.find((check) => check.id === "email-provider-from").status, "ok");
+  assert.equal(checks.find((check) => check.id === "email-provider-send-lock").status, "ok");
+  assert.equal(checks.find((check) => check.id === "email-provider-queue-health").status, "muted");
+
+  const unsafeChecks = getEmailProviderReadinessChecks(
+    [buildEmail({ status: "failed" })],
+    {
+      TRANSACTIONAL_EMAIL_PROVIDER: "smtp",
+      TRANSACTIONAL_EMAILS_ENABLED: "true"
+    }
+  );
+
+  assert.equal(unsafeChecks.find((check) => check.id === "email-provider-choice").status, "warning");
+  assert.equal(unsafeChecks.find((check) => check.id === "email-provider-from").status, "warning");
+  assert.equal(unsafeChecks.find((check) => check.id === "email-provider-send-lock").status, "warning");
+  assert.equal(unsafeChecks.find((check) => check.id === "email-provider-queue-health").status, "danger");
 });
