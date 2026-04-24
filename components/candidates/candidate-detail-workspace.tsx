@@ -27,6 +27,14 @@ type CandidateDetailWorkspaceProps = {
   backHref: string;
 };
 
+function formatDesiredSalary(candidate: CandidateDetail) {
+  if (!candidate.desired_salary_min) {
+    return "Non renseignee";
+  }
+
+  return `A partir de ${new Intl.NumberFormat("fr-FR").format(candidate.desired_salary_min)} ${candidate.desired_salary_currency}/mois`;
+}
+
 export function CandidateDetailWorkspace({
   profile,
   candidate,
@@ -125,6 +133,21 @@ export function CandidateDetailWorkspace({
               <div className="document-card">
                 <strong>Ville</strong>
                 <p>{candidate.city || "Non renseignee"}</p>
+              </div>
+            </div>
+
+            <div className="form-grid">
+              <div className="document-card">
+                <strong>Contrat souhaite</strong>
+                <p>{candidate.desired_contract_type || "Non renseigne"}</p>
+              </div>
+              <div className="document-card">
+                <strong>Mode souhaite</strong>
+                <p>{candidate.desired_work_mode || "Non renseigne"}</p>
+              </div>
+              <div className="document-card">
+                <strong>Remuneration souhaitee</strong>
+                <p>{formatDesiredSalary(candidate)}</p>
               </div>
             </div>
 

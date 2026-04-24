@@ -63,6 +63,10 @@ export type CandidateProfileData = {
   experience_years: number | null;
   current_position: string;
   desired_position: string;
+  desired_contract_type: string;
+  desired_work_mode: string;
+  desired_salary_min: number | null;
+  desired_salary_currency: string;
   skills_text: string;
   cv_text: string;
   profile_completion: number;
@@ -304,6 +308,10 @@ export type ApplicationDetail = {
     experience_years: number | null;
     current_position: string;
     desired_position: string;
+    desired_contract_type: string;
+    desired_work_mode: string;
+    desired_salary_min: number | null;
+    desired_salary_currency: string;
     skills_text: string;
     cv_text: string;
     profile_completion: number;
@@ -351,6 +359,10 @@ export type ManagedCandidateSummary = {
   country: string;
   current_position: string;
   desired_position: string;
+  desired_contract_type: string;
+  desired_work_mode: string;
+  desired_salary_min: number | null;
+  desired_salary_currency: string;
   profile_completion: number;
   applications_count: number;
   latest_application_at: string | null;
@@ -420,6 +432,10 @@ export type CandidateDetail = {
   experience_years: number | null;
   current_position: string;
   desired_position: string;
+  desired_contract_type: string;
+  desired_work_mode: string;
+  desired_salary_min: number | null;
+  desired_salary_currency: string;
   skills_text: string;
   cv_text: string;
   profile_completion: number;

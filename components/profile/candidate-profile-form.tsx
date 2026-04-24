@@ -8,6 +8,10 @@ import {
 } from "@/app/actions/profile-actions";
 import { SubmitButton } from "@/components/jobs/submit-button";
 import { getCandidateProfileInsights } from "@/lib/candidate-profile";
+import {
+  JOB_CONTRACT_TYPE_OPTIONS,
+  JOB_WORK_MODE_OPTIONS
+} from "@/lib/job-options";
 import type { CandidateProfileData } from "@/lib/types";
 
 const initialState: ProfileActionState = {
@@ -116,6 +120,58 @@ export function CandidateProfileForm({ profile }: CandidateProfileFormProps) {
             defaultValue={profile.desired_position}
             placeholder="Le type de poste que vous recherchez"
           />
+        </label>
+
+        <div className="document-card field--full">
+          <strong>Preferences de recherche</strong>
+          <p>
+            Ces criteres servent a prioriser les offres dans votre espace candidat, sans masquer les autres opportunites.
+          </p>
+        </div>
+
+        <label className="field">
+          <span>Contrat souhaite</span>
+          <select name="desired_contract_type" defaultValue={profile.desired_contract_type}>
+            <option value="">Tous les contrats</option>
+            {JOB_CONTRACT_TYPE_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="field">
+          <span>Mode de travail souhaite</span>
+          <select name="desired_work_mode" defaultValue={profile.desired_work_mode}>
+            <option value="">Tous les modes</option>
+            {JOB_WORK_MODE_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="field">
+          <span>Salaire minimum mensuel</span>
+          <input
+            name="desired_salary_min"
+            type="number"
+            min="0"
+            step="1000"
+            defaultValue={profile.desired_salary_min ?? ""}
+            placeholder="Ex. 1500000"
+          />
+        </label>
+
+        <label className="field">
+          <span>Devise</span>
+          <select name="desired_salary_currency" defaultValue={profile.desired_salary_currency || "MGA"}>
+            <option value="MGA">MGA</option>
+            <option value="EUR">EUR</option>
+            <option value="USD">USD</option>
+          </select>
         </label>
 
         <label className="field field--full">

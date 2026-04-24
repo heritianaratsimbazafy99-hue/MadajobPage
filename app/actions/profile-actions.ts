@@ -6,6 +6,10 @@ import { supplementaryDocumentTypeOptions } from "@/lib/candidate-documents";
 import { syncCandidateProfileTextFromUploadedFile } from "@/lib/candidate-cv-text";
 import { getCandidateProfileInsights } from "@/lib/candidate-profile";
 import { requireRole } from "@/lib/auth";
+import {
+  JOB_CONTRACT_TYPE_OPTIONS,
+  JOB_WORK_MODE_OPTIONS
+} from "@/lib/job-options";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
@@ -22,6 +26,9 @@ const defaultState: ProfileActionState = {
 const allowedSupplementaryDocumentTypes = new Set(
   supplementaryDocumentTypeOptions.map((option) => option.value)
 );
+const allowedContractTypes = new Set<string>(JOB_CONTRACT_TYPE_OPTIONS);
+const allowedWorkModes = new Set<string>(JOB_WORK_MODE_OPTIONS);
+const allowedSalaryCurrencies = new Set(["MGA", "EUR", "USD"]);
 
 function getTrimmedValue(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
@@ -291,8 +298,40 @@ export async function updateCandidateProfileAction(
   const experienceYears = getNullableNumber(formData, "experience_years");
   const currentPosition = getTrimmedValue(formData, "current_position");
   const desiredPosition = getTrimmedValue(formData, "desired_position");
+  const desiredContractType = getTrimmedValue(formData, "desired_contract_type");
+  const desiredWorkMode = getTrimmedValue(formData, "desired_work_mode");
+  const desiredSalaryMin = getNullableNumber(formData, "desired_salary_min");
+  const desiredSalaryCurrency = getTrimmedValue(formData, "desired_salary_currency") || "MGA";
   const skillsText = getTrimmedValue(formData, "skills_text");
   const cvText = getTrimmedValue(formData, "cv_text");
+
+  if (desiredContractType && !allowedContractTypes.has(desiredContractType)) {
+    return {
+      status: "error",
+      message: "Le type de contrat souhaite n'est pas reconnu."
+    };
+  }
+
+  if (desiredWorkMode && !allowedWorkModes.has(desiredWorkMode)) {
+    return {
+      status: "error",
+      message: "Le mode de travail souhaite n'est pas reconnu."
+    };
+  }
+
+  if (desiredSalaryMin !== null && desiredSalaryMin < 0) {
+    return {
+      status: "error",
+      message: "La remuneration souhaitee doit etre positive."
+    };
+  }
+
+  if (!allowedSalaryCurrencies.has(desiredSalaryCurrency)) {
+    return {
+      status: "error",
+      message: "La devise de remuneration souhaitee n'est pas reconnue."
+    };
+  }
 
   const supabase = await createClient();
   const { data: primaryCv } = await supabase
@@ -312,6 +351,9 @@ export async function updateCandidateProfileAction(
     experience_years: experienceYears,
     current_position: currentPosition,
     desired_position: desiredPosition,
+    desired_contract_type: desiredContractType,
+    desired_work_mode: desiredWorkMode,
+    desired_salary_min: desiredSalaryMin,
     skills_text: skillsText,
     cv_text: cvText,
     primary_cv: primaryCv ? { id: String(primaryCv.id ?? "primary-cv") } : null
@@ -344,6 +386,10 @@ export async function updateCandidateProfileAction(
         experience_years: experienceYears,
         current_position: currentPosition || null,
         desired_position: desiredPosition || null,
+        desired_contract_type: desiredContractType || null,
+        desired_work_mode: desiredWorkMode || null,
+        desired_salary_min: desiredSalaryMin,
+        desired_salary_currency: desiredSalaryCurrency,
         skills_text: skillsText || null,
         cv_text: cvText || null,
         profile_completion: profileInsights.completion
@@ -359,6 +405,7 @@ export async function updateCandidateProfileAction(
   }
 
   revalidatePath("/app/candidat");
+  revalidatePath("/app/candidat/offres");
 
   return {
     status: "success",

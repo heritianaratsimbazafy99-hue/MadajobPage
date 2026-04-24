@@ -7,6 +7,9 @@ type CandidateProfileInsightInput = {
   experience_years: number | null;
   current_position: string;
   desired_position: string;
+  desired_contract_type?: string;
+  desired_work_mode?: string;
+  desired_salary_min?: number | null;
   skills_text: string;
   cv_text: string;
   primary_cv: { id: string } | null;
@@ -59,6 +62,16 @@ const checklist: CandidateProfileChecklistItem[] = [
     label: "Poste recherche",
     action: "Renseignez le type de poste vise pour clarifier votre intention de candidature.",
     isComplete: (profile) => hasText(profile.desired_position)
+  },
+  {
+    key: "search_preferences",
+    label: "Preferences de recherche",
+    action:
+      "Ajoutez un contrat, un mode de travail ou une remuneration souhaitee pour affiner vos recommandations.",
+    isComplete: (profile) =>
+      hasText(profile.desired_contract_type ?? "") ||
+      hasText(profile.desired_work_mode ?? "") ||
+      Boolean(profile.desired_salary_min && profile.desired_salary_min > 0)
   },
   {
     key: "skills_text",

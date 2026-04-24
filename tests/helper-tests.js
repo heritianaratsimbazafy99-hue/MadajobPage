@@ -137,6 +137,10 @@ function buildCandidate(overrides = {}) {
     country: "Madagascar",
     current_position: "Commerciale",
     desired_position: "Commercial B2B grands comptes",
+    desired_contract_type: "",
+    desired_work_mode: "",
+    desired_salary_min: null,
+    desired_salary_currency: "MGA",
     profile_completion: 88,
     applications_count: 0,
     latest_application_at: null,
@@ -280,6 +284,48 @@ test("matching: classe les offres par score decroissant", () => {
 
   assert.equal(ranked[0].job.id, "job-commercial");
   assert.ok(ranked[0].match.score > ranked[1].match.score);
+});
+
+test("matching: priorise les preferences candidat de contrat, mode et salaire", () => {
+  const profile = {
+    desired_position: "",
+    skills_text: "",
+    city: "Antananarivo",
+    desired_contract_type: "CDI",
+    desired_work_mode: "Hybride",
+    desired_salary_min: 1500000,
+    desired_salary_currency: "MGA",
+    profile_completion: 82
+  };
+  const aligned = getCandidateJobMatch(
+    profile,
+    buildJob({
+      salary_min: 1600000,
+      salary_max: 2200000,
+      salary_currency: "MGA",
+      salary_period: "month",
+      salary_is_visible: true
+    })
+  );
+  const lessAligned = getCandidateJobMatch(
+    profile,
+    buildJob({
+      contract_type: "CDD",
+      work_mode: "Presentiel",
+      salary_min: 1100000,
+      salary_max: 1300000,
+      salary_currency: "MGA",
+      salary_period: "month",
+      salary_is_visible: true
+    })
+  );
+
+  assert.ok(aligned.score > lessAligned.score);
+  assert.ok(aligned.breakdown.some((item) => item.key === "preferences"));
+  assert.match(
+    aligned.breakdown.find((item) => item.key === "preferences").value,
+    /contrat CDI aligne|mode Hybride aligne|remuneration visible compatible/i
+  );
 });
 
 test("cv analysis: exploite le texte extrait du CV meme sans profil formulaire", () => {

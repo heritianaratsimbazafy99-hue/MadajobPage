@@ -238,12 +238,31 @@ const fallbackCandidateProfile: CandidateProfileData = {
   experience_years: null,
   current_position: "",
   desired_position: "",
+  desired_contract_type: "",
+  desired_work_mode: "",
+  desired_salary_min: null,
+  desired_salary_currency: "MGA",
   skills_text: "",
   cv_text: "",
   profile_completion: 0,
   primary_cv: null,
   recent_documents: []
 };
+
+function getNumericRecordValue(record: Record<string, unknown> | null | undefined, key: string) {
+  const value = record?.[key];
+
+  if (typeof value === "number") {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+
+  return null;
+}
 
 function mapJobRecord(record: Record<string, unknown>): Job {
   const salaryMin =
@@ -1238,7 +1257,7 @@ export async function getCandidateWorkspace(profile: Profile): Promise<Candidate
     supabase
       .from("candidate_profiles")
       .select(
-        "headline, city, country, bio, experience_years, current_position, desired_position, skills_text, cv_text, profile_completion"
+        "headline, city, country, bio, experience_years, current_position, desired_position, desired_contract_type, desired_work_mode, desired_salary_min, desired_salary_currency, skills_text, cv_text, profile_completion"
       )
       .eq("user_id", profile.id)
       .maybeSingle(),
@@ -1258,6 +1277,9 @@ export async function getCandidateWorkspace(profile: Profile): Promise<Candidate
         : null,
     current_position: String(candidateData?.current_position ?? ""),
     desired_position: String(candidateData?.desired_position ?? ""),
+    desired_contract_type: String(candidateData?.desired_contract_type ?? ""),
+    desired_work_mode: String(candidateData?.desired_work_mode ?? ""),
+    desired_salary_min: getNumericRecordValue(candidateData, "desired_salary_min"),
     skills_text: String(candidateData?.skills_text ?? ""),
     cv_text: String(candidateData?.cv_text ?? ""),
     primary_cv: primaryCv ? { id: primaryCv.id } : null
@@ -1277,6 +1299,10 @@ export async function getCandidateWorkspace(profile: Profile): Promise<Candidate
         : null,
     current_position: String(candidateData?.current_position ?? ""),
     desired_position: String(candidateData?.desired_position ?? ""),
+    desired_contract_type: String(candidateData?.desired_contract_type ?? ""),
+    desired_work_mode: String(candidateData?.desired_work_mode ?? ""),
+    desired_salary_min: getNumericRecordValue(candidateData, "desired_salary_min"),
+    desired_salary_currency: String(candidateData?.desired_salary_currency ?? "MGA"),
     skills_text: String(candidateData?.skills_text ?? ""),
     cv_text: String(candidateData?.cv_text ?? ""),
     profile_completion: profileInsights.completion,
@@ -1630,6 +1656,10 @@ export async function getApplicationDetail(profile: Profile, applicationId: stri
         experience_years: 4,
         current_position: "",
         desired_position: "",
+        desired_contract_type: "",
+        desired_work_mode: "",
+        desired_salary_min: null,
+        desired_salary_currency: "MGA",
         skills_text: "",
         cv_text: "",
         profile_completion: 72
@@ -1736,6 +1766,10 @@ export async function getApplicationDetail(profile: Profile, applicationId: stri
         experience_years: null,
         current_position: "",
         desired_position: "",
+        desired_contract_type: "",
+        desired_work_mode: "",
+        desired_salary_min: null,
+        desired_salary_currency: "MGA",
         skills_text: "",
         cv_text: "",
         profile_completion: 0
@@ -1772,7 +1806,7 @@ export async function getApplicationDetail(profile: Profile, applicationId: stri
     adminClient
       .from("candidate_profiles")
       .select(
-        "headline, city, country, bio, experience_years, current_position, desired_position, skills_text, cv_text, profile_completion"
+        "headline, city, country, bio, experience_years, current_position, desired_position, desired_contract_type, desired_work_mode, desired_salary_min, desired_salary_currency, skills_text, cv_text, profile_completion"
       )
       .eq("user_id", candidateId)
       .maybeSingle(),
@@ -1939,6 +1973,10 @@ export async function getApplicationDetail(profile: Profile, applicationId: stri
           : null,
       current_position: String(candidateExtendedData?.current_position ?? ""),
       desired_position: String(candidateExtendedData?.desired_position ?? ""),
+      desired_contract_type: String(candidateExtendedData?.desired_contract_type ?? ""),
+      desired_work_mode: String(candidateExtendedData?.desired_work_mode ?? ""),
+      desired_salary_min: getNumericRecordValue(candidateExtendedData, "desired_salary_min"),
+      desired_salary_currency: String(candidateExtendedData?.desired_salary_currency ?? "MGA"),
       skills_text: String(candidateExtendedData?.skills_text ?? ""),
       cv_text: String(candidateExtendedData?.cv_text ?? ""),
       profile_completion:
@@ -2065,6 +2103,10 @@ export async function getManagedCandidates(
       country: "Madagascar",
       current_position: "",
       desired_position: "",
+      desired_contract_type: "",
+      desired_work_mode: "",
+      desired_salary_min: null,
+      desired_salary_currency: "MGA",
       profile_completion: 70,
       applications_count: 1,
       latest_application_at: application.created_at,
@@ -2116,7 +2158,7 @@ export async function getManagedCandidates(
     adminClient
       .from("candidate_profiles")
       .select(
-        "user_id, headline, skills_text, city, country, current_position, desired_position, profile_completion"
+        "user_id, headline, skills_text, city, country, current_position, desired_position, desired_contract_type, desired_work_mode, desired_salary_min, desired_salary_currency, profile_completion"
       )
       .in("user_id", candidateIds),
     adminClient
@@ -2177,6 +2219,10 @@ export async function getManagedCandidates(
       country: String(candidateRow?.country ?? "Madagascar"),
       current_position: String(candidateRow?.current_position ?? ""),
       desired_position: String(candidateRow?.desired_position ?? ""),
+      desired_contract_type: String(candidateRow?.desired_contract_type ?? ""),
+      desired_work_mode: String(candidateRow?.desired_work_mode ?? ""),
+      desired_salary_min: getNumericRecordValue(candidateRow, "desired_salary_min"),
+      desired_salary_currency: String(candidateRow?.desired_salary_currency ?? "MGA"),
       profile_completion:
         typeof candidateRow?.profile_completion === "number"
           ? candidateRow.profile_completion
@@ -2244,7 +2290,7 @@ export async function getManagedCandidateDetail(profile: Profile, candidateId: s
     adminClient
       .from("candidate_profiles")
       .select(
-        "bio, experience_years, skills_text, cv_text, headline, city, country, current_position, desired_position, profile_completion"
+        "bio, experience_years, skills_text, cv_text, headline, city, country, current_position, desired_position, desired_contract_type, desired_work_mode, desired_salary_min, desired_salary_currency, profile_completion"
       )
       .eq("user_id", candidateId)
       .maybeSingle(),
@@ -2427,6 +2473,13 @@ export async function getManagedCandidateDetail(profile: Profile, candidateId: s
         : null,
     current_position: String(candidateRow?.current_position ?? summary.current_position),
     desired_position: String(candidateRow?.desired_position ?? summary.desired_position),
+    desired_contract_type: String(candidateRow?.desired_contract_type ?? summary.desired_contract_type),
+    desired_work_mode: String(candidateRow?.desired_work_mode ?? summary.desired_work_mode),
+    desired_salary_min:
+      getNumericRecordValue(candidateRow, "desired_salary_min") ?? summary.desired_salary_min,
+    desired_salary_currency: String(
+      candidateRow?.desired_salary_currency ?? summary.desired_salary_currency
+    ),
     skills_text: String(candidateRow?.skills_text ?? ""),
     cv_text: String(candidateRow?.cv_text ?? ""),
     profile_completion:

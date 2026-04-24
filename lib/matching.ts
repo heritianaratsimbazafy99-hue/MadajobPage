@@ -1,10 +1,15 @@
 import type { Job, ManagedJob } from "@/lib/types";
+import { getComparableMonthlySalary, hasVisibleSalary } from "@/lib/job-salary";
 
 export type MatchingCandidateProfile = {
   headline?: string | null;
   city?: string | null;
   current_position?: string | null;
   desired_position?: string | null;
+  desired_contract_type?: string | null;
+  desired_work_mode?: string | null;
+  desired_salary_min?: number | null;
+  desired_salary_currency?: string | null;
   skills_text?: string | null;
   cv_text?: string | null;
   profile_completion?: number | null;
@@ -23,10 +28,22 @@ export type MatchableJob = Pick<
   | "status"
   | "organization_name"
 > &
-  Partial<Pick<ManagedJob, "requirements" | "responsibilities" | "benefits">>;
+  Partial<
+    Pick<
+      ManagedJob,
+      | "requirements"
+      | "responsibilities"
+      | "benefits"
+      | "salary_min"
+      | "salary_max"
+      | "salary_currency"
+      | "salary_period"
+      | "salary_is_visible"
+    >
+  >;
 
 export type JobMatchBreakdownItem = {
-  key: "focus" | "skills" | "location" | "profile" | "gap";
+  key: "focus" | "skills" | "location" | "preferences" | "profile" | "gap";
   label: string;
   value: string;
 };
@@ -260,6 +277,81 @@ function clampScore(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
+function getPreferenceScore(profile: MatchingCandidateProfile, job: MatchableJob) {
+  const desiredContract = normalizeText(profile.desired_contract_type ?? "");
+  const desiredWorkMode = normalizeText(profile.desired_work_mode ?? "");
+  const desiredSalaryMin =
+    typeof profile.desired_salary_min === "number" && profile.desired_salary_min > 0
+      ? profile.desired_salary_min
+      : null;
+  const desiredCurrency = profile.desired_salary_currency || "MGA";
+  const jobCurrency = job.salary_currency || "MGA";
+  const contractMatches =
+    Boolean(desiredContract) && normalizeText(job.contract_type).includes(desiredContract);
+  const workModeMatches =
+    Boolean(desiredWorkMode) && normalizeText(job.work_mode).includes(desiredWorkMode);
+  const salaryIsComparable =
+    Boolean(desiredSalaryMin) &&
+    hasVisibleSalary(job) &&
+    jobCurrency === desiredCurrency &&
+    getComparableMonthlySalary(job) > 0;
+  const salaryMatches =
+    Boolean(desiredSalaryMin) &&
+    salaryIsComparable &&
+    getComparableMonthlySalary(job) >= Number(desiredSalaryMin);
+
+  return {
+    score: (contractMatches ? 6 : 0) + (workModeMatches ? 6 : 0) + (salaryMatches ? 8 : 0),
+    hasPreferenceSignal: Boolean(desiredContract || desiredWorkMode || desiredSalaryMin),
+    contractMatches,
+    workModeMatches,
+    salaryMatches,
+    salaryIsComparable,
+    desiredSalaryMin,
+    desiredCurrency
+  };
+}
+
+function getPreferenceBreakdownValue(
+  profile: MatchingCandidateProfile,
+  job: MatchableJob,
+  preference: ReturnType<typeof getPreferenceScore>
+) {
+  const details: string[] = [];
+
+  if (profile.desired_contract_type) {
+    details.push(
+      preference.contractMatches
+        ? `contrat ${profile.desired_contract_type} aligne`
+        : `contrat ${profile.desired_contract_type} a verifier`
+    );
+  }
+
+  if (profile.desired_work_mode) {
+    details.push(
+      preference.workModeMatches
+        ? `mode ${profile.desired_work_mode} aligne`
+        : `mode ${profile.desired_work_mode} a verifier`
+    );
+  }
+
+  if (preference.desiredSalaryMin) {
+    if (preference.salaryMatches) {
+      details.push(`remuneration visible compatible avec ${preference.desiredCurrency}`);
+    } else if (!hasVisibleSalary(job)) {
+      details.push("remuneration de l'offre non visible");
+    } else if ((job.salary_currency || "MGA") !== preference.desiredCurrency) {
+      details.push("devise de remuneration differente");
+    } else if (preference.salaryIsComparable) {
+      details.push("remuneration visible sous le minimum souhaite");
+    }
+  }
+
+  return details.length > 0
+    ? `${details.join(", ")}.`
+    : "Aucune preference de contrat, mode ou remuneration renseignee.";
+}
+
 export function getCandidateJobMatch(
   profile: MatchingCandidateProfile,
   job: MatchableJob
@@ -310,7 +402,8 @@ export function getCandidateJobMatch(
   const hasFocusSignal = focusTokens.length > 0;
   const hasSkillSignal = candidateKeywordTokens.length > 0;
   const hasLocationSignal = locationTokens.length > 0;
-  const hasSignal = hasFocusSignal || hasSkillSignal;
+  const preferenceScore = getPreferenceScore(profile, job);
+  const hasSignal = hasFocusSignal || hasSkillSignal || preferenceScore.hasPreferenceSignal;
 
   if (!hasSignal) {
     return {
@@ -362,7 +455,9 @@ export function getCandidateJobMatch(
   const keywordScore = Math.min(35, keywordMatches.length * 6 + Math.round(keywordCoverage * 8));
   const locationScore = locationMatches.length > 0 ? 10 : 0;
   const completionScore = getCompletionScore(profile);
-  const score = clampScore(titleScore + keywordScore + locationScore + completionScore);
+  const score = clampScore(
+    titleScore + keywordScore + locationScore + completionScore + preferenceScore.score
+  );
   const level = getLevel(score);
   const extraSkillMatches = keywordMatches.filter((keyword) => !titleMatches.includes(keyword));
   const profileBreakdown = getProfileCoverageLabel(completion);
@@ -402,6 +497,11 @@ export function getCandidateJobMatch(
       highlightedGaps.length > 0
         ? `La proximite geographique est bonne, mais le profil doit encore couvrir ${highlightedGaps.join(", ")}.`
         : "La proximite geographique est bonne, mais le contenu du profil doit encore etre aligne avec le poste.";
+  } else if (preferenceScore.score >= 10) {
+    reason =
+      "Les preferences de contrat, mode de travail ou remuneration rapprochent ce poste de la recherche du candidat.";
+    nextStep =
+      "Confirmez maintenant l'adequation metier et les competences clefs avant d'avancer.";
   }
 
   const breakdown: JobMatchBreakdownItem[] = [
@@ -435,7 +535,18 @@ export function getCandidateJobMatch(
           : hasLocationSignal
             ? "Localisation a confirmer par rapport a l'offre."
             : "Ville non renseignee."
-    },
+    }
+  ];
+
+  if (preferenceScore.hasPreferenceSignal) {
+    breakdown.push({
+      key: "preferences",
+      label: "Preferences",
+      value: getPreferenceBreakdownValue(profile, job, preferenceScore)
+    });
+  }
+
+  breakdown.push(
     {
       key: "profile",
       label: "Profil",
@@ -451,7 +562,7 @@ export function getCandidateJobMatch(
             ? "Aucun ecart majeur n'apparait dans les mots clefs les plus visibles."
             : "L'offre donne encore peu de signaux exploitables sur les prerequis."
     }
-  ];
+  );
 
   return {
     score,

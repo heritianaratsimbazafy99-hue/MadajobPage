@@ -95,7 +95,7 @@ export async function syncCandidateProfileTextFromUploadedFile(
     adminClient
       .from("candidate_profiles")
       .select(
-        "headline, city, country, bio, experience_years, current_position, desired_position, skills_text, cv_text, profile_completion"
+        "headline, city, country, bio, experience_years, current_position, desired_position, desired_contract_type, desired_work_mode, desired_salary_min, desired_salary_currency, skills_text, cv_text, profile_completion"
       )
       .eq("user_id", profile.id)
       .maybeSingle()
@@ -115,6 +115,15 @@ export async function syncCandidateProfileTextFromUploadedFile(
         : null,
     current_position: String(candidateRow?.current_position ?? ""),
     desired_position: String(candidateRow?.desired_position ?? ""),
+    desired_contract_type: String(candidateRow?.desired_contract_type ?? ""),
+    desired_work_mode: String(candidateRow?.desired_work_mode ?? ""),
+    desired_salary_min:
+      typeof candidateRow?.desired_salary_min === "number"
+        ? candidateRow.desired_salary_min
+        : typeof candidateRow?.desired_salary_min === "string"
+          ? Number(candidateRow.desired_salary_min)
+          : null,
+    desired_salary_currency: String(candidateRow?.desired_salary_currency ?? "MGA"),
     skills_text: String(candidateRow?.skills_text ?? ""),
     cv_text: String(candidateRow?.cv_text ?? ""),
     profile_completion:

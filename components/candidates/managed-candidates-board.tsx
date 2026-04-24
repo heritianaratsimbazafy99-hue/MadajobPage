@@ -93,6 +93,10 @@ function buildMatchingProfile(candidate: ManagedCandidateSummary): MatchingCandi
     city: candidate.city,
     current_position: candidate.current_position,
     desired_position: candidate.desired_position,
+    desired_contract_type: candidate.desired_contract_type,
+    desired_work_mode: candidate.desired_work_mode,
+    desired_salary_min: candidate.desired_salary_min,
+    desired_salary_currency: candidate.desired_salary_currency,
     profile_completion: candidate.profile_completion
   };
 }
