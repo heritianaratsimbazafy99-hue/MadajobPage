@@ -709,6 +709,11 @@ code {
   font-weight: 700;
 }
 
+.field small {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
 .field input,
 .field textarea,
 .field select {

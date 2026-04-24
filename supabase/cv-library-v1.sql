@@ -46,10 +46,12 @@ for select
 to authenticated
 using (
   public.is_admin()
-  or uploaded_by = auth.uid()
   or (
     public.is_recruiter()
-    and organization_id = public.current_user_org_id()
+    and (
+      uploaded_by = auth.uid()
+      or organization_id = public.current_user_org_id()
+    )
   )
 );
 
@@ -60,7 +62,20 @@ for insert
 to authenticated
 with check (
   public.is_admin()
-  or uploaded_by = auth.uid()
+  or (
+    public.is_recruiter()
+    and uploaded_by = auth.uid()
+    and (
+      (
+        public.current_user_org_id() is not null
+        and organization_id = public.current_user_org_id()
+      )
+      or (
+        public.current_user_org_id() is null
+        and organization_id is null
+      )
+    )
+  )
 );
 
 drop policy if exists "cv library update" on public.cv_library_documents;
@@ -70,18 +85,29 @@ for update
 to authenticated
 using (
   public.is_admin()
-  or uploaded_by = auth.uid()
   or (
     public.is_recruiter()
-    and organization_id = public.current_user_org_id()
+    and (
+      uploaded_by = auth.uid()
+      or organization_id = public.current_user_org_id()
+    )
   )
 )
 with check (
   public.is_admin()
-  or uploaded_by = auth.uid()
   or (
     public.is_recruiter()
-    and organization_id = public.current_user_org_id()
+    and (
+      (
+        public.current_user_org_id() is not null
+        and organization_id = public.current_user_org_id()
+      )
+      or (
+        public.current_user_org_id() is null
+        and organization_id is null
+        and uploaded_by = auth.uid()
+      )
+    )
   )
 );
 
@@ -113,7 +139,13 @@ using (
   bucket_id = 'cv-library'
   and (
     public.is_admin()
-    or public.is_recruiter()
+    or (
+      public.is_recruiter()
+      and (
+        (storage.foldername(name))[1] = public.current_user_org_id()::text
+        or (storage.foldername(name))[1] = auth.uid()::text
+      )
+    )
   )
 );
 
@@ -126,7 +158,13 @@ with check (
   bucket_id = 'cv-library'
   and (
     public.is_admin()
-    or public.is_recruiter()
+    or (
+      public.is_recruiter()
+      and (
+        (storage.foldername(name))[1] = public.current_user_org_id()::text
+        or (storage.foldername(name))[1] = auth.uid()::text
+      )
+    )
   )
 );
 
@@ -139,13 +177,25 @@ using (
   bucket_id = 'cv-library'
   and (
     public.is_admin()
-    or public.is_recruiter()
+    or (
+      public.is_recruiter()
+      and (
+        (storage.foldername(name))[1] = public.current_user_org_id()::text
+        or (storage.foldername(name))[1] = auth.uid()::text
+      )
+    )
   )
 )
 with check (
   bucket_id = 'cv-library'
   and (
     public.is_admin()
-    or public.is_recruiter()
+    or (
+      public.is_recruiter()
+      and (
+        (storage.foldername(name))[1] = public.current_user_org_id()::text
+        or (storage.foldername(name))[1] = auth.uid()::text
+      )
+    )
   )
 );

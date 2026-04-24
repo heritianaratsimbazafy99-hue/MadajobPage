@@ -585,6 +585,13 @@ test("cv library: prepare un CV importe pour le matching sans candidat", () => {
       parsing_status: "unsupported",
       parsed_text: "",
       created_at: "2026-03-20T08:00:00.000Z"
+    }),
+    buildCvLibraryDocument({
+      id: "cv-library-3",
+      file_name: "scan.pdf",
+      parsing_status: "failed",
+      parsed_text: "",
+      created_at: "2026-03-18T08:00:00.000Z"
     })
   ], fixedNow);
 
@@ -592,9 +599,10 @@ test("cv library: prepare un CV importe pour le matching sans candidat", () => {
   assert.equal(getCvLibraryParsingStatus("profil.pdf", "application/pdf", "texte"), "parsed");
   assert.equal(getCvLibraryParsingStatus("profil.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ""), "unsupported");
   assert.ok(match.score >= 60);
-  assert.equal(summary.totalCount, 2);
+  assert.equal(summary.totalCount, 3);
   assert.equal(summary.parsedCount, 1);
   assert.equal(summary.unsupportedCount, 1);
+  assert.equal(summary.failedCount, 1);
   assert.equal(summary.recentCount, 1);
 });
 

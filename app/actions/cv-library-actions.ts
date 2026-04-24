@@ -9,6 +9,7 @@ import {
 import { requireRole } from "@/lib/auth";
 import { extractPdfTextFromFile } from "@/lib/pdf-text";
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { CvLibraryParsingStatus } from "@/lib/types";
 
 export type CvLibraryActionState = {
   status: "idle" | "success" | "error";
@@ -22,8 +23,7 @@ const allowedMimeTypes = new Set([
   "application/pdf",
   "text/plain",
   "application/msword",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  ""
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 ]);
 
 function getTrimmedValue(formData: FormData, key: string) {
@@ -63,6 +63,23 @@ function validateCvLibraryFile(file: File) {
   }
 
   return "";
+}
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Erreur inconnue";
+}
+
+function formatImportIssues(issues: string[]) {
+  if (!issues.length) {
+    return "";
+  }
+
+  const visibleIssues = issues.slice(0, 3).join(" ");
+  const remainingCount = issues.length - 3;
+
+  return remainingCount > 0
+    ? `${visibleIssues} ${remainingCount} autre(s) erreur(s) non affichee(s).`
+    : visibleIssues;
 }
 
 async function extractCvLibraryText(file: File) {
@@ -111,26 +128,39 @@ export async function uploadCvLibraryDocumentsAction(
     };
   }
 
-  const validationError = files.map(validateCvLibraryFile).find(Boolean);
-
-  if (validationError) {
-    return {
-      status: "error",
-      message: validationError
-    };
-  }
-
   let importedCount = 0;
   let parsedCount = 0;
   let unsupportedCount = 0;
-  const uploadedPaths: string[] = [];
+  let emptyCount = 0;
+  let failedParsingCount = 0;
+  const importIssues: string[] = [];
 
   for (const [index, file] of files.entries()) {
-    const safeName = sanitizeFileName(file.name || `cv-${index + 1}.pdf`);
+    const validationError = validateCvLibraryFile(file);
+
+    if (validationError) {
+      importIssues.push(`${file.name || `Fichier ${index + 1}`} ignore : ${validationError}`);
+      continue;
+    }
+
+    const safeName = sanitizeFileName(file.name || `cv-${index + 1}.pdf`) || `cv-${index + 1}`;
     const scope = profile.organization_id ?? profile.id;
     const storagePath = `${scope}/${Date.now()}-${index + 1}-${safeName}`;
-    const parsedText = await extractCvLibraryText(file);
-    const parsingStatus = getCvLibraryParsingStatus(file.name, file.type || null, parsedText);
+    let parsedText = "";
+    let parsingStatus: CvLibraryParsingStatus = "pending";
+    let parsingError: string | null = null;
+
+    try {
+      parsedText = await extractCvLibraryText(file);
+      parsingStatus = getCvLibraryParsingStatus(file.name, file.type || null, parsedText);
+      parsingError =
+        parsingStatus === "unsupported"
+          ? "Parsing natif reserve aux PDF et TXT pour cette version."
+          : null;
+    } catch (error) {
+      parsingStatus = "failed";
+      parsingError = `Parsing impossible : ${getErrorMessage(error)}`;
+    }
 
     const { error: uploadError } = await adminClient.storage
       .from(cvLibraryBucketId)
@@ -141,13 +171,9 @@ export async function uploadCvLibraryDocumentsAction(
       });
 
     if (uploadError) {
-      return {
-        status: "error",
-        message: uploadError.message
-      };
+      importIssues.push(`${file.name || `Fichier ${index + 1}`} non importe : ${uploadError.message}`);
+      continue;
     }
-
-    uploadedPaths.push(storagePath);
 
     const { error: insertError } = await adminClient.from("cv_library_documents").insert({
       organization_id: profile.role === "recruteur" ? profile.organization_id : null,
@@ -160,21 +186,16 @@ export async function uploadCvLibraryDocumentsAction(
       mime_type: file.type || null,
       file_size: file.size,
       parsing_status: parsingStatus,
-      parsing_error:
-        parsingStatus === "unsupported"
-          ? "Parsing natif reserve aux PDF et TXT pour cette version."
-          : null,
+      parsing_error: parsingError,
       parsed_text: parsedText || null,
       tags: importTag ? [importTag] : []
     });
 
     if (insertError) {
-      await adminClient.storage.from(cvLibraryBucketId).remove(uploadedPaths);
+      await adminClient.storage.from(cvLibraryBucketId).remove([storagePath]);
 
-      return {
-        status: "error",
-        message: insertError.message
-      };
+      importIssues.push(`${file.name || `Fichier ${index + 1}`} non indexe : ${insertError.message}`);
+      continue;
     }
 
     importedCount += 1;
@@ -186,13 +207,30 @@ export async function uploadCvLibraryDocumentsAction(
     if (parsingStatus === "unsupported") {
       unsupportedCount += 1;
     }
+
+    if (parsingStatus === "empty") {
+      emptyCount += 1;
+    }
+
+    if (parsingStatus === "failed") {
+      failedParsingCount += 1;
+    }
+  }
+
+  if (importedCount === 0) {
+    return {
+      status: "error",
+      message: formatImportIssues(importIssues) || "Aucun CV n'a pu etre importe."
+    };
   }
 
   revalidatePath("/app/recruteur/cvtheque");
   revalidatePath("/app/admin/cvtheque");
 
+  const issueSummary = formatImportIssues(importIssues);
+
   return {
     status: "success",
-    message: `${importedCount} CV importe(s), ${parsedCount} parse(s), ${unsupportedCount} en attente d'un parsing avance.`
+    message: `${importedCount} CV importe(s), ${parsedCount} parse(s), ${unsupportedCount} en attente d'un parsing avance, ${emptyCount} texte vide, ${failedParsingCount} echec(s) parsing.${issueSummary ? ` ${issueSummary}` : ""}`
   };
 }

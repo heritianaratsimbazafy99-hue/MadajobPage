@@ -59,6 +59,26 @@ function getParsingTone(status: string) {
   return "muted";
 }
 
+function getParsingLabel(status: string) {
+  if (status === "parsed") {
+    return "Parse";
+  }
+
+  if (status === "empty") {
+    return "Texte vide";
+  }
+
+  if (status === "unsupported") {
+    return "Parsing avance requis";
+  }
+
+  if (status === "failed") {
+    return "Echec parsing";
+  }
+
+  return "En attente";
+}
+
 function getParsedExcerpt(text: string) {
   const cleanText = text.replace(/\s+/g, " ").trim();
   return cleanText.length > 260 ? `${cleanText.slice(0, 260)}...` : cleanText;
@@ -190,7 +210,7 @@ export function CvLibraryBoard({ documents, jobs, role }: CvLibraryBoardProps) {
                 setFilters((previous) => ({
                   ...previous,
                   selectedJobId: event.target.value,
-                  sort: event.target.value ? "match" : previous.sort
+                  sort: event.target.value ? "match" : "recent"
                 }))
               }
             >
@@ -254,7 +274,9 @@ export function CvLibraryBoard({ documents, jobs, role }: CvLibraryBoardProps) {
               }
             >
               <option value="recent">Plus recents</option>
-              <option value="match">Meilleur match</option>
+              <option value="match" disabled={!selectedJob}>
+                Meilleur match
+              </option>
               <option value="name">Nom / fichier</option>
             </select>
           </label>
@@ -304,7 +326,7 @@ export function CvLibraryBoard({ documents, jobs, role }: CvLibraryBoardProps) {
                 <div className="jobs-result-card__head">
                   <div className="jobs-result-card__badges">
                     <span className={`tag tag--${getParsingTone(document.parsing_status)}`}>
-                      {document.parsing_status}
+                      {getParsingLabel(document.parsing_status)}
                     </span>
                     {match ? (
                       <span className={`tag tag--${match.tone}`}>Match {match.score}%</span>
@@ -364,16 +386,22 @@ export function CvLibraryBoard({ documents, jobs, role }: CvLibraryBoardProps) {
           })
         ) : (
           <DashboardEmptyState
-            title="Aucun CV ne correspond a ces filtres"
-            description="Elargissez la recherche ou importez un nouveau lot pour alimenter la CVtheque."
+            title={documents.length > 0 ? "Aucun CV ne correspond a ces filtres" : "CVtheque vide"}
+            description={
+              documents.length > 0
+                ? "Elargissez la recherche ou importez un nouveau lot pour alimenter la CVtheque."
+                : "Importez un premier lot de PDF, TXT, DOC ou DOCX pour commencer le matching hors comptes candidats."
+            }
             actions={
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setFilters(initialFilters)}
-              >
-                Reinitialiser les filtres
-              </button>
+              activeFilterCount > 0 ? (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setFilters(initialFilters)}
+                >
+                  Reinitialiser les filtres
+                </button>
+              ) : null
             }
           />
         )}

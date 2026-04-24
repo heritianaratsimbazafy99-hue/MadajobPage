@@ -18,6 +18,8 @@ export function CvLibraryWorkspace({
   currentPath
 }: CvLibraryWorkspaceProps) {
   const summary = summarizeCvLibraryDocuments(documents);
+  const retryableCount =
+    summary.unsupportedCount + summary.emptyCount + summary.failedCount + summary.pendingCount;
   const activeJobs = jobs.filter((job) => job.status === "published" || job.status === "draft");
 
   return (
@@ -40,7 +42,7 @@ export function CvLibraryWorkspace({
         </article>
         <article className="panel metric-panel">
           <span>A retraiter</span>
-          <strong>{summary.unsupportedCount + summary.emptyCount}</strong>
+          <strong>{retryableCount}</strong>
           <small>documents utiles pour parsing avance ou IA</small>
         </article>
         <article className="panel metric-panel">

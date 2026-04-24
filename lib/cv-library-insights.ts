@@ -15,6 +15,8 @@ export type CvLibrarySummary = {
   parsedCount: number;
   unsupportedCount: number;
   emptyCount: number;
+  failedCount: number;
+  pendingCount: number;
   recentCount: number;
 };
 
@@ -22,6 +24,10 @@ const recentWindowInMs = 7 * 24 * 60 * 60 * 1000;
 
 function stripExtension(fileName: string) {
   return fileName.replace(/\.[^.]+$/, "");
+}
+
+function normalizeCvText(value: string) {
+  return value.replace(/\s+/g, " ").trim();
 }
 
 export function inferCvLibraryCandidateName(fileName: string) {
@@ -55,15 +61,16 @@ export function buildCvLibraryMatchingProfile(
   >
 ): CvLibraryMatchingProfile {
   const displayName = document.candidate_name || inferCvLibraryCandidateName(document.file_name);
-  const hasParsedText = document.parsing_status === "parsed" && document.parsed_text.trim().length > 0;
+  const parsedText = normalizeCvText(document.parsed_text);
+  const hasParsedText = document.parsing_status === "parsed" && parsedText.length > 0;
 
   return {
-    headline: hasParsedText ? `${displayName} ${document.parsed_text.slice(0, 180)}` : displayName,
+    headline: hasParsedText ? `${displayName} ${parsedText.slice(0, 180)}` : displayName,
     city: "",
     current_position: displayName,
-    desired_position: hasParsedText ? document.parsed_text.slice(0, 220) : "",
-    skills_text: hasParsedText ? document.parsed_text : "",
-    cv_text: hasParsedText ? document.parsed_text : "",
+    desired_position: hasParsedText ? parsedText.slice(0, 220) : "",
+    skills_text: hasParsedText ? parsedText : "",
+    cv_text: hasParsedText ? parsedText : "",
     profile_completion: hasParsedText ? 85 : 20
   };
 }
@@ -77,6 +84,8 @@ export function summarizeCvLibraryDocuments(
     parsedCount: documents.filter((document) => document.parsing_status === "parsed").length,
     unsupportedCount: documents.filter((document) => document.parsing_status === "unsupported").length,
     emptyCount: documents.filter((document) => document.parsing_status === "empty").length,
+    failedCount: documents.filter((document) => document.parsing_status === "failed").length,
+    pendingCount: documents.filter((document) => document.parsing_status === "pending").length,
     recentCount: documents.filter(
       (document) => now - new Date(document.created_at).getTime() <= recentWindowInMs
     ).length

@@ -30,12 +30,16 @@ export function CvLibraryUploadForm() {
         <label className="field field--full">
           <span>CV a importer</span>
           <input
+            aria-describedby="cv-library-upload-help"
             type="file"
             name="cv_files"
             multiple
             accept=".pdf,.txt,.doc,.docx,application/pdf,text/plain,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
             required
           />
+          <small id="cv-library-upload-help">
+            PDF, TXT, DOC ou DOCX. 10 Mo maximum par fichier, 30 fichiers par lot.
+          </small>
         </label>
 
         <label className="field">
@@ -58,7 +62,10 @@ export function CvLibraryUploadForm() {
       </div>
 
       {state.message ? (
-        <p className={state.status === "error" ? "form-feedback form-feedback--error" : "form-feedback"}>
+        <p
+          aria-live="polite"
+          className={state.status === "error" ? "form-feedback form-feedback--error" : "form-feedback"}
+        >
           {state.message}
         </p>
       ) : null}
