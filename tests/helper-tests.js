@@ -49,6 +49,10 @@ const {
   summarizeCandidateJobAlerts
 } = require("../lib/candidate-job-alert-insights.ts");
 const {
+  getCompatibleUncontactedCandidateLeads,
+  summarizeCompatibleCandidateLeads
+} = require("../lib/job-compatible-candidate-leads.ts");
+const {
   getCandidateCvAnalysis
 } = require("../lib/candidate-cv-analysis.ts");
 const {
@@ -458,6 +462,81 @@ test("candidate job alert insights: resume le centre candidat par preferences", 
     preferenceSignals.map((signal) => signal.label),
     ["Contrat", "Mode", "Salaire minimum"]
   );
+});
+
+test("job compatible candidate leads: exclut les profils deja engages", () => {
+  const job = buildJob();
+  const candidates = [
+    buildCandidate({
+      id: "lead-ready",
+      profile_completion: 92,
+      has_primary_cv: true
+    }),
+    buildCandidate({
+      id: "same-job",
+      profile_completion: 92,
+      has_primary_cv: true
+    }),
+    buildCandidate({
+      id: "active-elsewhere",
+      profile_completion: 92,
+      has_primary_cv: true
+    }),
+    buildCandidate({
+      id: "shortlist-elsewhere",
+      profile_completion: 92,
+      has_primary_cv: true
+    }),
+    buildCandidate({
+      id: "weak-match",
+      headline: "",
+      city: "Mahajanga",
+      current_position: "",
+      desired_position: "",
+      skills_text: "",
+      cv_text: "",
+      profile_completion: 10,
+      has_primary_cv: false
+    })
+  ];
+  const applications = [
+    buildApplication({
+      id: "same-job-app",
+      candidate_id: "same-job",
+      job_id: job.id,
+      status: "rejected"
+    }),
+    buildApplication({
+      id: "active-app",
+      candidate_id: "active-elsewhere",
+      job_id: "job-other",
+      status: "screening"
+    }),
+    buildApplication({
+      id: "shortlist-app",
+      candidate_id: "shortlist-elsewhere",
+      job_id: "job-other",
+      status: "shortlist"
+    })
+  ];
+
+  const leads = getCompatibleUncontactedCandidateLeads({
+    job,
+    candidates,
+    applications,
+    minScore: 60,
+    limit: 10
+  });
+  const summary = summarizeCompatibleCandidateLeads(leads);
+
+  assert.deepEqual(
+    leads.map((lead) => lead.candidate.id),
+    ["lead-ready"]
+  );
+  assert.equal(summary.totalCount, 1);
+  assert.equal(summary.withCvCount, 1);
+  assert.ok(leads[0].signals.includes("Non contacte"));
+  assert.ok(leads[0].signals.includes("Sans candidature active"));
 });
 
 test("cv analysis: exploite le texte extrait du CV meme sans profil formulaire", () => {
