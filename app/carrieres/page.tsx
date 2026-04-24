@@ -10,7 +10,7 @@ export default async function CarrieresPage() {
   const sectorsCount = new Set(jobs.map((job) => job.sector).filter(Boolean)).size;
 
   return (
-    <main className="page-shell">
+    <main className="page-shell career-page-shell">
       <section className="section">
         <div className="container career-hero">
           <div className="career-hero__copy">

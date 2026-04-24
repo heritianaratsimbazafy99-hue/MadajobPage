@@ -142,7 +142,7 @@ export function PublicCareersBoard({ jobs }: PublicCareersBoardProps) {
         <div className="career-filter-panel__head">
           <div>
             <p className="eyebrow">Recherche d'offres</p>
-            <h2>Filtrer les annonces publiees par Madajob</h2>
+            <h2>Filtrer les annonces Madajob</h2>
           </div>
           <span className="tag">{filteredJobs.length} offre(s)</span>
         </div>

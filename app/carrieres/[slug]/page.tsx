@@ -46,7 +46,7 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
       : "Les avantages, le contexte et la remuneration seront partages dans la suite du processus.";
 
   return (
-    <main className="page-shell">
+    <main className="page-shell career-page-shell career-detail-page">
       <section className="section">
         <div className="container detail-layout">
           <article className="panel detail-card">
