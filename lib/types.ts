@@ -107,6 +107,7 @@ export type Job = {
   status: "draft" | "published" | "closed" | "archived";
   is_featured: boolean;
   published_at: string | null;
+  created_at?: string | null;
   closing_at?: string | null;
   organization_name?: string;
 };

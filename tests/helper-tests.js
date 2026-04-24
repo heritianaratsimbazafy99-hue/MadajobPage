@@ -58,6 +58,11 @@ const {
 const {
   getJobQualityReport
 } = require("../lib/job-quality.ts");
+const {
+  buildJobPostingJsonLd,
+  getJobCanonicalUrl,
+  getJobSeoDescription
+} = require("../lib/job-posting-seo.ts");
 
 const fixedNow = new Date("2026-04-23T12:00:00.000Z").getTime();
 
@@ -554,4 +559,36 @@ test("job quality: valide une annonce exploitable avec salaire et cloture", () =
   assert.equal(report.readyForPublication, true);
   assert.equal(report.alerts.length, 0);
   assert.ok(report.score >= 85);
+});
+
+test("job SEO: genere un JSON-LD JobPosting complet pour Google Jobs", () => {
+  const job = buildJob({
+    id: "job-seo-1",
+    slug: "responsable-commercial-seo",
+    title: "Responsable commercial",
+    department: "Commercial",
+    salary_min: 1200000,
+    salary_max: 1800000,
+    salary_currency: "MGA",
+    salary_period: "month",
+    salary_is_visible: true,
+    closing_at: "2026-05-30T23:59:59.000Z"
+  });
+  const jsonLd = buildJobPostingJsonLd(job);
+
+  assert.equal(jsonLd["@type"], "JobPosting");
+  assert.equal(jsonLd.title, "Responsable commercial");
+  assert.equal(jsonLd.datePosted, "2026-04-10T08:00:00.000Z");
+  assert.equal(jsonLd.validThrough, "2026-05-30T23:59:59.000Z");
+  assert.equal(jsonLd.employmentType, "FULL_TIME");
+  assert.equal(jsonLd.hiringOrganization.name, "Madajob");
+  assert.equal(jsonLd.jobLocation.address.addressCountry, "MG");
+  assert.equal(jsonLd.baseSalary.currency, "MGA");
+  assert.equal(jsonLd.baseSalary.value.minValue, 1200000);
+  assert.equal(jsonLd.baseSalary.value.maxValue, 1800000);
+  assert.equal(
+    getJobCanonicalUrl(job),
+    "https://madajob-page.vercel.app/carrieres/responsable-commercial-seo"
+  );
+  assert.match(getJobSeoDescription(job), /Developper un portefeuille B2B/i);
 });

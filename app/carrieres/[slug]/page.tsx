@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -5,6 +6,13 @@ import { JobApplyForm } from "@/components/jobs/job-apply-form";
 import { getCurrentProfile } from "@/lib/auth";
 import { formatDisplayDate } from "@/lib/format";
 import { formatJobSalary } from "@/lib/job-salary";
+import {
+  buildJobPostingJsonLd,
+  getJobCanonicalUrl,
+  getJobSeoDescription,
+  getJobSeoTitle,
+  stringifyJsonLd
+} from "@/lib/job-posting-seo";
 import {
   getCandidateApplicationForJob,
   getCandidatePrimaryDocument,
@@ -19,6 +27,45 @@ type JobDetailPageProps = {
 
 function hasContent(value?: string | null) {
   return Boolean(value?.trim());
+}
+
+export async function generateMetadata({ params }: JobDetailPageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const job = await getPublicJobBySlug(slug);
+
+  if (!job) {
+    return {
+      title: "Offre introuvable | Madajob",
+      robots: {
+        index: false,
+        follow: false
+      }
+    };
+  }
+
+  const title = getJobSeoTitle(job);
+  const description = getJobSeoDescription(job);
+  const canonicalUrl = getJobCanonicalUrl(job);
+
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: canonicalUrl
+    },
+    openGraph: {
+      title,
+      description,
+      url: canonicalUrl,
+      type: "article",
+      siteName: "Madajob"
+    },
+    twitter: {
+      card: "summary",
+      title,
+      description
+    }
+  };
 }
 
 export default async function JobDetailPage({ params }: JobDetailPageProps) {
@@ -44,9 +91,16 @@ export default async function JobDetailPage({ params }: JobDetailPageProps) {
     : hasContent(job.benefits)
       ? job.benefits
       : "Les avantages, le contexte et la remuneration seront partages dans la suite du processus.";
+  const jobPostingJsonLd = buildJobPostingJsonLd(job);
 
   return (
     <main className="page-shell career-page-shell career-detail-page">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: stringifyJsonLd(jobPostingJsonLd)
+        }}
+      />
       <section className="section">
         <div className="container detail-layout">
           <article className="panel detail-card">

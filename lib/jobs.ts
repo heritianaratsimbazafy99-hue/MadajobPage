@@ -300,6 +300,7 @@ function mapJobRecord(record: Record<string, unknown>): Job {
     status: (record.status as Job["status"]) ?? "draft",
     is_featured: Boolean(record.is_featured),
     published_at: (record.published_at as string | null) ?? null,
+    created_at: typeof record.created_at === "string" ? record.created_at : null,
     closing_at: typeof record.closing_at === "string" ? record.closing_at : null,
     organization_name:
       typeof record.organization_name === "string"
