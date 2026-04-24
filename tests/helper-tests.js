@@ -49,6 +49,12 @@ const {
   summarizeCandidateJobAlerts
 } = require("../lib/candidate-job-alert-insights.ts");
 const {
+  buildCvLibraryMatchingProfile,
+  getCvLibraryParsingStatus,
+  inferCvLibraryCandidateName,
+  summarizeCvLibraryDocuments
+} = require("../lib/cv-library-insights.ts");
+const {
   getCompatibleUncontactedCandidateLeads,
   summarizeCompatibleCandidateLeads
 } = require("../lib/job-compatible-candidate-leads.ts");
@@ -204,6 +210,34 @@ function buildCandidateJobAlert(overrides = {}) {
       salary_max: 1800000,
       salary_is_visible: true
     }),
+    ...overrides
+  };
+}
+
+function buildCvLibraryDocument(overrides = {}) {
+  return {
+    id: "cv-library-1",
+    organization_id: "org-1",
+    uploaded_by: "user-1",
+    source_label: "Import test",
+    candidate_name: "Miora Randriam",
+    candidate_email: null,
+    candidate_phone: null,
+    bucket_id: "cv-library",
+    storage_path: "org-1/cv.pdf",
+    file_name: "CV_Miora_Randriam.pdf",
+    mime_type: "application/pdf",
+    file_size: 120000,
+    parsing_status: "parsed",
+    parsing_error: null,
+    parsed_text:
+      "Commercial B2B grands comptes Antananarivo CDI Hybride prospection CRM closing negociation portefeuille strategique",
+    ai_summary: {},
+    tags: ["test"],
+    is_archived: false,
+    created_at: "2026-04-22T08:00:00.000Z",
+    updated_at: "2026-04-22T08:00:00.000Z",
+    download_url: null,
     ...overrides
   };
 }
@@ -537,6 +571,31 @@ test("job compatible candidate leads: exclut les profils deja engages", () => {
   assert.equal(summary.withCvCount, 1);
   assert.ok(leads[0].signals.includes("Non contacte"));
   assert.ok(leads[0].signals.includes("Sans candidature active"));
+});
+
+test("cv library: prepare un CV importe pour le matching sans candidat", () => {
+  const document = buildCvLibraryDocument();
+  const profile = buildCvLibraryMatchingProfile(document);
+  const match = getCandidateJobMatch(profile, buildJob());
+  const summary = summarizeCvLibraryDocuments([
+    document,
+    buildCvLibraryDocument({
+      id: "cv-library-2",
+      file_name: "archive.docx",
+      parsing_status: "unsupported",
+      parsed_text: "",
+      created_at: "2026-03-20T08:00:00.000Z"
+    })
+  ], fixedNow);
+
+  assert.equal(inferCvLibraryCandidateName("CV_Miora_Randriam.pdf"), "Miora Randriam");
+  assert.equal(getCvLibraryParsingStatus("profil.pdf", "application/pdf", "texte"), "parsed");
+  assert.equal(getCvLibraryParsingStatus("profil.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", ""), "unsupported");
+  assert.ok(match.score >= 60);
+  assert.equal(summary.totalCount, 2);
+  assert.equal(summary.parsedCount, 1);
+  assert.equal(summary.unsupportedCount, 1);
+  assert.equal(summary.recentCount, 1);
 });
 
 test("cv analysis: exploite le texte extrait du CV meme sans profil formulaire", () => {

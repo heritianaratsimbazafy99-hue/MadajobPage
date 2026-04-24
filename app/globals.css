@@ -1506,6 +1506,18 @@ code {
   margin-top: 12px;
 }
 
+.cv-library-upload-form {
+  gap: 16px;
+}
+
+.cv-library-card .application-signal-card {
+  margin-top: 12px;
+}
+
+.cv-library-card h2 {
+  overflow-wrap: anywhere;
+}
+
 .job-public-preview {
   display: grid;
   gap: 14px;

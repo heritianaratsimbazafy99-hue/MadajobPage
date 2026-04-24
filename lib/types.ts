@@ -126,6 +126,37 @@ export type CandidateJobAlert = {
   job: Job;
 };
 
+export type CvLibraryParsingStatus =
+  | "pending"
+  | "parsed"
+  | "empty"
+  | "unsupported"
+  | "failed";
+
+export type CvLibraryDocument = {
+  id: string;
+  organization_id: string | null;
+  uploaded_by: string;
+  source_label: string | null;
+  candidate_name: string | null;
+  candidate_email: string | null;
+  candidate_phone: string | null;
+  bucket_id: string;
+  storage_path: string;
+  file_name: string;
+  mime_type: string | null;
+  file_size: number | null;
+  parsing_status: CvLibraryParsingStatus;
+  parsing_error: string | null;
+  parsed_text: string;
+  ai_summary: Record<string, unknown>;
+  tags: string[];
+  is_archived: boolean;
+  created_at: string;
+  updated_at: string;
+  download_url: string | null;
+};
+
 export type ManagedJob = Job & {
   organization_id: string | null;
   department?: string;
