@@ -879,6 +879,7 @@ code {
 .dashboard-nav__item span {
   font-weight: 700;
   color: var(--text);
+  overflow-wrap: anywhere;
 }
 
 .dashboard-nav__title {
@@ -1026,6 +1027,7 @@ code {
   display: flex;
   align-items: center;
   gap: 14px;
+  min-width: 0;
 }
 
 .dashboard-mobile-nav {
@@ -1034,6 +1036,7 @@ code {
 
 .dashboard-context {
   min-width: 220px;
+  max-width: 100%;
   padding: 14px 16px;
   border-radius: 18px;
   border: 1px solid rgba(22, 49, 74, 0.08);
@@ -2018,6 +2021,7 @@ button:disabled {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  min-width: 0;
 }
 
 .jobs-result-card__head small {
@@ -2201,6 +2205,7 @@ button:disabled {
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
+  min-width: 0;
 }
 
 .pipeline-column__head h2 {
@@ -2522,12 +2527,14 @@ button:disabled {
     overflow-x: auto;
     margin-top: 18px;
     padding-bottom: 6px;
+    scroll-snap-type: x proximity;
     scrollbar-width: thin;
   }
 
   .dashboard-mobile-nav .dashboard-nav__item {
     flex: 0 0 220px;
     min-height: 82px;
+    scroll-snap-align: start;
   }
 
   .dashboard-workspace {
@@ -2570,7 +2577,7 @@ button:disabled {
 
   .dashboard-grid--three .metric-panel,
   .dashboard-grid--four .metric-panel {
-    flex-basis: 100%;
+    flex-basis: calc(50% - 8px);
   }
 }
 
@@ -2632,10 +2639,17 @@ button:disabled {
   .dashboard-toolbar__meta,
   .dashboard-section__head,
   .dashboard-card__top,
+  .jobs-result-card__head,
+  .pipeline-column__head,
   .dashboard-form__head,
   .checkbox-field {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .dashboard-toolbar__meta,
+  .dashboard-toolbar__meta .btn {
+    width: 100%;
   }
 
   .dashboard-context {
@@ -2656,7 +2670,7 @@ button:disabled {
   }
 
   .dashboard-mobile-nav .dashboard-nav__item {
-    flex-basis: 170px;
+    flex-basis: min(74vw, 210px);
     padding: 12px 14px;
   }
 
@@ -2672,6 +2686,11 @@ button:disabled {
   .dashboard-empty-actions .btn,
   .dashboard-empty-actions a {
     width: 100%;
+  }
+
+  .dashboard-grid--three .metric-panel,
+  .dashboard-grid--four .metric-panel {
+    flex-basis: 100%;
   }
 
   .job-publication-checklist__row {
