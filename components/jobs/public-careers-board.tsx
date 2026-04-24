@@ -4,7 +4,11 @@ import Link from "next/link";
 import { useDeferredValue, useMemo, useState } from "react";
 
 import { formatDisplayDate } from "@/lib/format";
-import { formatJobSalary } from "@/lib/job-salary";
+import {
+  formatJobSalary,
+  getComparableMonthlySalary,
+  hasVisibleSalary
+} from "@/lib/job-salary";
 import type { Job } from "@/lib/types";
 
 type PublicCareersBoardProps = {
@@ -17,8 +21,10 @@ type CareerFilters = {
   contractType: string;
   workMode: string;
   sector: string;
+  salaryMin: string;
+  salaryVisibleOnly: boolean;
   featuredOnly: boolean;
-  sort: "featured" | "recent" | "oldest";
+  sort: "featured" | "recent" | "oldest" | "salary_desc";
 };
 
 const initialFilters: CareerFilters = {
@@ -27,6 +33,8 @@ const initialFilters: CareerFilters = {
   contractType: "",
   workMode: "",
   sector: "",
+  salaryMin: "",
+  salaryVisibleOnly: false,
   featuredOnly: false,
   sort: "featured"
 };
@@ -53,9 +61,11 @@ export function PublicCareersBoard({ jobs }: PublicCareersBoardProps) {
 
   const filteredJobs = useMemo(() => {
     const query = deferredQuery.trim().toLowerCase();
+    const salaryMin = Number(filters.salaryMin || 0);
 
     return jobs
       .filter((job) => {
+        const salaryAmount = getComparableMonthlySalary(job);
         const matchesQuery =
           !query ||
           [
@@ -77,10 +87,21 @@ export function PublicCareersBoard({ jobs }: PublicCareersBoardProps) {
           (!filters.contractType || job.contract_type === filters.contractType) &&
           (!filters.workMode || job.work_mode === filters.workMode) &&
           (!filters.sector || job.sector === filters.sector) &&
+          (!filters.salaryVisibleOnly || hasVisibleSalary(job)) &&
+          (!salaryMin || salaryAmount >= salaryMin) &&
           (!filters.featuredOnly || job.is_featured)
         );
       })
       .sort((left, right) => {
+        if (filters.sort === "salary_desc") {
+          const leftSalary = getComparableMonthlySalary(left);
+          const rightSalary = getComparableMonthlySalary(right);
+
+          if (leftSalary !== rightSalary) {
+            return rightSalary - leftSalary;
+          }
+        }
+
         if (filters.sort === "featured" && left.is_featured !== right.is_featured) {
           return left.is_featured ? -1 : 1;
         }
@@ -95,6 +116,8 @@ export function PublicCareersBoard({ jobs }: PublicCareersBoardProps) {
     filters.contractType,
     filters.featuredOnly,
     filters.location,
+    filters.salaryMin,
+    filters.salaryVisibleOnly,
     filters.sector,
     filters.sort,
     filters.workMode,
@@ -107,6 +130,8 @@ export function PublicCareersBoard({ jobs }: PublicCareersBoardProps) {
     filters.contractType,
     filters.workMode,
     filters.sector,
+    filters.salaryMin,
+    filters.salaryVisibleOnly ? "salary_visible" : "",
     filters.featuredOnly ? "featured" : "",
     filters.sort !== "featured" ? filters.sort : ""
   ].filter(Boolean).length;
@@ -218,12 +243,41 @@ export function PublicCareersBoard({ jobs }: PublicCareersBoardProps) {
             >
               <option value="featured">Mises en avant d'abord</option>
               <option value="recent">Plus recentes</option>
+              <option value="salary_desc">Meilleure remuneration</option>
               <option value="oldest">Plus anciennes</option>
             </select>
+          </label>
+
+          <label className="field">
+            <span>Salaire minimum mensuel</span>
+            <input
+              value={filters.salaryMin}
+              onChange={(event) =>
+                setFilters((previous) => ({ ...previous, salaryMin: event.target.value }))
+              }
+              min="0"
+              step="100000"
+              type="number"
+              placeholder="Ex. 1500000"
+            />
           </label>
         </div>
 
         <div className="career-filter-panel__actions">
+          <label className="checkbox-field">
+            <input
+              type="checkbox"
+              checked={filters.salaryVisibleOnly}
+              onChange={(event) =>
+                setFilters((previous) => ({
+                  ...previous,
+                  salaryVisibleOnly: event.target.checked
+                }))
+              }
+            />
+            <span>Afficher uniquement les offres avec remuneration visible</span>
+          </label>
+
           <label className="checkbox-field">
             <input
               type="checkbox"

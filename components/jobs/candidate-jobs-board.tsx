@@ -15,7 +15,11 @@ import type {
   CandidateJobOpportunity
 } from "@/lib/candidate-job-insights";
 import { formatDateTimeDisplay, formatDisplayDate } from "@/lib/format";
-import { formatJobSalary } from "@/lib/job-salary";
+import {
+  formatJobSalary,
+  getComparableMonthlySalary,
+  hasVisibleSalary
+} from "@/lib/job-salary";
 
 type CandidateJobsBoardProps = {
   opportunities: CandidateJobOpportunity[];
@@ -27,10 +31,12 @@ type Filters = {
   contractType: string;
   workMode: string;
   sector: string;
+  salaryMin: string;
   applicationState: "" | "available" | "applied" | "active_applied";
   focus: "" | "strong_match" | "ready_to_apply" | "saved" | "featured" | "upcoming_interview";
   featuredOnly: boolean;
-  sort: "priority_desc" | "recent" | "match" | "featured" | "oldest";
+  salaryVisibleOnly: boolean;
+  sort: "priority_desc" | "recent" | "match" | "featured" | "salary_desc" | "oldest";
 };
 
 const initialFilters: Filters = {
@@ -39,9 +45,11 @@ const initialFilters: Filters = {
   contractType: "",
   workMode: "",
   sector: "",
+  salaryMin: "",
   applicationState: "",
   focus: "",
   featuredOnly: false,
+  salaryVisibleOnly: false,
   sort: "priority_desc"
 };
 
@@ -75,9 +83,12 @@ export function CandidateJobsBoard({ opportunities }: CandidateJobsBoardProps) {
 
   const filteredOpportunities = useMemo(() => {
     const query = deferredQuery.trim().toLowerCase();
+    const salaryMin = Number(filters.salaryMin || 0);
 
     const matchingOpportunities = opportunities.filter((entry) => {
       const { job, application, match } = entry;
+      const salaryLabel = formatJobSalary(job);
+      const salaryAmount = getComparableMonthlySalary(job);
       const matchesQuery =
         !query ||
         [
@@ -87,6 +98,7 @@ export function CandidateJobsBoard({ opportunities }: CandidateJobsBoardProps) {
           job.contract_type,
           job.work_mode,
           job.sector,
+          salaryLabel,
           match.reason,
           entry.savedJob?.note ?? "",
           match.matchedKeywords.join(" "),
@@ -100,6 +112,8 @@ export function CandidateJobsBoard({ opportunities }: CandidateJobsBoardProps) {
       const matchesContract = !filters.contractType || job.contract_type === filters.contractType;
       const matchesWorkMode = !filters.workMode || job.work_mode === filters.workMode;
       const matchesSector = !filters.sector || job.sector === filters.sector;
+      const matchesSalaryVisible = !filters.salaryVisibleOnly || hasVisibleSalary(job);
+      const matchesSalaryMin = !salaryMin || salaryAmount >= salaryMin;
       const matchesApplicationState =
         !filters.applicationState ||
         (filters.applicationState === "available" && entry.isAvailable) ||
@@ -120,6 +134,8 @@ export function CandidateJobsBoard({ opportunities }: CandidateJobsBoardProps) {
         matchesContract &&
         matchesWorkMode &&
         matchesSector &&
+        matchesSalaryVisible &&
+        matchesSalaryMin &&
         matchesApplicationState &&
         matchesFocus &&
         matchesFeatured
@@ -148,6 +164,15 @@ export function CandidateJobsBoard({ opportunities }: CandidateJobsBoardProps) {
         }
       }
 
+      if (filters.sort === "salary_desc") {
+        const leftSalary = getComparableMonthlySalary(left.job);
+        const rightSalary = getComparableMonthlySalary(right.job);
+
+        if (leftSalary !== rightSalary) {
+          return rightSalary - leftSalary;
+        }
+      }
+
       if (filters.sort === "oldest") {
         return leftDate - rightDate;
       }
@@ -161,6 +186,8 @@ export function CandidateJobsBoard({ opportunities }: CandidateJobsBoardProps) {
     filters.featuredOnly,
     filters.focus,
     filters.location,
+    filters.salaryMin,
+    filters.salaryVisibleOnly,
     filters.sector,
     filters.sort,
     filters.workMode,
@@ -173,6 +200,7 @@ export function CandidateJobsBoard({ opportunities }: CandidateJobsBoardProps) {
     let saved = 0;
     let activeApplied = 0;
     let upcomingInterview = 0;
+    let salaryVisible = 0;
 
     for (const entry of filteredOpportunities) {
       if (entry.isAvailable) {
@@ -194,6 +222,10 @@ export function CandidateJobsBoard({ opportunities }: CandidateJobsBoardProps) {
       if (entry.hasUpcomingInterview) {
         upcomingInterview += 1;
       }
+
+      if (hasVisibleSalary(entry.job)) {
+        salaryVisible += 1;
+      }
     }
 
     return {
@@ -201,7 +233,8 @@ export function CandidateJobsBoard({ opportunities }: CandidateJobsBoardProps) {
       strongMatch,
       saved,
       activeApplied,
-      upcomingInterview
+      upcomingInterview,
+      salaryVisible
     };
   }, [filteredOpportunities]);
 
@@ -211,9 +244,11 @@ export function CandidateJobsBoard({ opportunities }: CandidateJobsBoardProps) {
     filters.contractType,
     filters.workMode,
     filters.sector,
+    filters.salaryMin,
     filters.applicationState,
     filters.focus,
     filters.featuredOnly ? "featured" : "",
+    filters.salaryVisibleOnly ? "salary_visible" : "",
     filters.sort !== "priority_desc" ? filters.sort : ""
   ].filter(Boolean).length;
 
@@ -342,6 +377,23 @@ export function CandidateJobsBoard({ opportunities }: CandidateJobsBoardProps) {
           </label>
 
           <label className="field">
+            <span>Salaire minimum mensuel</span>
+            <input
+              value={filters.salaryMin}
+              onChange={(event) =>
+                setFilters((previous) => ({
+                  ...previous,
+                  salaryMin: event.target.value
+                }))
+              }
+              min="0"
+              step="100000"
+              type="number"
+              placeholder="Ex. 1500000"
+            />
+          </label>
+
+          <label className="field">
             <span>Focus</span>
             <select
               value={filters.focus}
@@ -376,6 +428,7 @@ export function CandidateJobsBoard({ opportunities }: CandidateJobsBoardProps) {
               <option value="recent">Plus recentes</option>
               <option value="match">Meilleur match</option>
               <option value="featured">Mises en avant d'abord</option>
+              <option value="salary_desc">Meilleure remuneration</option>
               <option value="oldest">Plus anciennes</option>
             </select>
           </label>
@@ -402,9 +455,27 @@ export function CandidateJobsBoard({ opportunities }: CandidateJobsBoardProps) {
             <strong>{signalStats.upcomingInterview}</strong>
             <p>offre(s) avec entretien a venir</p>
           </article>
+          <article className="document-card">
+            <strong>{signalStats.salaryVisible}</strong>
+            <p>remuneration visible</p>
+          </article>
         </div>
 
         <div className="jobs-board__actions">
+          <label className="checkbox-field">
+            <input
+              type="checkbox"
+              checked={filters.salaryVisibleOnly}
+              onChange={(event) =>
+                setFilters((previous) => ({
+                  ...previous,
+                  salaryVisibleOnly: event.target.checked
+                }))
+              }
+            />
+            <span>Afficher uniquement les offres avec remuneration visible</span>
+          </label>
+
           <label className="checkbox-field">
             <input
               type="checkbox"

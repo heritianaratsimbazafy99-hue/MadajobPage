@@ -29,6 +29,32 @@ export function hasVisibleSalary(input: JobSalaryInput) {
   return Boolean(input.salary_is_visible && (input.salary_min || input.salary_max));
 }
 
+export function getComparableMonthlySalary(input: JobSalaryInput) {
+  if (!hasVisibleSalary(input)) {
+    return 0;
+  }
+
+  const amount = input.salary_max ?? input.salary_min ?? 0;
+
+  if (!amount) {
+    return 0;
+  }
+
+  if (input.salary_period === "year") {
+    return amount / 12;
+  }
+
+  if (input.salary_period === "day") {
+    return amount * 22;
+  }
+
+  if (input.salary_period === "hour") {
+    return amount * 173;
+  }
+
+  return amount;
+}
+
 export function formatJobSalary(input: JobSalaryInput) {
   if (!hasVisibleSalary(input)) {
     return "";
