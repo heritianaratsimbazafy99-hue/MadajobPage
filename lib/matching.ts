@@ -10,6 +10,9 @@ export type MatchingCandidateProfile = {
   desired_work_mode?: string | null;
   desired_salary_min?: number | null;
   desired_salary_currency?: string | null;
+  desired_sectors?: string[] | null;
+  desired_locations?: string[] | null;
+  desired_experience_level?: string | null;
   skills_text?: string | null;
   cv_text?: string | null;
   profile_completion?: number | null;
@@ -277,9 +280,37 @@ function clampScore(value: number) {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
+function getExperienceLevelTokens(level: string) {
+  if (level.includes("lead") || level.includes("management")) {
+    return ["lead", "management", "manager", "direction", "directeur", "responsable", "head", "chef"];
+  }
+
+  if (level.includes("senior")) {
+    return ["senior", "experimente", "confirme", "responsable", "5 ans", "6 ans", "7 ans"];
+  }
+
+  if (level.includes("intermediaire")) {
+    return ["intermediaire", "confirme", "2 ans", "3 ans", "4 ans"];
+  }
+
+  if (level.includes("junior")) {
+    return ["junior", "debutant", "stage", "stagiaire", "alternance", "assistant"];
+  }
+
+  return level ? [level] : [];
+}
+
 function getPreferenceScore(profile: MatchingCandidateProfile, job: MatchableJob) {
   const desiredContract = normalizeText(profile.desired_contract_type ?? "");
   const desiredWorkMode = normalizeText(profile.desired_work_mode ?? "");
+  const desiredSectors = (profile.desired_sectors ?? []).map(normalizeText).filter(Boolean);
+  const desiredLocations = (profile.desired_locations ?? []).map(normalizeText).filter(Boolean);
+  const desiredExperienceLevel = normalizeText(profile.desired_experience_level ?? "");
+  const jobSector = normalizeText(job.sector);
+  const jobLocation = normalizeText(job.location);
+  const jobExperienceText = normalizeText(
+    [job.title, job.summary, job.requirements, job.responsibilities].filter(Boolean).join(" ")
+  );
   const desiredSalaryMin =
     typeof profile.desired_salary_min === "number" && profile.desired_salary_min > 0
       ? profile.desired_salary_min
@@ -290,6 +321,21 @@ function getPreferenceScore(profile: MatchingCandidateProfile, job: MatchableJob
     Boolean(desiredContract) && normalizeText(job.contract_type).includes(desiredContract);
   const workModeMatches =
     Boolean(desiredWorkMode) && normalizeText(job.work_mode).includes(desiredWorkMode);
+  const sectorMatches =
+    desiredSectors.length > 0 &&
+    jobSector.length > 0 &&
+    desiredSectors.some(
+      (sector) => jobSector.includes(sector) || sector.includes(jobSector)
+    );
+  const locationMatches =
+    desiredLocations.length > 0 &&
+    jobLocation.length > 0 &&
+    desiredLocations.some(
+      (location) => jobLocation.includes(location) || location.includes(jobLocation)
+    );
+  const experienceLevelMatches =
+    Boolean(desiredExperienceLevel) &&
+    getExperienceLevelTokens(desiredExperienceLevel).some((token) => jobExperienceText.includes(token));
   const salaryIsComparable =
     Boolean(desiredSalaryMin) &&
     hasVisibleSalary(job) &&
@@ -301,10 +347,26 @@ function getPreferenceScore(profile: MatchingCandidateProfile, job: MatchableJob
     getComparableMonthlySalary(job) >= Number(desiredSalaryMin);
 
   return {
-    score: (contractMatches ? 6 : 0) + (workModeMatches ? 6 : 0) + (salaryMatches ? 8 : 0),
-    hasPreferenceSignal: Boolean(desiredContract || desiredWorkMode || desiredSalaryMin),
+    score:
+      (contractMatches ? 6 : 0) +
+      (workModeMatches ? 6 : 0) +
+      (sectorMatches ? 6 : 0) +
+      (locationMatches ? 6 : 0) +
+      (experienceLevelMatches ? 4 : 0) +
+      (salaryMatches ? 8 : 0),
+    hasPreferenceSignal: Boolean(
+      desiredContract ||
+        desiredWorkMode ||
+        desiredSalaryMin ||
+        desiredSectors.length > 0 ||
+        desiredLocations.length > 0 ||
+        desiredExperienceLevel
+    ),
     contractMatches,
     workModeMatches,
+    sectorMatches,
+    locationMatches,
+    experienceLevelMatches,
     salaryMatches,
     salaryIsComparable,
     desiredSalaryMin,
@@ -332,6 +394,30 @@ function getPreferenceBreakdownValue(
       preference.workModeMatches
         ? `mode ${profile.desired_work_mode} aligne`
         : `mode ${profile.desired_work_mode} a verifier`
+    );
+  }
+
+  if (profile.desired_sectors?.length) {
+    details.push(
+      preference.sectorMatches
+        ? `secteur cible aligne (${profile.desired_sectors.join(", ")})`
+        : "secteur cible a verifier"
+    );
+  }
+
+  if (profile.desired_locations?.length) {
+    details.push(
+      preference.locationMatches
+        ? `lieu souhaite aligne (${profile.desired_locations.join(", ")})`
+        : "lieu souhaite a verifier"
+    );
+  }
+
+  if (profile.desired_experience_level) {
+    details.push(
+      preference.experienceLevelMatches
+        ? `niveau ${profile.desired_experience_level} visible dans l'offre`
+        : `niveau ${profile.desired_experience_level} a confirmer`
     );
   }
 

@@ -9,7 +9,10 @@ import {
 import { SubmitButton } from "@/components/jobs/submit-button";
 import { getCandidateProfileInsights } from "@/lib/candidate-profile";
 import {
+  CANDIDATE_EXPERIENCE_LEVEL_OPTIONS,
   JOB_CONTRACT_TYPE_OPTIONS,
+  JOB_LOCATION_OPTIONS,
+  JOB_SECTOR_OPTIONS,
   JOB_WORK_MODE_OPTIONS
 } from "@/lib/job-options";
 import type { CandidateProfileData } from "@/lib/types";
@@ -125,7 +128,7 @@ export function CandidateProfileForm({ profile }: CandidateProfileFormProps) {
         <div className="document-card field--full" id="candidate-search-preferences">
           <strong>Preferences de recherche</strong>
           <p>
-            Ces criteres servent a prioriser les offres dans votre espace candidat, sans masquer les autres opportunites.
+            Ces criteres servent a prioriser les offres et les alertes, sans masquer les autres opportunites.
           </p>
         </div>
 
@@ -171,6 +174,53 @@ export function CandidateProfileForm({ profile }: CandidateProfileFormProps) {
             <option value="MGA">MGA</option>
             <option value="EUR">EUR</option>
             <option value="USD">USD</option>
+          </select>
+        </label>
+
+        <label className="field field--full">
+          <span>Secteurs cibles</span>
+          <input
+            name="desired_sectors"
+            defaultValue={profile.desired_sectors.join(", ")}
+            list="candidate-sector-options"
+            placeholder="Ex. Commercial, IT & Data"
+          />
+          <small>Separez plusieurs secteurs par des virgules. Maximum 8.</small>
+          <datalist id="candidate-sector-options">
+            {JOB_SECTOR_OPTIONS.map((option) => (
+              <option key={option} value={option} />
+            ))}
+          </datalist>
+        </label>
+
+        <label className="field">
+          <span>Lieux souhaites</span>
+          <input
+            name="desired_locations"
+            defaultValue={profile.desired_locations.join(", ")}
+            list="candidate-location-options"
+            placeholder="Ex. Antananarivo, Remote Madagascar"
+          />
+          <small>Separez plusieurs lieux par des virgules. Maximum 8.</small>
+          <datalist id="candidate-location-options">
+            {JOB_LOCATION_OPTIONS.map((option) => (
+              <option key={option} value={option} />
+            ))}
+          </datalist>
+        </label>
+
+        <label className="field">
+          <span>Niveau d'experience cible</span>
+          <select
+            name="desired_experience_level"
+            defaultValue={profile.desired_experience_level}
+          >
+            <option value="">Tous niveaux</option>
+            {CANDIDATE_EXPERIENCE_LEVEL_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
           </select>
         </label>
 

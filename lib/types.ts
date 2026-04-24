@@ -67,6 +67,9 @@ export type CandidateProfileData = {
   desired_work_mode: string;
   desired_salary_min: number | null;
   desired_salary_currency: string;
+  desired_sectors: string[];
+  desired_locations: string[];
+  desired_experience_level: string;
   job_alerts_enabled: boolean;
   skills_text: string;
   cv_text: string;
@@ -358,6 +361,9 @@ export type ApplicationDetail = {
     desired_work_mode: string;
     desired_salary_min: number | null;
     desired_salary_currency: string;
+    desired_sectors: string[];
+    desired_locations: string[];
+    desired_experience_level: string;
     skills_text: string;
     cv_text: string;
     profile_completion: number;
@@ -409,6 +415,9 @@ export type ManagedCandidateSummary = {
   desired_work_mode: string;
   desired_salary_min: number | null;
   desired_salary_currency: string;
+  desired_sectors: string[];
+  desired_locations: string[];
+  desired_experience_level: string;
   profile_completion: number;
   applications_count: number;
   latest_application_at: string | null;
@@ -482,6 +491,9 @@ export type CandidateDetail = {
   desired_work_mode: string;
   desired_salary_min: number | null;
   desired_salary_currency: string;
+  desired_sectors: string[];
+  desired_locations: string[];
+  desired_experience_level: string;
   skills_text: string;
   cv_text: string;
   profile_completion: number;

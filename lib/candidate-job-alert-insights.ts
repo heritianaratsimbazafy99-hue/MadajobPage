@@ -33,9 +33,14 @@ export function getCandidateJobAlertPreferenceSignals(
     | "desired_work_mode"
     | "desired_salary_min"
     | "desired_salary_currency"
+    | "desired_sectors"
+    | "desired_locations"
+    | "desired_experience_level"
   >
 ): CandidateJobAlertPreferenceSignal[] {
   const signals: CandidateJobAlertPreferenceSignal[] = [];
+  const desiredSectors = profile.desired_sectors ?? [];
+  const desiredLocations = profile.desired_locations ?? [];
 
   if (profile.desired_contract_type) {
     signals.push({
@@ -58,6 +63,27 @@ export function getCandidateJobAlertPreferenceSignals(
     });
   }
 
+  if (desiredSectors.length > 0) {
+    signals.push({
+      label: "Secteurs",
+      value: desiredSectors.join(", ")
+    });
+  }
+
+  if (desiredLocations.length > 0) {
+    signals.push({
+      label: "Lieux",
+      value: desiredLocations.join(", ")
+    });
+  }
+
+  if (profile.desired_experience_level) {
+    signals.push({
+      label: "Niveau",
+      value: profile.desired_experience_level
+    });
+  }
+
   return signals;
 }
 
@@ -69,6 +95,9 @@ export function summarizeCandidateJobAlerts(
     | "desired_work_mode"
     | "desired_salary_min"
     | "desired_salary_currency"
+    | "desired_sectors"
+    | "desired_locations"
+    | "desired_experience_level"
   >,
   now = Date.now()
 ): CandidateJobAlertSummary {

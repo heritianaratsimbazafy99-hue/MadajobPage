@@ -166,6 +166,9 @@ function buildCandidate(overrides = {}) {
     desired_work_mode: "",
     desired_salary_min: null,
     desired_salary_currency: "MGA",
+    desired_sectors: [],
+    desired_locations: [],
+    desired_experience_level: "",
     profile_completion: 88,
     applications_count: 0,
     latest_application_at: null,
@@ -401,6 +404,42 @@ test("matching: priorise les preferences candidat de contrat, mode et salaire", 
   );
 });
 
+test("matching: integre les preferences avancees de secteur, lieu et niveau", () => {
+  const profile = {
+    desired_position: "",
+    skills_text: "",
+    city: "",
+    desired_sectors: ["Commercial"],
+    desired_locations: ["Antananarivo"],
+    desired_experience_level: "Senior",
+    profile_completion: 82
+  };
+  const aligned = getCandidateJobMatch(
+    profile,
+    buildJob({
+      title: "Senior commercial B2B",
+      sector: "Commercial",
+      location: "Antananarivo",
+      requirements: "Experience senior en negociation B2B et CRM."
+    })
+  );
+  const lessAligned = getCandidateJobMatch(
+    profile,
+    buildJob({
+      title: "Comptable junior",
+      sector: "Finance",
+      location: "Toamasina",
+      requirements: "Premiere experience en comptabilite."
+    })
+  );
+
+  assert.ok(aligned.score > lessAligned.score);
+  assert.match(
+    aligned.breakdown.find((item) => item.key === "preferences").value,
+    /secteur cible aligne|lieu souhaite aligne|niveau Senior visible/i
+  );
+});
+
 test("candidate job alerts: valide une nouvelle offre compatible avec les preferences", () => {
   const profile = {
     headline: "Commerciale B2B",
@@ -469,7 +508,10 @@ test("candidate job alert insights: resume le centre candidat par preferences", 
     desired_contract_type: "CDI",
     desired_work_mode: "Hybride",
     desired_salary_min: 1500000,
-    desired_salary_currency: "MGA"
+    desired_salary_currency: "MGA",
+    desired_sectors: ["Commercial"],
+    desired_locations: ["Antananarivo"],
+    desired_experience_level: "Senior"
   });
   const alerts = [
     buildCandidateJobAlert(),
@@ -494,7 +536,7 @@ test("candidate job alert insights: resume le centre candidat par preferences", 
   assert.equal(summary.topAlert.id, "candidate-alert-1");
   assert.deepEqual(
     preferenceSignals.map((signal) => signal.label),
-    ["Contrat", "Mode", "Salaire minimum"]
+    ["Contrat", "Mode", "Salaire minimum", "Secteurs", "Lieux", "Niveau"]
   );
 });
 

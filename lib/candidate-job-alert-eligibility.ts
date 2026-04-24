@@ -45,11 +45,48 @@ function matchesPreference(jobValue: string | null | undefined, desiredValue: st
   );
 }
 
+function matchesAnyPreference(jobValue: string | null | undefined, desiredValues: string[] | null | undefined) {
+  return (desiredValues ?? []).some((desiredValue) => matchesPreference(jobValue, desiredValue));
+}
+
+function getExperienceLevelTokens(level: string | null | undefined) {
+  const normalizedLevel = normalizeText(level);
+
+  if (normalizedLevel.includes("lead") || normalizedLevel.includes("management")) {
+    return ["lead", "management", "manager", "direction", "directeur", "responsable", "head", "chef"];
+  }
+
+  if (normalizedLevel.includes("senior")) {
+    return ["senior", "experimente", "confirme", "responsable", "5 ans", "6 ans", "7 ans"];
+  }
+
+  if (normalizedLevel.includes("intermediaire")) {
+    return ["intermediaire", "confirme", "2 ans", "3 ans", "4 ans"];
+  }
+
+  if (normalizedLevel.includes("junior")) {
+    return ["junior", "debutant", "stage", "stagiaire", "alternance", "assistant"];
+  }
+
+  return normalizedLevel ? [normalizedLevel] : [];
+}
+
+function matchesExperienceLevel(job: MatchableJob, desiredLevel: string | null | undefined) {
+  const jobText = normalizeText(
+    [job.title, job.summary, job.requirements, job.responsibilities].filter(Boolean).join(" ")
+  );
+
+  return getExperienceLevelTokens(desiredLevel).some((token) => jobText.includes(token));
+}
+
 export function hasCandidateJobAlertPreference(profile: MatchingCandidateProfile) {
   return (
     hasText(profile.desired_contract_type) ||
     hasText(profile.desired_work_mode) ||
-    Boolean(getPositiveNumber(profile.desired_salary_min))
+    Boolean(getPositiveNumber(profile.desired_salary_min)) ||
+    Boolean(profile.desired_sectors?.length) ||
+    Boolean(profile.desired_locations?.length) ||
+    hasText(profile.desired_experience_level)
   );
 }
 
@@ -88,6 +125,28 @@ export function getCandidateJobAlertEligibility(
       reasons.push(`mode ${profile.desired_work_mode} aligne`);
     } else {
       blockedReasons.push(`mode ${profile.desired_work_mode} non aligne`);
+    }
+  }
+
+  if (profile.desired_sectors?.length) {
+    if (matchesAnyPreference(job.sector, profile.desired_sectors)) {
+      reasons.push(`secteur ${job.sector} aligne`);
+    } else {
+      blockedReasons.push("secteur cible non aligne");
+    }
+  }
+
+  if (profile.desired_locations?.length) {
+    if (matchesAnyPreference(job.location, profile.desired_locations)) {
+      reasons.push(`lieu ${job.location} aligne`);
+    } else {
+      blockedReasons.push("lieu souhaite non aligne");
+    }
+  }
+
+  if (hasText(profile.desired_experience_level)) {
+    if (matchesExperienceLevel(job, profile.desired_experience_level)) {
+      reasons.push(`niveau ${profile.desired_experience_level} visible`);
     }
   }
 

@@ -16,6 +16,14 @@ function shouldReplaceCvText(currentText: string, extractedText: string) {
   );
 }
 
+function getStringArrayRecordValue(record: Record<string, unknown> | null | undefined, key: string) {
+  const value = record?.[key];
+
+  return Array.isArray(value)
+    ? value.map((item) => String(item).trim()).filter(Boolean)
+    : [];
+}
+
 async function updateCandidateProfileCvText(
   profile: Profile,
   candidateProfile: CandidateProfileData,
@@ -95,7 +103,7 @@ export async function syncCandidateProfileTextFromUploadedFile(
     adminClient
       .from("candidate_profiles")
       .select(
-        "headline, city, country, bio, experience_years, current_position, desired_position, desired_contract_type, desired_work_mode, desired_salary_min, desired_salary_currency, job_alerts_enabled, skills_text, cv_text, profile_completion"
+        "headline, city, country, bio, experience_years, current_position, desired_position, desired_contract_type, desired_work_mode, desired_salary_min, desired_salary_currency, desired_sectors, desired_locations, desired_experience_level, job_alerts_enabled, skills_text, cv_text, profile_completion"
       )
       .eq("user_id", profile.id)
       .maybeSingle()
@@ -124,6 +132,9 @@ export async function syncCandidateProfileTextFromUploadedFile(
           ? Number(candidateRow.desired_salary_min)
           : null,
     desired_salary_currency: String(candidateRow?.desired_salary_currency ?? "MGA"),
+    desired_sectors: getStringArrayRecordValue(candidateRow, "desired_sectors"),
+    desired_locations: getStringArrayRecordValue(candidateRow, "desired_locations"),
+    desired_experience_level: String(candidateRow?.desired_experience_level ?? ""),
     job_alerts_enabled: candidateRow?.job_alerts_enabled !== false,
     skills_text: String(candidateRow?.skills_text ?? ""),
     cv_text: String(candidateRow?.cv_text ?? ""),

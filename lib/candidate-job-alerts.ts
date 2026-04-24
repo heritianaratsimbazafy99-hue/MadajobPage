@@ -48,6 +48,14 @@ function getNumberValue(record: Record<string, unknown>, key: string) {
   return null;
 }
 
+function getStringArrayValue(record: Record<string, unknown>, key: string) {
+  const value = record[key];
+
+  return Array.isArray(value)
+    ? value.map((item) => String(item).trim()).filter(Boolean)
+    : [];
+}
+
 function getBooleanValue(record: Record<string, unknown>, key: string, fallback = false) {
   return typeof record[key] === "boolean" ? Boolean(record[key]) : fallback;
 }
@@ -114,7 +122,7 @@ async function getActiveCandidateProfiles() {
   const { data: candidateRows, error: candidateError } = await adminClient
     .from("candidate_profiles")
     .select(
-      "user_id, headline, city, current_position, desired_position, desired_contract_type, desired_work_mode, desired_salary_min, desired_salary_currency, job_alerts_enabled, skills_text, cv_text, profile_completion"
+      "user_id, headline, city, current_position, desired_position, desired_contract_type, desired_work_mode, desired_salary_min, desired_salary_currency, desired_sectors, desired_locations, desired_experience_level, job_alerts_enabled, skills_text, cv_text, profile_completion"
     );
 
   if (candidateError || !candidateRows?.length) {
@@ -174,6 +182,9 @@ async function getActiveCandidateProfiles() {
         desired_work_mode: getNullableStringValue(row, "desired_work_mode"),
         desired_salary_min: getNumberValue(row, "desired_salary_min"),
         desired_salary_currency: getNullableStringValue(row, "desired_salary_currency") ?? "MGA",
+        desired_sectors: getStringArrayValue(row, "desired_sectors"),
+        desired_locations: getStringArrayValue(row, "desired_locations"),
+        desired_experience_level: getNullableStringValue(row, "desired_experience_level"),
         job_alerts_enabled: getBooleanValue(row, "job_alerts_enabled", true),
         skills_text: getNullableStringValue(row, "skills_text"),
         cv_text: getNullableStringValue(row, "cv_text"),

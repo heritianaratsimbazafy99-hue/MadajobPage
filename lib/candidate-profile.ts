@@ -10,6 +10,9 @@ type CandidateProfileInsightInput = {
   desired_contract_type?: string;
   desired_work_mode?: string;
   desired_salary_min?: number | null;
+  desired_sectors?: string[];
+  desired_locations?: string[];
+  desired_experience_level?: string;
   skills_text: string;
   cv_text: string;
   primary_cv: { id: string } | null;
@@ -67,11 +70,14 @@ const checklist: CandidateProfileChecklistItem[] = [
     key: "search_preferences",
     label: "Preferences de recherche",
     action:
-      "Ajoutez un contrat, un mode de travail ou une remuneration souhaitee pour affiner vos recommandations.",
+      "Ajoutez contrat, mode, secteur, lieu, niveau ou remuneration pour affiner vos recommandations.",
     isComplete: (profile) =>
       hasText(profile.desired_contract_type ?? "") ||
       hasText(profile.desired_work_mode ?? "") ||
-      Boolean(profile.desired_salary_min && profile.desired_salary_min > 0)
+      Boolean(profile.desired_salary_min && profile.desired_salary_min > 0) ||
+      Boolean(profile.desired_sectors?.length) ||
+      Boolean(profile.desired_locations?.length) ||
+      hasText(profile.desired_experience_level ?? "")
   },
   {
     key: "skills_text",

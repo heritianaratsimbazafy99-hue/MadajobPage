@@ -7,6 +7,7 @@ import { syncCandidateProfileTextFromUploadedFile } from "@/lib/candidate-cv-tex
 import { getCandidateProfileInsights } from "@/lib/candidate-profile";
 import { requireRole } from "@/lib/auth";
 import {
+  CANDIDATE_EXPERIENCE_LEVEL_OPTIONS,
   JOB_CONTRACT_TYPE_OPTIONS,
   JOB_WORK_MODE_OPTIONS
 } from "@/lib/job-options";
@@ -28,7 +29,9 @@ const allowedSupplementaryDocumentTypes = new Set(
 );
 const allowedContractTypes = new Set<string>(JOB_CONTRACT_TYPE_OPTIONS);
 const allowedWorkModes = new Set<string>(JOB_WORK_MODE_OPTIONS);
+const allowedExperienceLevels = new Set<string>(CANDIDATE_EXPERIENCE_LEVEL_OPTIONS);
 const allowedSalaryCurrencies = new Set(["MGA", "EUR", "USD"]);
+const maxPreferenceListItems = 8;
 
 function getTrimmedValue(formData: FormData, key: string) {
   return String(formData.get(key) ?? "").trim();
@@ -43,6 +46,17 @@ function getNullableNumber(formData: FormData, key: string) {
 
   const value = Number(raw);
   return Number.isFinite(value) ? value : null;
+}
+
+function getPreferenceList(formData: FormData, key: string) {
+  return Array.from(
+    new Set(
+      getTrimmedValue(formData, key)
+        .split(/[,;\n]/)
+        .map((item) => item.trim())
+        .filter(Boolean)
+    )
+  ).slice(0, maxPreferenceListItems);
 }
 
 function sanitizeFileName(value: string) {
@@ -302,6 +316,9 @@ export async function updateCandidateProfileAction(
   const desiredWorkMode = getTrimmedValue(formData, "desired_work_mode");
   const desiredSalaryMin = getNullableNumber(formData, "desired_salary_min");
   const desiredSalaryCurrency = getTrimmedValue(formData, "desired_salary_currency") || "MGA";
+  const desiredSectors = getPreferenceList(formData, "desired_sectors");
+  const desiredLocations = getPreferenceList(formData, "desired_locations");
+  const desiredExperienceLevel = getTrimmedValue(formData, "desired_experience_level");
   const jobAlertsEnabled = formData.get("job_alerts_enabled") === "on";
   const skillsText = getTrimmedValue(formData, "skills_text");
   const cvText = getTrimmedValue(formData, "cv_text");
@@ -334,6 +351,13 @@ export async function updateCandidateProfileAction(
     };
   }
 
+  if (desiredExperienceLevel && !allowedExperienceLevels.has(desiredExperienceLevel)) {
+    return {
+      status: "error",
+      message: "Le niveau d'experience cible n'est pas reconnu."
+    };
+  }
+
   const supabase = await createClient();
   const { data: primaryCv } = await supabase
     .from("candidate_documents")
@@ -355,6 +379,9 @@ export async function updateCandidateProfileAction(
     desired_contract_type: desiredContractType,
     desired_work_mode: desiredWorkMode,
     desired_salary_min: desiredSalaryMin,
+    desired_sectors: desiredSectors,
+    desired_locations: desiredLocations,
+    desired_experience_level: desiredExperienceLevel,
     skills_text: skillsText,
     cv_text: cvText,
     primary_cv: primaryCv ? { id: String(primaryCv.id ?? "primary-cv") } : null
@@ -391,6 +418,9 @@ export async function updateCandidateProfileAction(
         desired_work_mode: desiredWorkMode || null,
         desired_salary_min: desiredSalaryMin,
         desired_salary_currency: desiredSalaryCurrency,
+        desired_sectors: desiredSectors,
+        desired_locations: desiredLocations,
+        desired_experience_level: desiredExperienceLevel || null,
         job_alerts_enabled: jobAlertsEnabled,
         skills_text: skillsText || null,
         cv_text: cvText || null,

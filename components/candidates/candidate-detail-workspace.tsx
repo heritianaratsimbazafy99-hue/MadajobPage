@@ -151,6 +151,29 @@ export function CandidateDetailWorkspace({
               </div>
             </div>
 
+            <div className="form-grid">
+              <div className="document-card">
+                <strong>Secteurs cibles</strong>
+                <p>
+                  {candidate.desired_sectors.length > 0
+                    ? candidate.desired_sectors.join(", ")
+                    : "Non renseignes"}
+                </p>
+              </div>
+              <div className="document-card">
+                <strong>Lieux souhaites</strong>
+                <p>
+                  {candidate.desired_locations.length > 0
+                    ? candidate.desired_locations.join(", ")
+                    : "Non renseignes"}
+                </p>
+              </div>
+              <div className="document-card">
+                <strong>Niveau cible</strong>
+                <p>{candidate.desired_experience_level || "Non renseigne"}</p>
+              </div>
+            </div>
+
             {candidate.skills_text ? (
               <div className="document-card">
                 <strong>Competences clefs</strong>

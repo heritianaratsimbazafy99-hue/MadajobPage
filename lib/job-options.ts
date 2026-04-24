@@ -56,3 +56,10 @@ export const JOB_SECTOR_OPTIONS = [
   "Sante",
   "Hotellerie & tourisme"
 ] as const;
+
+export const CANDIDATE_EXPERIENCE_LEVEL_OPTIONS = [
+  "Junior",
+  "Intermediaire",
+  "Senior",
+  "Lead / Management"
+] as const;

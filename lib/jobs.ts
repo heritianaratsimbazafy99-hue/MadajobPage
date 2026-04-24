@@ -242,6 +242,9 @@ const fallbackCandidateProfile: CandidateProfileData = {
   desired_work_mode: "",
   desired_salary_min: null,
   desired_salary_currency: "MGA",
+  desired_sectors: [],
+  desired_locations: [],
+  desired_experience_level: "",
   job_alerts_enabled: true,
   skills_text: "",
   cv_text: "",
@@ -263,6 +266,14 @@ function getNumericRecordValue(record: Record<string, unknown> | null | undefine
   }
 
   return null;
+}
+
+function getStringArrayRecordValue(record: Record<string, unknown> | null | undefined, key: string) {
+  const value = record?.[key];
+
+  return Array.isArray(value)
+    ? value.map((item) => String(item).trim()).filter(Boolean)
+    : [];
 }
 
 function mapJobRecord(record: Record<string, unknown>): Job {
@@ -1259,7 +1270,7 @@ export async function getCandidateWorkspace(profile: Profile): Promise<Candidate
     supabase
       .from("candidate_profiles")
       .select(
-        "headline, city, country, bio, experience_years, current_position, desired_position, desired_contract_type, desired_work_mode, desired_salary_min, desired_salary_currency, job_alerts_enabled, skills_text, cv_text, profile_completion"
+        "headline, city, country, bio, experience_years, current_position, desired_position, desired_contract_type, desired_work_mode, desired_salary_min, desired_salary_currency, desired_sectors, desired_locations, desired_experience_level, job_alerts_enabled, skills_text, cv_text, profile_completion"
       )
       .eq("user_id", profile.id)
       .maybeSingle(),
@@ -1282,6 +1293,9 @@ export async function getCandidateWorkspace(profile: Profile): Promise<Candidate
     desired_contract_type: String(candidateData?.desired_contract_type ?? ""),
     desired_work_mode: String(candidateData?.desired_work_mode ?? ""),
     desired_salary_min: getNumericRecordValue(candidateData, "desired_salary_min"),
+    desired_sectors: getStringArrayRecordValue(candidateData, "desired_sectors"),
+    desired_locations: getStringArrayRecordValue(candidateData, "desired_locations"),
+    desired_experience_level: String(candidateData?.desired_experience_level ?? ""),
     skills_text: String(candidateData?.skills_text ?? ""),
     cv_text: String(candidateData?.cv_text ?? ""),
     primary_cv: primaryCv ? { id: primaryCv.id } : null
@@ -1305,6 +1319,9 @@ export async function getCandidateWorkspace(profile: Profile): Promise<Candidate
     desired_work_mode: String(candidateData?.desired_work_mode ?? ""),
     desired_salary_min: getNumericRecordValue(candidateData, "desired_salary_min"),
     desired_salary_currency: String(candidateData?.desired_salary_currency ?? "MGA"),
+    desired_sectors: getStringArrayRecordValue(candidateData, "desired_sectors"),
+    desired_locations: getStringArrayRecordValue(candidateData, "desired_locations"),
+    desired_experience_level: String(candidateData?.desired_experience_level ?? ""),
     job_alerts_enabled: candidateData?.job_alerts_enabled !== false,
     skills_text: String(candidateData?.skills_text ?? ""),
     cv_text: String(candidateData?.cv_text ?? ""),
@@ -1663,6 +1680,9 @@ export async function getApplicationDetail(profile: Profile, applicationId: stri
         desired_work_mode: "",
         desired_salary_min: null,
         desired_salary_currency: "MGA",
+        desired_sectors: [],
+        desired_locations: [],
+        desired_experience_level: "",
         skills_text: "",
         cv_text: "",
         profile_completion: 72
@@ -1773,6 +1793,9 @@ export async function getApplicationDetail(profile: Profile, applicationId: stri
         desired_work_mode: "",
         desired_salary_min: null,
         desired_salary_currency: "MGA",
+        desired_sectors: [],
+        desired_locations: [],
+        desired_experience_level: "",
         skills_text: "",
         cv_text: "",
         profile_completion: 0
@@ -1809,7 +1832,7 @@ export async function getApplicationDetail(profile: Profile, applicationId: stri
     adminClient
       .from("candidate_profiles")
       .select(
-        "headline, city, country, bio, experience_years, current_position, desired_position, desired_contract_type, desired_work_mode, desired_salary_min, desired_salary_currency, skills_text, cv_text, profile_completion"
+        "headline, city, country, bio, experience_years, current_position, desired_position, desired_contract_type, desired_work_mode, desired_salary_min, desired_salary_currency, desired_sectors, desired_locations, desired_experience_level, skills_text, cv_text, profile_completion"
       )
       .eq("user_id", candidateId)
       .maybeSingle(),
@@ -1980,6 +2003,9 @@ export async function getApplicationDetail(profile: Profile, applicationId: stri
       desired_work_mode: String(candidateExtendedData?.desired_work_mode ?? ""),
       desired_salary_min: getNumericRecordValue(candidateExtendedData, "desired_salary_min"),
       desired_salary_currency: String(candidateExtendedData?.desired_salary_currency ?? "MGA"),
+      desired_sectors: getStringArrayRecordValue(candidateExtendedData, "desired_sectors"),
+      desired_locations: getStringArrayRecordValue(candidateExtendedData, "desired_locations"),
+      desired_experience_level: String(candidateExtendedData?.desired_experience_level ?? ""),
       skills_text: String(candidateExtendedData?.skills_text ?? ""),
       cv_text: String(candidateExtendedData?.cv_text ?? ""),
       profile_completion:
@@ -2110,6 +2136,9 @@ export async function getManagedCandidates(
       desired_work_mode: "",
       desired_salary_min: null,
       desired_salary_currency: "MGA",
+      desired_sectors: [],
+      desired_locations: [],
+      desired_experience_level: "",
       profile_completion: 70,
       applications_count: 1,
       latest_application_at: application.created_at,
@@ -2161,7 +2190,7 @@ export async function getManagedCandidates(
     adminClient
       .from("candidate_profiles")
       .select(
-        "user_id, headline, skills_text, city, country, current_position, desired_position, desired_contract_type, desired_work_mode, desired_salary_min, desired_salary_currency, profile_completion"
+        "user_id, headline, skills_text, city, country, current_position, desired_position, desired_contract_type, desired_work_mode, desired_salary_min, desired_salary_currency, desired_sectors, desired_locations, desired_experience_level, profile_completion"
       )
       .in("user_id", candidateIds),
     adminClient
@@ -2226,6 +2255,9 @@ export async function getManagedCandidates(
       desired_work_mode: String(candidateRow?.desired_work_mode ?? ""),
       desired_salary_min: getNumericRecordValue(candidateRow, "desired_salary_min"),
       desired_salary_currency: String(candidateRow?.desired_salary_currency ?? "MGA"),
+      desired_sectors: getStringArrayRecordValue(candidateRow, "desired_sectors"),
+      desired_locations: getStringArrayRecordValue(candidateRow, "desired_locations"),
+      desired_experience_level: String(candidateRow?.desired_experience_level ?? ""),
       profile_completion:
         typeof candidateRow?.profile_completion === "number"
           ? candidateRow.profile_completion
@@ -2293,7 +2325,7 @@ export async function getManagedCandidateDetail(profile: Profile, candidateId: s
     adminClient
       .from("candidate_profiles")
       .select(
-        "bio, experience_years, skills_text, cv_text, headline, city, country, current_position, desired_position, desired_contract_type, desired_work_mode, desired_salary_min, desired_salary_currency, profile_completion"
+        "bio, experience_years, skills_text, cv_text, headline, city, country, current_position, desired_position, desired_contract_type, desired_work_mode, desired_salary_min, desired_salary_currency, desired_sectors, desired_locations, desired_experience_level, profile_completion"
       )
       .eq("user_id", candidateId)
       .maybeSingle(),
@@ -2482,6 +2514,17 @@ export async function getManagedCandidateDetail(profile: Profile, candidateId: s
       getNumericRecordValue(candidateRow, "desired_salary_min") ?? summary.desired_salary_min,
     desired_salary_currency: String(
       candidateRow?.desired_salary_currency ?? summary.desired_salary_currency
+    ),
+    desired_sectors:
+      getStringArrayRecordValue(candidateRow, "desired_sectors").length > 0
+        ? getStringArrayRecordValue(candidateRow, "desired_sectors")
+        : summary.desired_sectors,
+    desired_locations:
+      getStringArrayRecordValue(candidateRow, "desired_locations").length > 0
+        ? getStringArrayRecordValue(candidateRow, "desired_locations")
+        : summary.desired_locations,
+    desired_experience_level: String(
+      candidateRow?.desired_experience_level ?? summary.desired_experience_level
     ),
     skills_text: String(candidateRow?.skills_text ?? ""),
     cv_text: String(candidateRow?.cv_text ?? ""),

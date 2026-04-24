@@ -71,6 +71,9 @@ function buildMatchingProfile(candidate: ManagedCandidateSummary): MatchingCandi
     desired_work_mode: candidate.desired_work_mode,
     desired_salary_min: candidate.desired_salary_min,
     desired_salary_currency: candidate.desired_salary_currency,
+    desired_sectors: candidate.desired_sectors,
+    desired_locations: candidate.desired_locations,
+    desired_experience_level: candidate.desired_experience_level,
     profile_completion: candidate.profile_completion
   };
 }
@@ -199,6 +202,9 @@ export function ShortlistBoard({
             candidate?.headline ?? "",
             candidate?.desired_position ?? "",
             candidate?.skills_text ?? "",
+            candidate?.desired_sectors.join(" ") ?? "",
+            candidate?.desired_locations.join(" ") ?? "",
+            candidate?.desired_experience_level ?? "",
             application.job_title,
             job?.organization_name ?? "",
             match?.breakdown.map((item) => item.value).join(" ") ?? "",

@@ -112,8 +112,8 @@ export default async function CandidateJobAlertsPage() {
               </div>
             ) : (
               <p>
-                Ajoutez au moins un contrat, un mode de travail ou un salaire minimum pour recevoir
-                des alertes plus fiables.
+                Ajoutez au moins un contrat, un mode, un secteur, un lieu, un niveau ou un salaire
+                minimum pour recevoir des alertes plus fiables.
               </p>
             )}
             <small>
