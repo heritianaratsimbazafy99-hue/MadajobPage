@@ -501,6 +501,7 @@ export function ManagedJobsBoard({ jobs, basePath }: ManagedJobsBoardProps) {
                     Publiee le {formatDisplayDate(job.published_at)}{job.department ? ` · ${job.department}` : ""}
                   </small>
                   <div className="notification-card__actions">
+                    <Link href={`${basePath}/${job.id}/apercu`}>Apercu public</Link>
                     {job.status === "published" ? (
                       <Link href={`/carrieres/${job.slug}`}>Voir sur carriere</Link>
                     ) : null}

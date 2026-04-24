@@ -1412,6 +1412,56 @@ code {
   font-weight: 800;
 }
 
+.job-public-detail-preview {
+  display: grid;
+  gap: 18px;
+}
+
+.job-public-detail-preview__toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.job-public-detail-preview__toolbar h2 {
+  margin: 8px 0 0;
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(1.55rem, 3vw, 2.3rem);
+  line-height: 1;
+}
+
+.job-public-detail-preview__surface {
+  display: grid;
+  gap: 28px;
+  padding: 34px 0;
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(240, 246, 251, 0.76)),
+    var(--white);
+  overflow: hidden;
+}
+
+.job-public-detail-preview__content {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.job-public-detail-preview__content h2 {
+  margin: 8px 0 10px;
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(1.35rem, 2.5vw, 2rem);
+  line-height: 1;
+}
+
+.job-public-detail-preview__content p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
 .job-status-panel form {
   margin: 0;
 }
@@ -2303,7 +2353,8 @@ button:disabled {
 
   .admin-jobs-command-grid,
   .career-hero,
-  .career-results-grid {
+  .career-results-grid,
+  .job-public-detail-preview__content {
     grid-template-columns: 1fr;
   }
 
@@ -2458,6 +2509,7 @@ button:disabled {
   .career-filter-panel__head,
   .career-filter-panel__actions,
   .career-job-card__head,
+  .job-public-detail-preview__toolbar,
   .job-public-preview__head {
     flex-direction: column;
     align-items: flex-start;

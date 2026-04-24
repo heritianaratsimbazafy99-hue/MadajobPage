@@ -46,6 +46,7 @@ export function JobManagementWorkspace({
     profile.role === "admin" ? "/app/admin/candidatures" : "/app/recruteur/candidatures";
   const candidatesBasePath =
     profile.role === "admin" ? "/app/admin/candidats" : "/app/recruteur/candidats";
+  const previewHref = `${backHref}/${job.id}/apercu`;
   const summary = summarizeJobManagementApplications(relatedApplications);
   const topApplication = summary.topApplication;
   const qualityReport = getJobQualityReport(job);
@@ -293,6 +294,9 @@ export function JobManagementWorkspace({
             <div className="dashboard-action-stack">
               <Link className="btn btn-secondary btn-block" href={backHref}>
                 Retour a la liste des offres
+              </Link>
+              <Link className="btn btn-ghost btn-block" href={previewHref}>
+                Previsualiser la page publique
               </Link>
               {topApplication ? (
                 <Link
