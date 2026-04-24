@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 
 import { createJobAction, type JobActionState } from "@/app/actions/job-actions";
+import { JobPublicPreview, type JobPublicPreviewInput } from "@/components/jobs/job-public-preview";
 import { JobQualityPanel } from "@/components/jobs/job-quality-panel";
 import { SubmitButton } from "@/components/jobs/submit-button";
 import {
@@ -33,7 +34,7 @@ export function JobCreateForm({
 }: JobCreateFormProps) {
   const formRef = useRef<HTMLFormElement>(null);
   const [state, formAction] = useActionState(createJobAction, initialState);
-  const [qualityInput, setQualityInput] = useState<JobQualityInput>({});
+  const [draftInput, setDraftInput] = useState<JobQualityInput & JobPublicPreviewInput>({});
   const activeOrganizations = organizationOptions.filter((organization) => organization.is_active);
   const defaultSelectedOrganizationId =
     defaultOrganizationId ||
@@ -44,32 +45,44 @@ export function JobCreateForm({
   useEffect(() => {
     if (state.status === "success") {
       formRef.current?.reset();
-      setQualityInput({});
+      setDraftInput({});
     }
   }, [state.status]);
 
-  function updateQualityInput(form: HTMLFormElement) {
+  function updateDraftInput(form: HTMLFormElement) {
     const formData = new FormData(form);
+    const selectedOrganizationId = String(formData.get("organization_id") ?? "");
+    const selectedOrganization = activeOrganizations.find(
+      (organization) => organization.id === selectedOrganizationId
+    );
 
-    setQualityInput({
+    setDraftInput({
       title: String(formData.get("title") ?? ""),
+      department: String(formData.get("department") ?? ""),
+      location: String(formData.get("location") ?? ""),
+      contract_type: String(formData.get("contract_type") ?? ""),
+      work_mode: String(formData.get("work_mode") ?? ""),
+      sector: String(formData.get("sector") ?? ""),
       summary: String(formData.get("summary") ?? ""),
       responsibilities: String(formData.get("responsibilities") ?? ""),
       requirements: String(formData.get("requirements") ?? ""),
       benefits: String(formData.get("benefits") ?? ""),
-      closing_at: String(formData.get("closing_at") ?? "")
+      closing_at: String(formData.get("closing_at") ?? ""),
+      organization_name: selectedOrganization?.name ?? (roleLabel === "Admin" ? "Madajob" : "Votre organisation"),
+      is_featured: formData.get("is_featured") === "on",
+      status: String(formData.get("status") ?? "draft")
     });
   }
 
-  const qualityReport = getJobQualityReport(qualityInput);
+  const qualityReport = getJobQualityReport(draftInput);
 
   return (
     <form
       ref={formRef}
       action={formAction}
       className="dashboard-form job-create-form"
-      onInput={(event) => updateQualityInput(event.currentTarget)}
-      onChange={(event) => updateQualityInput(event.currentTarget)}
+      onInput={(event) => updateDraftInput(event.currentTarget)}
+      onChange={(event) => updateDraftInput(event.currentTarget)}
     >
       <div className="dashboard-form__head">
         <div>
@@ -211,6 +224,8 @@ export function JobCreateForm({
       </div>
 
       <JobQualityPanel report={qualityReport} title="Score avant publication" />
+
+      <JobPublicPreview job={draftInput} />
 
       <label className="checkbox-field">
         <input type="checkbox" name="is_featured" />
