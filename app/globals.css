@@ -1462,6 +1462,14 @@ code {
   line-height: 1.7;
 }
 
+.career-detail-section {
+  padding-top: 8px;
+}
+
+.career-detail-content p {
+  white-space: pre-line;
+}
+
 .job-status-panel form {
   margin: 0;
 }
