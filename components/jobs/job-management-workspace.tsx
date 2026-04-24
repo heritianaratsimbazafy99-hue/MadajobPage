@@ -10,13 +10,15 @@ import { JobQualityPanel } from "@/components/jobs/job-quality-panel";
 import { JobStatusPanel } from "@/components/jobs/job-status-panel";
 import { getApplicationStatusMeta } from "@/lib/application-status";
 import { formatDisplayDate } from "@/lib/format";
+import {
+  summarizeCompatibleCandidateLeads,
+  type JobCompatibleCandidateLead
+} from "@/lib/job-compatible-candidate-leads";
 import { getJobQualityReport } from "@/lib/job-quality";
 import { formatJobSalary } from "@/lib/job-salary";
 import { summarizeJobManagementApplications } from "@/lib/job-management-insights";
-import type { JobMatchResult } from "@/lib/matching";
 import type {
   JobAuditEvent,
-  ManagedCandidateSummary,
   ManagedJob,
   Profile,
   RecruiterApplication
@@ -27,10 +29,7 @@ type JobManagementWorkspaceProps = {
   job: ManagedJob;
   events: JobAuditEvent[];
   relatedApplications: RecruiterApplication[];
-  suggestedCandidates: Array<{
-    candidate: ManagedCandidateSummary;
-    match: JobMatchResult;
-  }>;
+  compatibleCandidateLeads: JobCompatibleCandidateLead[];
   currentPath: string;
   backHref: string;
 };
@@ -40,7 +39,7 @@ export function JobManagementWorkspace({
   job,
   events,
   relatedApplications,
-  suggestedCandidates,
+  compatibleCandidateLeads,
   currentPath,
   backHref
 }: JobManagementWorkspaceProps) {
@@ -50,6 +49,7 @@ export function JobManagementWorkspace({
     profile.role === "admin" ? "/app/admin/candidats" : "/app/recruteur/candidats";
   const previewHref = `${backHref}/${job.id}/apercu`;
   const summary = summarizeJobManagementApplications(relatedApplications);
+  const candidateLeadSummary = summarizeCompatibleCandidateLeads(compatibleCandidateLeads);
   const topApplication = summary.topApplication;
   const qualityReport = getJobQualityReport(job);
   const salaryLabel = formatJobSalary(job);
@@ -239,15 +239,30 @@ export function JobManagementWorkspace({
           <div className="dashboard-form">
             <div className="dashboard-form__head">
               <div>
-                <p className="eyebrow">Profils recommandes</p>
-                <h2>Les candidats les plus compatibles encore non engages sur cette offre</h2>
+                <p className="eyebrow">Prospection ciblee</p>
+                <h2>Profils compatibles non contactes</h2>
               </div>
-              <span className="tag">{suggestedCandidates.length} profil(s)</span>
+              <span className="tag">{candidateLeadSummary.totalCount} profil(s)</span>
+            </div>
+
+            <div className="job-management-summary-grid">
+              <article className="document-card job-management-summary-card">
+                <strong>{candidateLeadSummary.strongCount} fort(s) match(s)</strong>
+                <p>Profils sans candidature active et sans shortlist, avec un score compatible eleve.</p>
+              </article>
+              <article className="document-card job-management-summary-card">
+                <strong>{candidateLeadSummary.withCvCount} CV principal</strong>
+                <p>Candidats activables avec un document principal deja disponible.</p>
+              </article>
+              <article className="document-card job-management-summary-card">
+                <strong>{candidateLeadSummary.readyProfileCount} profil(s) complet(s)</strong>
+                <p>Profils a 80% ou plus, utiles pour une approche directe mieux qualifiee.</p>
+              </article>
             </div>
 
             <div className="dashboard-list">
-              {suggestedCandidates.length > 0 ? (
-                suggestedCandidates.map(({ candidate, match }) => (
+              {compatibleCandidateLeads.length > 0 ? (
+                compatibleCandidateLeads.map(({ candidate, match, signals, nextAction }) => (
                   <article key={candidate.id} className="panel list-card dashboard-card">
                     <div className="dashboard-card__top">
                       <div>
@@ -256,7 +271,11 @@ export function JobManagementWorkspace({
                       </div>
                       <div className="dashboard-card__badges">
                         <span className={`tag tag--${match.tone}`}>{match.label}</span>
-                        <span className="tag tag--muted">{match.level}</span>
+                        {signals.slice(0, 3).map((signal) => (
+                          <span key={signal} className="tag tag--muted">
+                            {signal}
+                          </span>
+                        ))}
                       </div>
                     </div>
                     <p>{match.reason}</p>
@@ -265,17 +284,21 @@ export function JobManagementWorkspace({
                       <span>{candidate.city || "Ville non renseignee"}</span>
                       <span>{candidate.profile_completion}% profil</span>
                       <span>{candidate.has_primary_cv ? "CV principal" : "Sans CV principal"}</span>
+                      {candidate.email ? <span>{candidate.email}</span> : null}
                     </div>
                     <div className="job-card__footer">
-                      <small>{match.nextStep}</small>
+                      <small>{nextAction}</small>
                       <Link href={`${candidatesBasePath}/${candidate.id}`}>Ouvrir le profil</Link>
                     </div>
                   </article>
                 ))
               ) : (
                 <article className="panel list-card dashboard-card dashboard-card--empty">
-                  <h3>Aucun profil recommande pour l'instant</h3>
-                  <p>Le matching fera remonter ici les meilleurs candidats encore disponibles sur cette offre.</p>
+                  <h3>Aucun profil non contacte exploitable pour l'instant</h3>
+                  <p>
+                    Les candidats compatibles apparaitront ici uniquement s'ils ne sont pas deja
+                    contactes sur cette offre, shortlistes ou actifs dans une candidature.
+                  </p>
                 </article>
               )}
             </div>

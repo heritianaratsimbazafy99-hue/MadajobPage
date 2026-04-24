@@ -8,7 +8,7 @@ import {
   getManagedCandidates,
   getManagedJobById
 } from "@/lib/jobs";
-import { getCandidateJobMatch } from "@/lib/matching";
+import { getCompatibleUncontactedCandidateLeads } from "@/lib/job-compatible-candidate-leads";
 
 type AdminJobDetailPageProps = {
   params: Promise<{
@@ -33,20 +33,12 @@ export default async function AdminJobDetailPage({
 
   const events = await getJobAuditEvents(profile, jobId);
   const relatedApplications = applications.filter((application) => application.job_id === job.id);
-  const appliedCandidateIds = new Set(
-    relatedApplications
-      .map((application) => application.candidate_id)
-      .filter(Boolean)
-  );
-  const suggestedCandidates = candidates
-    .filter((candidate) => !appliedCandidateIds.has(candidate.id))
-    .map((candidate) => ({
-      candidate,
-      match: getCandidateJobMatch(candidate, job)
-    }))
-    .filter((entry) => entry.match.score >= 40)
-    .sort((left, right) => right.match.score - left.match.score)
-    .slice(0, 4);
+  const compatibleCandidateLeads = getCompatibleUncontactedCandidateLeads({
+    job,
+    candidates,
+    applications,
+    limit: 8
+  });
 
   return (
     <JobManagementWorkspace
@@ -54,7 +46,7 @@ export default async function AdminJobDetailPage({
       job={job}
       events={events}
       relatedApplications={relatedApplications}
-      suggestedCandidates={suggestedCandidates}
+      compatibleCandidateLeads={compatibleCandidateLeads}
       currentPath="/app/admin/offres"
       backHref="/app/admin/offres"
     />
