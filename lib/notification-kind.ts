@@ -10,6 +10,13 @@ const notificationKindMeta = new Map<
     }
   ],
   [
+    "candidate_job_match",
+    {
+      label: "Nouvelle offre compatible",
+      description: "Une offre publiee correspond aux preferences et au matching candidat."
+    }
+  ],
+  [
     "application_status_updated",
     {
       label: "Statut mis a jour",

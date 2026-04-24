@@ -15,6 +15,8 @@ function getNotificationBaseWeight(kind: string) {
       return 300;
     case "application_status_updated":
       return 260;
+    case "candidate_job_match":
+      return 240;
     case "application_submitted":
       return 180;
     case "account_invited":
@@ -72,7 +74,8 @@ export function getNotificationTone(notification: AppNotification): "info" | "su
   if (
     notification.kind === "application_interview_scheduled" ||
     notification.kind === "application_status_updated" ||
-    notification.kind === "new_application_received"
+    notification.kind === "new_application_received" ||
+    notification.kind === "candidate_job_match"
   ) {
     return "info";
   }
@@ -92,6 +95,10 @@ export function getNotificationActionLabel(notification: AppNotification) {
 
     if (isApplicationNotification(notification.kind)) {
       return "Ouvrir le dossier lie";
+    }
+
+    if (notification.kind === "candidate_job_match") {
+      return "Ouvrir l'offre compatible";
     }
 
     return "Ouvrir l'ecran lie";
@@ -125,6 +132,10 @@ export function getNotificationSummaryText(notification: AppNotification) {
 
   if (notification.kind === "application_submitted") {
     return "La candidature a bien ete enregistree. Le suivi detaille reste accessible depuis le dossier.";
+  }
+
+  if (notification.kind === "candidate_job_match") {
+    return "Une nouvelle offre publiee correspond a vos preferences. Ouvrez la fiche pour verifier le detail avant de postuler.";
   }
 
   return kindMeta.description;

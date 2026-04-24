@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { requireRole } from "@/lib/auth";
+import { createCandidateJobAlertsForPublishedJob } from "@/lib/candidate-job-alerts";
 import {
   saveCandidateJob,
   unsaveCandidateJob,
@@ -156,6 +157,17 @@ async function getAdminJobOrganizationId(requestedOrganizationId: string, fallba
   return createdOrganization?.id ? String(createdOrganization.id) : null;
 }
 
+async function createCandidateAlertsAndRevalidate(
+  job: Parameters<typeof createCandidateJobAlertsForPublishedJob>[0]
+) {
+  const alertResult = await createCandidateJobAlertsForPublishedJob(job);
+
+  if (alertResult.createdCount > 0) {
+    revalidatePath("/app/candidat");
+    revalidatePath("/app/candidat/notifications");
+  }
+}
+
 function slugify(value: string) {
   return value
     .normalize("NFD")
@@ -197,7 +209,7 @@ async function getManageableJobForActor(
   let query = supabase
     .from("job_posts")
     .select(
-      "id, slug, title, status, published_at, closing_at, organization_id, summary, responsibilities, requirements, benefits, salary_min, salary_max, salary_currency, salary_period, salary_is_visible"
+      "id, slug, title, location, contract_type, work_mode, sector, status, published_at, closing_at, organization_id, summary, responsibilities, requirements, benefits, salary_min, salary_max, salary_currency, salary_period, salary_is_visible"
     )
     .eq("id", jobId);
 
@@ -290,6 +302,28 @@ async function updateJobStatusInternal(
   });
 
   revalidateJobViews(String(job.slug ?? ""), jobId);
+
+  if (nextStatus === "published") {
+    await createCandidateAlertsAndRevalidate({
+      id: String(job.id),
+      title: String(job.title ?? ""),
+      slug: String(job.slug ?? ""),
+      location: String(job.location ?? ""),
+      contract_type: String(job.contract_type ?? ""),
+      work_mode: String(job.work_mode ?? ""),
+      sector: String(job.sector ?? ""),
+      summary: String(job.summary ?? ""),
+      responsibilities: typeof job.responsibilities === "string" ? job.responsibilities : undefined,
+      requirements: typeof job.requirements === "string" ? job.requirements : undefined,
+      benefits: typeof job.benefits === "string" ? job.benefits : undefined,
+      salary_min: Number(job.salary_min ?? 0) || null,
+      salary_max: Number(job.salary_max ?? 0) || null,
+      salary_currency: String(job.salary_currency ?? "MGA"),
+      salary_period: String(job.salary_period ?? "month"),
+      salary_is_visible: Boolean(job.salary_is_visible),
+      status: "published"
+    });
+  }
 
   return {
     status: "success",
@@ -468,6 +502,24 @@ export async function createJobAction(
       organization_id: organizationId
     });
     revalidateJobViews(slug, String(createdJob.id));
+
+    if (status === "published") {
+      await createCandidateAlertsAndRevalidate({
+        id: String(createdJob.id),
+        title,
+        slug,
+        location,
+        contract_type: contractType,
+        work_mode: workMode,
+        sector,
+        summary,
+        responsibilities,
+        requirements,
+        benefits,
+        ...salaryPayload,
+        status: "published"
+      });
+    }
   }
 
   return {

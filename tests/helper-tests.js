@@ -42,6 +42,9 @@ const {
   rankJobsForCandidate
 } = require("../lib/matching.ts");
 const {
+  getCandidateJobAlertEligibility
+} = require("../lib/candidate-job-alert-eligibility.ts");
+const {
   getCandidateCvAnalysis
 } = require("../lib/candidate-cv-analysis.ts");
 const {
@@ -326,6 +329,69 @@ test("matching: priorise les preferences candidat de contrat, mode et salaire", 
     aligned.breakdown.find((item) => item.key === "preferences").value,
     /contrat CDI aligne|mode Hybride aligne|remuneration visible compatible/i
   );
+});
+
+test("candidate job alerts: valide une nouvelle offre compatible avec les preferences", () => {
+  const profile = {
+    headline: "Commerciale B2B",
+    city: "Antananarivo",
+    current_position: "Account executive B2B",
+    desired_position: "Commercial B2B grands comptes",
+    desired_contract_type: "CDI",
+    desired_work_mode: "Hybride",
+    desired_salary_min: 1500000,
+    desired_salary_currency: "MGA",
+    skills_text: "prospection CRM closing negociation comptes strategiques",
+    cv_text: "developpement commercial B2B, gestion de pipeline et closing",
+    profile_completion: 92
+  };
+
+  const eligibility = getCandidateJobAlertEligibility(
+    profile,
+    buildJob({
+      salary_min: 1600000,
+      salary_max: 2200000,
+      salary_currency: "MGA",
+      salary_period: "month",
+      salary_is_visible: true
+    })
+  );
+
+  assert.equal(eligibility.eligible, true);
+  assert.ok(eligibility.match.score >= 60);
+  assert.match(eligibility.reasons.join(" "), /contrat CDI aligne/i);
+  assert.match(eligibility.reasons.join(" "), /mode Hybride aligne/i);
+  assert.match(eligibility.reasons.join(" "), /remuneration compatible/i);
+});
+
+test("candidate job alerts: bloque une offre sous le salaire minimum visible", () => {
+  const profile = {
+    headline: "Commerciale B2B",
+    city: "Antananarivo",
+    current_position: "Account executive B2B",
+    desired_position: "Commercial B2B grands comptes",
+    desired_contract_type: "CDI",
+    desired_work_mode: "Hybride",
+    desired_salary_min: 2500000,
+    desired_salary_currency: "MGA",
+    skills_text: "prospection CRM closing negociation comptes strategiques",
+    cv_text: "developpement commercial B2B, gestion de pipeline et closing",
+    profile_completion: 92
+  };
+
+  const eligibility = getCandidateJobAlertEligibility(
+    profile,
+    buildJob({
+      salary_min: 1600000,
+      salary_max: 2200000,
+      salary_currency: "MGA",
+      salary_period: "month",
+      salary_is_visible: true
+    })
+  );
+
+  assert.equal(eligibility.eligible, false);
+  assert.match(eligibility.blockedReasons.join(" "), /sous le minimum souhaite/i);
 });
 
 test("cv analysis: exploite le texte extrait du CV meme sans profil formulaire", () => {
