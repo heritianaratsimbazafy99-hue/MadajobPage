@@ -975,3 +975,24 @@ test("candidate documents: valide les formats d'upload cote serveur", () => {
     /10 Mo/
   );
 });
+
+test("refactor hygiene: les anciennes pages statiques racine ne reviennent pas", () => {
+  const legacyStaticFiles = [
+    "index.html",
+    "carrieres.html",
+    "entreprise.html",
+    "formation.html",
+    "externalisation.html",
+    "admin-annonces.html",
+    "candidat.html",
+    path.join("assets", "script.js"),
+    path.join("assets", "careers.js"),
+    path.join("assets", "styles.css"),
+    path.join("assets", "careers.css")
+  ];
+
+  assert.deepEqual(
+    legacyStaticFiles.filter((filePath) => fs.existsSync(path.join(projectRoot, filePath))),
+    []
+  );
+});
