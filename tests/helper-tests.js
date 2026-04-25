@@ -42,6 +42,12 @@ const {
   rankJobsForCandidate
 } = require("../lib/matching.ts");
 const {
+  getNumericRecordValue,
+  getStringArrayRecordValue,
+  mapJobRecord,
+  mapManagedJobRecord
+} = require("../lib/job-record-mappers.ts");
+const {
   getCandidateJobAlertEligibility
 } = require("../lib/candidate-job-alert-eligibility.ts");
 const {
@@ -326,6 +332,51 @@ function buildEmail(overrides = {}) {
     ...overrides
   };
 }
+
+test("job record mappers: normalisent les valeurs Supabase des offres", () => {
+  assert.equal(getNumericRecordValue({ salary_min: "1200000" }, "salary_min"), 1200000);
+  assert.equal(getNumericRecordValue({ salary_min: "invalide" }, "salary_min"), null);
+  assert.deepEqual(
+    getStringArrayRecordValue({ desired_sectors: [" RH ", "", "Commercial"] }, "desired_sectors"),
+    ["RH", "Commercial"]
+  );
+
+  const job = mapJobRecord({
+    id: "job-record",
+    title: "Responsable RH",
+    slug: "responsable-rh",
+    location: "Antananarivo",
+    contract_type: "CDI",
+    work_mode: "Hybride",
+    sector: "RH",
+    summary: "Piloter les recrutements.",
+    salary_min: "1200000",
+    salary_max: "invalide",
+    salary_is_visible: true,
+    status: "published",
+    is_featured: true,
+    published_at: "2026-04-20T08:00:00.000Z"
+  });
+
+  assert.equal(job.salary_min, 1200000);
+  assert.equal(job.salary_max, null);
+  assert.equal(job.salary_currency, "MGA");
+  assert.equal(job.salary_period, "month");
+  assert.equal(job.organization_name, "Madajob");
+  assert.equal(job.status, "published");
+
+  const managedJob = mapManagedJobRecord({
+    ...job,
+    organization_id: "org-1",
+    created_at: "2026-04-19T08:00:00.000Z",
+    updated_at: "2026-04-21T08:00:00.000Z",
+    applications_count: 4
+  });
+
+  assert.equal(managedJob.organization_id, "org-1");
+  assert.equal(managedJob.applications_count, 4);
+  assert.equal(managedJob.updated_at, "2026-04-21T08:00:00.000Z");
+});
 
 test("matching: detecte un fort alignement candidat/offre", () => {
   const profile = {
