@@ -1356,11 +1356,21 @@ test("dashboard navigation: expose les menus et actions par role", () => {
   assert.equal(getDashboardRoleLabel("recruteur"), "Recruteur");
   assert.equal(getDashboardRoleLabel("admin"), "Admin");
   assert.equal(candidateNav[0].href, "/app/candidat");
+  assert.equal(candidateNav.some((item) => item.href === "/app/candidat/profil"), true);
   assert.equal(candidateNav.some((item) => item.href === "/app/candidat/notifications"), true);
+  assert.equal(recruiterNav.some((item) => item.href === "/app/recruteur/offres/nouvelle"), true);
   assert.equal(recruiterNav.some((item) => item.href === "/app/recruteur/cvtheque"), true);
   assert.equal(recruiterNav.some((item) => item.href === "/carrieres"), true);
   assert.equal(adminNav.some((item) => item.href === "/app/admin/sante"), true);
   assert.equal(adminNav.some((item) => item.href === "/app/admin/emails"), true);
+  assert.deepEqual(getDashboardPrimaryAction("candidat"), {
+    href: "/app/candidat/profil",
+    label: "Completer mon profil"
+  });
+  assert.deepEqual(getDashboardPrimaryAction("recruteur"), {
+    href: "/app/recruteur/offres/nouvelle",
+    label: "Creer une annonce"
+  });
   assert.deepEqual(getDashboardPrimaryAction("admin"), {
     href: "/app/admin/offres",
     label: "Piloter les offres"

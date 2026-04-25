@@ -15,6 +15,7 @@ const roleLabels: Record<AppRole, string> = {
 const navigationByRole: Record<AppRole, DashboardNavItem[]> = {
   candidat: [
     { href: "/app/candidat", label: "Tableau de bord", hint: "Profil, CV et candidatures" },
+    { href: "/app/candidat/profil", label: "Profil candidat", hint: "Identite, cible et preferences" },
     { href: "/app/candidat/candidatures", label: "Mes candidatures", hint: "Filtrer et suivre vos dossiers" },
     { href: "/app/candidat/documents", label: "Documents", hint: "Centraliser CV et pieces utiles" },
     { href: "/app/candidat/alertes", label: "Alertes offres", hint: "Voir les offres compatibles" },
@@ -23,6 +24,7 @@ const navigationByRole: Record<AppRole, DashboardNavItem[]> = {
   ],
   recruteur: [
     { href: "/app/recruteur", label: "Tableau de bord", hint: "Offres, pipeline et suivi" },
+    { href: "/app/recruteur/offres/nouvelle", label: "Creer une annonce", hint: "Rediger et publier une offre" },
     { href: "/app/recruteur/offres", label: "Mes offres", hint: "Editer, publier et fermer vos annonces" },
     { href: "/app/recruteur/candidatures", label: "Candidatures", hint: "Traiter les dossiers recus" },
     { href: "/app/recruteur/shortlist", label: "Shortlist", hint: "Travailler les meilleurs profils" },
@@ -53,8 +55,8 @@ const navigationByRole: Record<AppRole, DashboardNavItem[]> = {
 };
 
 const primaryActionByRole: Record<AppRole, { href: string; label: string }> = {
-  candidat: { href: "/app/candidat/offres", label: "Explorer les offres" },
-  recruteur: { href: "/app/recruteur/offres", label: "Gerer mes offres" },
+  candidat: { href: "/app/candidat/profil", label: "Completer mon profil" },
+  recruteur: { href: "/app/recruteur/offres/nouvelle", label: "Creer une annonce" },
   admin: { href: "/app/admin/offres", label: "Piloter les offres" }
 };
 

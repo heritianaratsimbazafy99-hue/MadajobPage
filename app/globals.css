@@ -2010,6 +2010,130 @@ button:disabled {
   margin: 0;
 }
 
+.candidate-profile-workspace,
+.job-create-workspace {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.34fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.candidate-profile-rail,
+.job-create-rail {
+  position: sticky;
+  top: 82px;
+  display: grid;
+  gap: 12px;
+}
+
+.candidate-profile-main,
+.job-create-main {
+  min-width: 0;
+}
+
+.candidate-profile-progress-card {
+  display: grid;
+  gap: 12px;
+}
+
+.candidate-profile-progress-card__meter {
+  display: grid;
+  gap: 2px;
+}
+
+.candidate-profile-progress-card__meter strong {
+  font-family: var(--font-display), sans-serif;
+  font-size: clamp(2rem, 4vw, 2.8rem);
+  line-height: 0.95;
+}
+
+.candidate-profile-progress-card__meter span {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.candidate-profile-form {
+  gap: 16px;
+}
+
+.candidate-profile-form__summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.candidate-profile-form__priority {
+  background:
+    linear-gradient(135deg, rgba(178, 210, 33, 0.12), rgba(244, 249, 253, 0.94));
+}
+
+.candidate-profile-form__sections {
+  display: grid;
+  gap: 14px;
+}
+
+.candidate-profile-section {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid rgba(22, 49, 74, 0.08);
+  border-radius: 16px;
+  background: rgba(247, 250, 252, 0.72);
+}
+
+.candidate-profile-section__head {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.candidate-profile-section__head > span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: rgba(8, 125, 99, 0.1);
+  color: #087d63;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.candidate-profile-section__head h3 {
+  margin: 0 0 4px;
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.candidate-profile-section__head p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.candidate-profile-alert-toggle {
+  padding: 12px;
+  border: 1px solid rgba(8, 125, 99, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.job-create-workspace {
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 0.32fr);
+}
+
+.job-create-rail {
+  top: 82px;
+}
+
+.recruiter-create-job-card {
+  border-color: rgba(8, 125, 99, 0.14);
+  background:
+    linear-gradient(135deg, rgba(8, 125, 99, 0.08), rgba(255, 255, 255, 0.94));
+}
+
 .notifications-summary-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2716,6 +2840,16 @@ button:disabled {
     grid-template-columns: 1fr;
   }
 
+  .candidate-profile-workspace,
+  .job-create-workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .candidate-profile-rail,
+  .job-create-rail {
+    position: static;
+  }
+
   .admin-jobs-command-grid,
   .candidate-alerts-summary-grid,
   .career-hero,
@@ -2850,6 +2984,10 @@ button:disabled {
   }
 
   .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .candidate-profile-form__summary {
     grid-template-columns: 1fr;
   }
 

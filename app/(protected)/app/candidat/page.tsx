@@ -3,7 +3,6 @@ import Link from "next/link";
 import { DashboardShell } from "@/components/dashboard/shell";
 import { CandidateCvAnalysisPanel } from "@/components/profile/candidate-cv-analysis-panel";
 import { CandidateCvUpload } from "@/components/profile/candidate-cv-upload";
-import { CandidateProfileForm } from "@/components/profile/candidate-profile-form";
 import {
   getApplicationStatusMeta,
   isFinalApplicationStatus
@@ -328,7 +327,7 @@ export default async function CandidateDashboardPage() {
                     : "Toutes les rubriques prioritaires sont deja renseignees."}
                 </small>
                 <div className="notification-card__actions">
-                  <Link href="#profil-candidat">Completer mon profil</Link>
+                  <Link href="/app/candidat/profil">Completer mon profil</Link>
                   <Link href="#cv-principal">Mettre a jour mon CV</Link>
                 </div>
               </article>
@@ -575,7 +574,7 @@ export default async function CandidateDashboardPage() {
               ))}
             </ul>
             <div className="dashboard-action-stack">
-              <Link className="btn btn-primary btn-block" href="#profil-candidat">
+              <Link className="btn btn-primary btn-block" href="/app/candidat/profil">
                 Completer mon profil
               </Link>
               <Link className="btn btn-secondary btn-block" href="#cv-principal">
@@ -595,10 +594,6 @@ export default async function CandidateDashboardPage() {
               currentDocument={candidateProfile.primary_cv}
               recentDocuments={candidateProfile.recent_documents}
             />
-          </div>
-
-          <div id="profil-candidat">
-            <CandidateProfileForm profile={candidateProfile} />
           </div>
         </aside>
       </section>

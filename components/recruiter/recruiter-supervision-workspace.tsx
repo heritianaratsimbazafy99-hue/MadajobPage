@@ -2,7 +2,6 @@ import Link from "next/link";
 
 import { DashboardInterviewSignalCard } from "@/components/dashboard/interview-signal-card";
 import { DashboardShell } from "@/components/dashboard/shell";
-import { JobCreateForm } from "@/components/jobs/job-create-form";
 import { getApplicationStatusMeta } from "@/lib/application-status";
 import {
   getInterviewDashboardActionItems,
@@ -77,23 +76,6 @@ function getRecommendationToneClass(tone: PlatformRecommendationTone) {
   return `tag tag--${tone}`;
 }
 
-function getApplicationStatusCounts(applications: RecruiterApplication[]) {
-  const counts = new Map<string, number>();
-
-  for (const application of applications) {
-    counts.set(application.status, (counts.get(application.status) ?? 0) + 1);
-  }
-
-  return Array.from(counts.entries())
-    .sort((left, right) => right[1] - left[1])
-    .slice(0, 5)
-    .map(([status, count]) => ({
-      label: getApplicationStatusMeta(status).label,
-      value: count,
-      status
-    }));
-}
-
 function getPriorityCards(
   jobs: ManagedJob[],
   applications: RecruiterApplication[],
@@ -165,28 +147,16 @@ export function RecruiterSupervisionWorkspace({
   ).length;
   const applicationsWithCv = applications.filter((application) => application.has_cv).length;
   const interviewStats = getInterviewDashboardStats(applications);
-  const priorityCards = getPriorityCards(jobs, applications, notifications);
+  const priorityCards = getPriorityCards(jobs, applications, notifications).slice(0, 4);
   const platformRecommendations = getRecruiterPlatformRecommendations({
     jobs,
     applications,
     candidates,
     notifications
   });
-  const applicationStatusCounts = getApplicationStatusCounts(applications);
   const interviewActionItems = getInterviewDashboardActionItems(applications).slice(0, 6);
   const recentApplications = applications.slice(0, 6);
   const recentJobs = jobs.slice(0, 6);
-  const topCandidates = candidates
-    .slice()
-    .sort((left, right) => {
-      if (right.applications_count !== left.applications_count) {
-        return right.applications_count - left.applications_count;
-      }
-
-      return right.profile_completion - left.profile_completion;
-    })
-    .slice(0, 5);
-  const recentNotifications = notifications.slice(0, 5);
 
   return (
     <DashboardShell
@@ -398,7 +368,21 @@ export function RecruiterSupervisionWorkspace({
         </div>
 
         <aside className="dashboard-column dashboard-column--aside">
-          <JobCreateForm roleLabel="Recruteur" />
+          <div className="panel dashboard-sidecard recruiter-create-job-card">
+            <p className="eyebrow">Nouvelle annonce</p>
+            <h2>La creation d'offre dispose maintenant de son propre espace.</h2>
+            <p className="form-caption">
+              Le tableau de bord reste centre sur les priorites, le pipeline et les entretiens.
+            </p>
+            <div className="dashboard-action-stack">
+              <Link className="btn btn-primary btn-block" href="/app/recruteur/offres/nouvelle">
+                Creer une annonce
+              </Link>
+              <Link className="btn btn-secondary btn-block" href="/app/recruteur/offres">
+                Gerer mes offres
+              </Link>
+            </div>
+          </div>
 
           <div className="dashboard-form">
             <div className="dashboard-form__head">
@@ -481,117 +465,14 @@ export function RecruiterSupervisionWorkspace({
             </div>
           </div>
 
-          <div className="dashboard-form">
-            <div className="dashboard-form__head">
-              <div>
-                <p className="eyebrow">Lecture pipeline</p>
-                <h2>Les statuts qui dominent dans votre flux</h2>
-              </div>
-              <span className="tag">{applicationStatusCounts.length} statut(s)</span>
-            </div>
-
-            <div className="reporting-breakdown">
-              {applicationStatusCounts.length > 0 ? (
-                applicationStatusCounts.map((entry) => (
-                  <div key={entry.status} className="document-card reporting-list__item">
-                    <div className="reporting-list__head">
-                      <strong>{entry.label}</strong>
-                      <span className="tag tag--muted">{entry.value}</span>
-                    </div>
-                    <p>code statut : {entry.status}</p>
-                  </div>
-                ))
-              ) : (
-                <div className="document-card">
-                  <strong>Aucun pipeline actif</strong>
-                  <p>Les volumes de candidatures apparaitront ici automatiquement.</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="dashboard-form">
-            <div className="dashboard-form__head">
-              <div>
-                <p className="eyebrow">Profils a fort signal</p>
-                <h2>Les candidats qui remontent le plus dans votre base</h2>
-              </div>
-              <span className="tag">{topCandidates.length} profil(s)</span>
-            </div>
-
-            <div className="reporting-breakdown">
-              {topCandidates.length > 0 ? (
-                topCandidates.map((candidate) => (
-                  <div key={candidate.id} className="document-card reporting-list__item">
-                    <div className="reporting-list__head">
-                      <strong>{candidate.full_name}</strong>
-                      <span className="tag tag--info">{candidate.profile_completion}%</span>
-                    </div>
-                    <p>{candidate.current_position || candidate.desired_position || "Profil candidat"}</p>
-                    <div className="job-card__meta">
-                      <span>{candidate.city || "Ville non renseignee"}</span>
-                      <span>{candidate.applications_count} dossier(s)</span>
-                      <span>{candidate.has_primary_cv ? "CV principal" : "Sans CV principal"}</span>
-                    </div>
-                    <Link className="text-link" href={`/app/recruteur/candidats/${candidate.id}`}>
-                      Ouvrir le profil
-                    </Link>
-                  </div>
-                ))
-              ) : (
-                <div className="document-card">
-                  <strong>Aucun profil prioritaire</strong>
-                  <p>Les meilleurs profils de votre base apparaitront ici automatiquement.</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="dashboard-form">
-            <div className="dashboard-form__head">
-              <div>
-                <p className="eyebrow">Alertes internes</p>
-                <h2>Les notifications qui demandent votre attention</h2>
-              </div>
-              <span className="tag">{recentNotifications.length} element(s)</span>
-            </div>
-
-            <div className="reporting-breakdown">
-              {recentNotifications.length > 0 ? (
-                recentNotifications.map((notification) => (
-                  <div key={notification.id} className="document-card reporting-list__item">
-                    <div className="reporting-list__head">
-                      <strong>{notification.title}</strong>
-                      <span className={`tag ${notification.is_read ? "tag--muted" : "tag--info"}`}>
-                        {notification.is_read ? "Lue" : "Non lue"}
-                      </span>
-                    </div>
-                    <p>{notification.body}</p>
-                    <div className="job-card__meta">
-                      <span>{notification.kind}</span>
-                      <span>{formatDisplayDate(notification.created_at)}</span>
-                    </div>
-                    {notification.link_href ? (
-                      <Link className="text-link" href={notification.link_href}>
-                        Ouvrir l'ecran lie
-                      </Link>
-                    ) : null}
-                  </div>
-                ))
-              ) : (
-                <div className="document-card">
-                  <strong>Aucune alerte recente</strong>
-                  <p>Les notifications internes apparaitront ici automatiquement.</p>
-                </div>
-              )}
-            </div>
-          </div>
-
           <div className="panel dashboard-sidecard">
             <p className="eyebrow">Commandes rapides</p>
             <h2>Gardez vos modules recrutement a portee de clic.</h2>
             <div className="dashboard-action-stack">
-              <Link className="btn btn-primary btn-block" href="/app/recruteur/offres">
+              <Link className="btn btn-primary btn-block" href="/app/recruteur/offres/nouvelle">
+                Creer une annonce
+              </Link>
+              <Link className="btn btn-secondary btn-block" href="/app/recruteur/offres">
                 Gerer toutes mes offres
               </Link>
               <Link className="btn btn-secondary btn-block" href="/app/recruteur/entretiens">
