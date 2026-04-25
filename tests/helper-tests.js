@@ -53,6 +53,10 @@ const {
   mapApplicationInterviewRecord
 } = require("../lib/interview-record-mappers.ts");
 const {
+  normalizeJobRelation,
+  normalizeSupabaseRelation
+} = require("../lib/supabase-relations.ts");
+const {
   getCandidateJobAlertEligibility
 } = require("../lib/candidate-job-alert-eligibility.ts");
 const {
@@ -474,6 +478,16 @@ test("interview record mappers: construisent les signaux candidat et recruteur",
   assert.equal(candidateSignal.next_interview_at, "2026-04-24T09:00:00.000Z");
   assert.equal(candidateSignal.next_interview_format, "phone");
   assert.equal(candidateSignal.next_interview_meeting_url, "https://meet.example/next");
+});
+
+test("supabase relations: normalise les relations objet ou tableau", () => {
+  const jobRelation = { id: "job-1", title: "Commercial B2B", organization_id: "org-1" };
+
+  assert.equal(normalizeSupabaseRelation(null), null);
+  assert.deepEqual(normalizeSupabaseRelation([jobRelation]), jobRelation);
+  assert.deepEqual(normalizeSupabaseRelation(jobRelation), jobRelation);
+  assert.deepEqual(normalizeSupabaseRelation([]), null);
+  assert.equal(normalizeJobRelation([jobRelation]).organization_id, "org-1");
 });
 
 test("matching: detecte un fort alignement candidat/offre", () => {

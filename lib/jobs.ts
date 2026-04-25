@@ -17,6 +17,11 @@ import {
 } from "@/lib/job-record-mappers";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import {
+  normalizeJobRelation,
+  normalizeSupabaseRelation,
+  type ApplicationAccessRow
+} from "@/lib/supabase-relations";
 import type {
   AdminAuditEvent,
   ApplicationCommunicationEvent,
@@ -1735,50 +1740,6 @@ export async function getApplicationDetail(profile: Profile, applicationId: stri
   } satisfies ApplicationDetail;
 }
 
-type ApplicationAccessRow = {
-  id: string;
-  candidate_id: string | null;
-  status: string | null;
-  created_at: string | null;
-  updated_at?: string | null;
-  cover_letter?: string | null;
-  cv_document_id?: string | null;
-  job_posts:
-    | {
-        id?: string | null;
-        slug?: string | null;
-        title?: string | null;
-        location?: string | null;
-        contract_type?: string | null;
-        work_mode?: string | null;
-        sector?: string | null;
-        summary?: string | null;
-        organization_id?: string | null;
-      }
-    | Array<{
-        id?: string | null;
-        slug?: string | null;
-        title?: string | null;
-        location?: string | null;
-        contract_type?: string | null;
-        work_mode?: string | null;
-        sector?: string | null;
-        summary?: string | null;
-        organization_id?: string | null;
-      }>
-    | null;
-};
-
-function normalizeJobRelation(
-  relation: ApplicationAccessRow["job_posts"]
-): Record<string, unknown> | null {
-  if (!relation) {
-    return null;
-  }
-
-  return (Array.isArray(relation) ? relation[0] : relation) as Record<string, unknown> | null;
-}
-
 async function getAccessibleApplicationRows(profile: Profile) {
   if (!isSupabaseConfigured) {
     return [] as ApplicationAccessRow[];
@@ -2422,14 +2383,6 @@ type InterviewContextApplicationRow = {
   job_posts?: Record<string, unknown> | Array<Record<string, unknown>> | null;
 };
 
-function normalizeSingleRelation<T>(relation: T | T[] | null | undefined): T | null {
-  if (!relation) {
-    return null;
-  }
-
-  return Array.isArray(relation) ? relation[0] ?? null : relation;
-}
-
 function buildInterviewScheduleItems(
   interviewRows: Record<string, unknown>[],
   applicationRows: InterviewContextApplicationRow[],
@@ -2446,8 +2399,8 @@ function buildInterviewScheduleItems(
       continue;
     }
 
-    const job = normalizeSingleRelation(application.job_posts) as Record<string, unknown> | null;
-    const organization = normalizeSingleRelation(
+    const job = normalizeSupabaseRelation(application.job_posts) as Record<string, unknown> | null;
+    const organization = normalizeSupabaseRelation(
       (job as { organization?: Record<string, unknown> | Array<Record<string, unknown>> | null } | null)
         ?.organization ?? null
     ) as Record<string, unknown> | null;
