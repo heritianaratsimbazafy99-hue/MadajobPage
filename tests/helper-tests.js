@@ -57,6 +57,10 @@ const {
   mapCandidateDocumentRecord
 } = require("../lib/candidate-document-records.ts");
 const {
+  getAuditEntityFallbackLabel,
+  getAuditEntityHref
+} = require("../lib/audit-entities.ts");
+const {
   fallbackApplications,
   fallbackCandidateProfile,
   fallbackInterviews,
@@ -411,6 +415,19 @@ test("candidate document records: normalisent les documents et liens signes", as
     ),
     null
   );
+});
+
+test("audit entities: construit les libelles et liens admin", () => {
+  assert.equal(getAuditEntityFallbackLabel("profile", "user-123456"), "Utilisateur");
+  assert.equal(getAuditEntityFallbackLabel("job_post", "job-123456"), "Offre");
+  assert.equal(getAuditEntityFallbackLabel("organization", "org-123456"), "Organisation");
+  assert.equal(getAuditEntityFallbackLabel("custom", "abcdef123456"), "custom:abcdef12");
+  assert.equal(getAuditEntityFallbackLabel("custom", ""), "custom");
+  assert.equal(getAuditEntityHref("profile", "user-1"), "/app/admin/utilisateurs/user-1");
+  assert.equal(getAuditEntityHref("job_post", "job-1"), "/app/admin/offres/job-1");
+  assert.equal(getAuditEntityHref("organization", "org-1"), "/app/admin/organisations/org-1");
+  assert.equal(getAuditEntityHref("custom", "entity-1"), null);
+  assert.equal(getAuditEntityHref("profile", ""), null);
 });
 
 test("job record mappers: normalisent les valeurs Supabase des offres", () => {

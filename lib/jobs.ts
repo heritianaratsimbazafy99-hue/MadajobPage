@@ -1,6 +1,10 @@
 import { unstable_noStore as noStore } from "next/cache";
 
 import {
+  getAuditEntityFallbackLabel,
+  getAuditEntityHref
+} from "@/lib/audit-entities";
+import {
   createSignedUrlForDocument,
   mapCandidateDocumentRecord
 } from "@/lib/candidate-document-records";
@@ -2630,42 +2634,6 @@ export async function getAdminOrganizationDetail(organizationId: string) {
     recent_jobs: recentJobs,
     recent_applications: recentApplications
   } satisfies ManagedOrganizationDetail;
-}
-
-function getAuditEntityFallbackLabel(entityType: string, entityId: string) {
-  if (entityType === "profile") {
-    return "Utilisateur";
-  }
-
-  if (entityType === "job_post") {
-    return "Offre";
-  }
-
-  if (entityType === "organization") {
-    return "Organisation";
-  }
-
-  return entityId ? `${entityType}:${entityId.slice(0, 8)}` : entityType;
-}
-
-function getAuditEntityHref(entityType: string, entityId: string) {
-  if (!entityId) {
-    return null;
-  }
-
-  if (entityType === "profile") {
-    return `/app/admin/utilisateurs/${entityId}`;
-  }
-
-  if (entityType === "job_post") {
-    return `/app/admin/offres/${entityId}`;
-  }
-
-  if (entityType === "organization") {
-    return `/app/admin/organisations/${entityId}`;
-  }
-
-  return null;
 }
 
 export async function getAdminAuditEvents(options: { limit?: number } = {}) {
