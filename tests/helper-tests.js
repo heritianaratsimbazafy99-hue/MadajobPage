@@ -53,6 +53,9 @@ const {
   mapApplicationInterviewRecord
 } = require("../lib/interview-record-mappers.ts");
 const {
+  buildInterviewScheduleItems
+} = require("../lib/interview-schedule-items.ts");
+const {
   createSignedUrlForDocument,
   mapCandidateDocumentRecord
 } = require("../lib/candidate-document-records.ts");
@@ -566,6 +569,79 @@ test("interview record mappers: construisent les signaux candidat et recruteur",
   assert.equal(candidateSignal.next_interview_at, "2026-04-24T09:00:00.000Z");
   assert.equal(candidateSignal.next_interview_format, "phone");
   assert.equal(candidateSignal.next_interview_meeting_url, "https://meet.example/next");
+});
+
+test("interview schedule items: assemble les entretiens avec candidat, offre et recruteur", () => {
+  const items = buildInterviewScheduleItems(
+    [
+      {
+        id: "interview-later",
+        application_id: "application-1",
+        status: "scheduled",
+        format: "video",
+        starts_at: "2026-04-26T09:00:00.000Z",
+        scheduled_by: "scheduler-1",
+        created_at: "2026-04-20T08:00:00.000Z",
+        updated_at: "2026-04-20T08:00:00.000Z"
+      },
+      {
+        id: "interview-earlier",
+        application_id: "application-1",
+        status: "scheduled",
+        format: "phone",
+        starts_at: "2026-04-24T09:00:00.000Z",
+        scheduled_by: "scheduler-1",
+        created_at: "2026-04-20T08:00:00.000Z",
+        updated_at: "2026-04-20T08:00:00.000Z"
+      },
+      {
+        id: "interview-orphan",
+        application_id: "missing-application",
+        status: "scheduled",
+        starts_at: "2026-04-25T09:00:00.000Z"
+      }
+    ],
+    [
+      {
+        id: "application-1",
+        status: "reviewing",
+        candidate_id: "candidate-1",
+        candidate: {
+          full_name: "Heritiana Ratsimbazafy",
+          email: "heritiana@example.com"
+        },
+        job_posts: {
+          id: "job-1",
+          title: "Responsable RH",
+          location: "Antananarivo",
+          organization: {
+            name: "Madajob"
+          }
+        }
+      }
+    ],
+    new Map([
+      [
+        "scheduler-1",
+        {
+          full_name: "Admin Madajob",
+          email: "admin@madajob.mg"
+        }
+      ]
+    ])
+  );
+
+  assert.equal(items.length, 2);
+  assert.equal(items[0].id, "interview-earlier");
+  assert.equal(items[0].application_status, "reviewing");
+  assert.equal(items[0].candidate_name, "Heritiana Ratsimbazafy");
+  assert.equal(items[0].candidate_email, "heritiana@example.com");
+  assert.equal(items[0].job_id, "job-1");
+  assert.equal(items[0].job_title, "Responsable RH");
+  assert.equal(items[0].job_location, "Antananarivo");
+  assert.equal(items[0].organization_name, "Madajob");
+  assert.equal(items[0].scheduled_by_name, "Admin Madajob");
+  assert.equal(items[0].scheduled_by_email, "admin@madajob.mg");
 });
 
 test("supabase relations: normalise les relations objet ou tableau", () => {
