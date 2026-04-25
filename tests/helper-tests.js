@@ -53,6 +53,13 @@ const {
   mapApplicationInterviewRecord
 } = require("../lib/interview-record-mappers.ts");
 const {
+  fallbackApplications,
+  fallbackCandidateProfile,
+  fallbackInterviews,
+  fallbackJobs,
+  fallbackRecruiterApplications
+} = require("../lib/job-fallbacks.ts");
+const {
   normalizeJobRelation,
   normalizeSupabaseRelation
 } = require("../lib/supabase-relations.ts");
@@ -341,6 +348,16 @@ function buildEmail(overrides = {}) {
     ...overrides
   };
 }
+
+test("job fallbacks: conservent les jeux de secours hors Supabase", () => {
+  assert.equal(fallbackJobs.length, 4);
+  assert.equal(fallbackJobs[0].status, "published");
+  assert.equal(fallbackApplications.length, 2);
+  assert.equal(fallbackRecruiterApplications[0].interview_signal.feedback_count, 1);
+  assert.equal(fallbackInterviews[0].application_id, "recruiter-app-1");
+  assert.equal(fallbackCandidateProfile.country, "Madagascar");
+  assert.equal(fallbackCandidateProfile.job_alerts_enabled, true);
+});
 
 test("job record mappers: normalisent les valeurs Supabase des offres", () => {
   assert.equal(getNumericRecordValue({ salary_min: "1200000" }, "salary_min"), 1200000);
