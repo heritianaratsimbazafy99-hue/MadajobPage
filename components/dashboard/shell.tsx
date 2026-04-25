@@ -6,8 +6,7 @@ import { UnreadNotificationsNavLink } from "@/components/notifications/unread-no
 import {
   getDashboardNavigation,
   getDashboardPrimaryAction,
-  getDashboardRoleLabel,
-  getDashboardSupportMessages
+  getDashboardRoleLabel
 } from "@/lib/dashboard-navigation";
 import { getNotificationsPath } from "@/lib/notification-path";
 import { getUnreadNotificationsCount } from "@/lib/notifications";
@@ -31,7 +30,6 @@ export async function DashboardShell({
   const nav = getDashboardNavigation(profile.role);
   const action = getDashboardPrimaryAction(profile.role);
   const roleLabel = getDashboardRoleLabel(profile.role);
-  const supportMessages = getDashboardSupportMessages(profile.role);
   const profileName = profile.full_name || profile.email || "Utilisateur";
   const notificationsPath = getNotificationsPath(profile.role);
   const unreadNotificationsCount = await getUnreadNotificationsCount(profile.id);
@@ -77,7 +75,9 @@ export async function DashboardShell({
           href={item.href}
           className={["dashboard-nav__item", isActive ? "is-active" : ""].filter(Boolean).join(" ")}
         >
-          <span>{item.label}</span>
+          <div className="dashboard-nav__title">
+            <strong>{item.label}</strong>
+          </div>
           <small>{item.hint}</small>
         </Link>
       );
@@ -107,16 +107,6 @@ export async function DashboardShell({
           <nav className="dashboard-nav">{renderNavItems("sidebar")}</nav>
         </div>
 
-        <div className="panel dashboard-sidecard dashboard-sidebar__support">
-          <p className="eyebrow">Pourquoi cette vue</p>
-          <h2>Une interface pensee pour travailler, pas pour naviguer.</h2>
-          <ul className="dashboard-mini-list">
-            {supportMessages.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </div>
-
         <div className="dashboard-sidebar__actions">
           <Link className="btn btn-ghost btn-block" href="/">
             Retour au site Madajob
@@ -126,29 +116,31 @@ export async function DashboardShell({
       </aside>
 
       <main className="dashboard-main">
-        <header className="dashboard-toolbar">
-          <div className="dashboard-toolbar__title">
+        <header className="dashboard-appbar">
+          <div className="dashboard-appbar__identity">
             <span className="dashboard-kicker">Plateforme Madajob</span>
-            <h1>{title}</h1>
-            <p>{description}</p>
+            <strong>{roleLabel}</strong>
           </div>
 
-          <div className="dashboard-toolbar__meta">
-            <div className="dashboard-context">
-              <span className="dashboard-context__label">Role</span>
-              <strong>{roleLabel}</strong>
-              <small>{profile.email || "Compte connecte"}</small>
-              <small>
-                {unreadNotificationsCount > 0
-                  ? `${unreadNotificationsCount} notification(s) non lue(s)`
-                  : "Aucune notification en attente"}
-              </small>
-            </div>
-            <Link className="btn btn-primary" href={action.href}>
+          <div className="dashboard-appbar__actions">
+            <Link className="dashboard-notification-link" href={notificationsPath}>
+              Notifications
+              {unreadNotificationsCount > 0 ? (
+                <span className="dashboard-notification-badge">{unreadNotificationsCount > 99 ? "99+" : unreadNotificationsCount}</span>
+              ) : null}
+            </Link>
+            <Link className="btn btn-primary dashboard-primary-action" href={action.href}>
               {action.label}
             </Link>
           </div>
         </header>
+
+        <section className="dashboard-toolbar">
+          <div className="dashboard-toolbar__title">
+            <h1>{title}</h1>
+            <p>{description}</p>
+          </div>
+        </section>
 
         <div className="dashboard-mobile-nav">{renderNavItems("mobile")}</div>
 
