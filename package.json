@@ -7,8 +7,7 @@
     "dev": "next dev",
     "build": "next build",
     "test": "node --test tests/helper-tests.js",
-    "start": "next start",
-    "legacy:server": "node server.js"
+    "start": "next start"
   },
   "engines": {
     "node": ">=20"
