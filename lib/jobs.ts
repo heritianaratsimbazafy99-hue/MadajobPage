@@ -1,5 +1,9 @@
 import { unstable_noStore as noStore } from "next/cache";
 
+import {
+  createSignedUrlForDocument,
+  mapCandidateDocumentRecord
+} from "@/lib/candidate-document-records";
 import { getCandidateProfileInsights } from "@/lib/candidate-profile";
 import { isSupabaseConfigured } from "@/lib/env";
 import {
@@ -58,35 +62,6 @@ import type {
   Profile,
   RecruiterApplication
 } from "@/lib/types";
-
-function mapCandidateDocumentRecord(record: Record<string, unknown>): CandidateDocumentData {
-  return {
-    id: String(record.id),
-    document_type: String(record.document_type ?? "cv"),
-    bucket_id: String(record.bucket_id ?? "candidate-cv"),
-    storage_path: String(record.storage_path ?? ""),
-    file_name: String(record.file_name ?? "cv"),
-    mime_type: typeof record.mime_type === "string" ? record.mime_type : null,
-    file_size: typeof record.file_size === "number" ? record.file_size : null,
-    is_primary: Boolean(record.is_primary),
-    created_at: String(record.created_at ?? "")
-  };
-}
-
-async function createSignedUrlForDocument(
-  adminClient: ReturnType<typeof createAdminClient>,
-  document: CandidateDocumentData | null
-) {
-  if (!adminClient || !document?.storage_path || !document.bucket_id) {
-    return null;
-  }
-
-  const { data } = await adminClient.storage
-    .from(document.bucket_id)
-    .createSignedUrl(document.storage_path, 60 * 20);
-
-  return data?.signedUrl ?? null;
-}
 
 type PublicJobsOptions = {
   limit?: number;

@@ -53,6 +53,10 @@ const {
   mapApplicationInterviewRecord
 } = require("../lib/interview-record-mappers.ts");
 const {
+  createSignedUrlForDocument,
+  mapCandidateDocumentRecord
+} = require("../lib/candidate-document-records.ts");
+const {
   fallbackApplications,
   fallbackCandidateProfile,
   fallbackInterviews,
@@ -357,6 +361,56 @@ test("job fallbacks: conservent les jeux de secours hors Supabase", () => {
   assert.equal(fallbackInterviews[0].application_id, "recruiter-app-1");
   assert.equal(fallbackCandidateProfile.country, "Madagascar");
   assert.equal(fallbackCandidateProfile.job_alerts_enabled, true);
+});
+
+test("candidate document records: normalisent les documents et liens signes", async () => {
+  const document = mapCandidateDocumentRecord({
+    id: "document-1",
+    document_type: "cv",
+    bucket_id: "candidate-cv",
+    storage_path: "candidate-1/cv.pdf",
+    file_name: "CV.pdf",
+    mime_type: "application/pdf",
+    file_size: 120000,
+    is_primary: true,
+    created_at: "2026-04-20T08:00:00.000Z"
+  });
+  const storageCalls = [];
+  const signedUrl = await createSignedUrlForDocument(
+    {
+      storage: {
+        from(bucketId) {
+          return {
+            async createSignedUrl(storagePath, expiresIn) {
+              storageCalls.push({ bucketId, storagePath, expiresIn });
+              return { data: { signedUrl: "https://signed.example/cv.pdf" } };
+            }
+          };
+        }
+      }
+    },
+    document
+  );
+
+  assert.equal(document.bucket_id, "candidate-cv");
+  assert.equal(document.storage_path, "candidate-1/cv.pdf");
+  assert.equal(document.is_primary, true);
+  assert.equal(signedUrl, "https://signed.example/cv.pdf");
+  assert.deepEqual(storageCalls, [
+    {
+      bucketId: "candidate-cv",
+      storagePath: "candidate-1/cv.pdf",
+      expiresIn: 1200
+    }
+  ]);
+  assert.equal(await createSignedUrlForDocument(null, document), null);
+  assert.equal(
+    await createSignedUrlForDocument(
+      { storage: { from: () => ({ createSignedUrl: async () => ({ data: null }) }) } },
+      { ...document, storage_path: "" }
+    ),
+    null
+  );
 });
 
 test("job record mappers: normalisent les valeurs Supabase des offres", () => {
