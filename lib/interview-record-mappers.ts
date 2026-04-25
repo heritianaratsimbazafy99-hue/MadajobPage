@@ -4,6 +4,7 @@ import type {
   CandidateApplicationInterviewSignal,
   RecruiterApplicationInterviewSignal
 } from "@/lib/types";
+import { getSafeExternalUrl } from "@/lib/safe-url";
 
 export function mapApplicationInterviewFeedbackRecord(
   record: Record<string, unknown>
@@ -55,7 +56,7 @@ export function mapApplicationInterviewRecord(
     ends_at: typeof record.ends_at === "string" ? record.ends_at : null,
     timezone: String(record.timezone ?? "UTC"),
     location: typeof record.location === "string" ? record.location : null,
-    meeting_url: typeof record.meeting_url === "string" ? record.meeting_url : null,
+    meeting_url: typeof record.meeting_url === "string" ? getSafeExternalUrl(record.meeting_url) : null,
     notes: typeof record.notes === "string" ? record.notes : null,
     interviewer_name: String(record.interviewer_name ?? "Equipe Madajob"),
     interviewer_email: typeof record.interviewer_email === "string" ? record.interviewer_email : null,

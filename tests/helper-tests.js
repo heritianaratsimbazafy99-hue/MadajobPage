@@ -64,6 +64,12 @@ const {
   getAuditEntityHref
 } = require("../lib/audit-entities.ts");
 const {
+  getSafeAuthRedirectPath
+} = require("../lib/auth-redirect.ts");
+const {
+  getSafeExternalUrl
+} = require("../lib/safe-url.ts");
+const {
   APPLICATION_INTERVIEW_BASIC_SELECT,
   APPLICATION_INTERVIEW_SCHEDULE_WITH_FEEDBACK_SELECT,
   APPLICATION_INTERVIEW_WITH_FEEDBACK_SELECT,
@@ -658,6 +664,22 @@ test("application interview selects: conservent les champs Supabase attendus", (
     APPLICATION_INTERVIEW_WITH_SCHEDULER_AND_FEEDBACK_SELECT,
     /application_interviews_scheduled_by_fkey/
   );
+});
+
+test("auth redirect: limite le callback aux chemins internes", () => {
+  assert.equal(getSafeAuthRedirectPath("/app/candidat?tab=offres#top"), "/app/candidat?tab=offres#top");
+  assert.equal(getSafeAuthRedirectPath("https://evil.example/phishing"), "/app");
+  assert.equal(getSafeAuthRedirectPath("//evil.example/phishing"), "/app");
+  assert.equal(getSafeAuthRedirectPath("javascript:alert(1)"), "/app");
+  assert.equal(getSafeAuthRedirectPath(null), "/app");
+});
+
+test("safe url: limite les liens externes aux protocoles web", () => {
+  assert.equal(getSafeExternalUrl("https://meet.example/room"), "https://meet.example/room");
+  assert.equal(getSafeExternalUrl("http://localhost:3000/room"), "http://localhost:3000/room");
+  assert.equal(getSafeExternalUrl("javascript:alert(1)"), null);
+  assert.equal(getSafeExternalUrl("/app/candidat"), null);
+  assert.equal(getSafeExternalUrl("not a url"), null);
 });
 
 test("supabase relations: normalise les relations objet ou tableau", () => {

@@ -22,6 +22,29 @@ const remotePatterns = (() => {
   }
 })();
 
+const securityHeaders = [
+  {
+    key: "Content-Security-Policy",
+    value: "frame-ancestors 'self'; base-uri 'self'; object-src 'none'"
+  },
+  {
+    key: "Referrer-Policy",
+    value: "strict-origin-when-cross-origin"
+  },
+  {
+    key: "X-Content-Type-Options",
+    value: "nosniff"
+  },
+  {
+    key: "X-Frame-Options",
+    value: "SAMEORIGIN"
+  },
+  {
+    key: "Permissions-Policy",
+    value: "camera=(), microphone=(), geolocation=()"
+  }
+];
+
 const nextConfig: NextConfig = {
   turbopack: {
     root: process.cwd()
@@ -30,6 +53,14 @@ const nextConfig: NextConfig = {
     formats: ["image/avif", "image/webp"],
     minimumCacheTTL: 60 * 60 * 24 * 30,
     remotePatterns
+  },
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: securityHeaders
+      }
+    ];
   }
 };
 

@@ -3,11 +3,12 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { appEnv, isSupabaseConfigured } from "@/lib/env";
+import { getSafeAuthRedirectPath } from "@/lib/auth-redirect";
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
-  const next = url.searchParams.get("next") ?? "/app";
+  const next = getSafeAuthRedirectPath(url.searchParams.get("next"));
 
   if (!isSupabaseConfigured || !code) {
     return NextResponse.redirect(new URL("/connexion", url.origin));

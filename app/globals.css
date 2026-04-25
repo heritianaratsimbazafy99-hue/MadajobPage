@@ -1168,6 +1168,7 @@ code {
 .dashboard-section {
   display: grid;
   gap: 16px;
+  min-width: 0;
 }
 
 .supervision-grid {
@@ -1181,6 +1182,8 @@ code {
   align-items: end;
   justify-content: space-between;
   gap: 16px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .dashboard-section__head h2 {
@@ -1191,6 +1194,8 @@ code {
 
 .dashboard-list {
   gap: 16px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .dashboard-card {
@@ -1212,6 +1217,14 @@ code {
   align-items: flex-start;
   justify-content: space-between;
   gap: 14px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.dashboard-card__top > * {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .dashboard-card__badges {

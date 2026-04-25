@@ -20,6 +20,7 @@ import { createNotifications } from "@/lib/notifications";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { enqueueTransactionalEmails } from "@/lib/transactional-emails";
+import { getSafeExternalUrl } from "@/lib/safe-url";
 
 export type ApplicationActionState = {
   status: "idle" | "success" | "error";
@@ -486,6 +487,7 @@ export async function scheduleInterviewAction(
 
   const startsAt = parseOptionalDateTime(startsAtInput);
   const endsAt = parseOptionalDateTime(endsAtInput);
+  const safeMeetingUrl = getSafeExternalUrl(meetingUrl);
 
   if (!applicationId || !uuidPattern.test(applicationId)) {
     return {
@@ -505,6 +507,13 @@ export async function scheduleInterviewAction(
     return {
       status: "error",
       message: "L'heure de fin doit etre apres l'heure de debut."
+    };
+  }
+
+  if (meetingUrl && !safeMeetingUrl) {
+    return {
+      status: "error",
+      message: "Le lien visio doit commencer par http:// ou https://."
     };
   }
 
@@ -562,7 +571,7 @@ export async function scheduleInterviewAction(
     ends_at: endsAt,
     timezone,
     location: location || null,
-    meeting_url: meetingUrl || null,
+    meeting_url: safeMeetingUrl,
     notes: notes || null,
     interviewer_name: interviewerName,
     interviewer_email: interviewerEmail || null
