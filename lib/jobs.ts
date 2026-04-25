@@ -5,6 +5,12 @@ import {
   getAuditEntityHref
 } from "@/lib/audit-entities";
 import {
+  APPLICATION_INTERVIEW_BASIC_SELECT,
+  APPLICATION_INTERVIEW_SCHEDULE_WITH_FEEDBACK_SELECT,
+  APPLICATION_INTERVIEW_WITH_FEEDBACK_SELECT,
+  APPLICATION_INTERVIEW_WITH_SCHEDULER_AND_FEEDBACK_SELECT
+} from "@/lib/application-interview-selects";
+import {
   createSignedUrlForDocument,
   mapCandidateDocumentRecord
 } from "@/lib/candidate-document-records";
@@ -320,9 +326,7 @@ export async function getCandidateApplicationSummaries(candidateId: string) {
     applicationIds.length
       ? (adminClient ?? supabase)
           .from("application_interviews")
-          .select(
-            "id, application_id, status, format, starts_at, ends_at, timezone, location, meeting_url, notes, interviewer_name, interviewer_email, created_at, updated_at"
-          )
+          .select(APPLICATION_INTERVIEW_BASIC_SELECT)
           .in("application_id", applicationIds)
           .order("starts_at", { ascending: false })
       : Promise.resolve({ data: [] as Array<Record<string, unknown>> })
@@ -424,9 +428,7 @@ export async function getCandidateInterviews(
 
   let interviewsQuery = supabase
     .from("application_interviews")
-    .select(
-      "id, application_id, status, format, starts_at, ends_at, timezone, location, meeting_url, notes, interviewer_name, interviewer_email, created_at, updated_at"
-    )
+    .select(APPLICATION_INTERVIEW_BASIC_SELECT)
     .in("application_id", applicationIds)
     .order("starts_at", { ascending: true });
 
@@ -602,9 +604,7 @@ export async function getCandidateApplicationDetail(
         : Promise.resolve({ data: null }),
       supabase
         .from("application_interviews")
-        .select(
-          "id, application_id, status, format, starts_at, ends_at, timezone, location, meeting_url, notes, interviewer_name, interviewer_email, created_at, updated_at"
-        )
+        .select(APPLICATION_INTERVIEW_BASIC_SELECT)
         .eq("application_id", applicationId)
         .order("starts_at", { ascending: true })
     ]);
@@ -1353,9 +1353,7 @@ export async function getApplicationDetail(profile: Profile, applicationId: stri
       : Promise.resolve({ data: null }),
     adminClient
       .from("application_interviews")
-      .select(
-        "id, application_id, status, format, starts_at, ends_at, timezone, location, meeting_url, notes, interviewer_name, interviewer_email, created_at, updated_at, scheduler:profiles!application_interviews_scheduled_by_fkey(full_name, email), feedback:application_interview_feedback(id, interview_id, application_id, summary, strengths, concerns, recommendation, proposed_decision, next_action, created_at, updated_at, author:profiles!application_interview_feedback_author_id_fkey(full_name, email))"
-      )
+      .select(APPLICATION_INTERVIEW_WITH_SCHEDULER_AND_FEEDBACK_SELECT)
       .eq("application_id", applicationId)
       .order("starts_at", { ascending: true }),
     adminClient
@@ -1812,9 +1810,7 @@ export async function getManagedCandidateDetail(profile: Profile, candidateId: s
     applicationIds.length
       ? adminClient
           .from("application_interviews")
-          .select(
-            "id, application_id, status, format, starts_at, ends_at, timezone, location, meeting_url, notes, interviewer_name, interviewer_email, created_at, updated_at, feedback:application_interview_feedback(id, interview_id, application_id, summary, strengths, concerns, recommendation, proposed_decision, next_action, created_at, updated_at, author:profiles!application_interview_feedback_author_id_fkey(full_name, email))"
-          )
+          .select(APPLICATION_INTERVIEW_WITH_FEEDBACK_SELECT)
           .in("application_id", applicationIds)
           .order("starts_at", { ascending: false })
       : Promise.resolve({ data: [] })
@@ -2041,9 +2037,7 @@ export async function getRecruiterApplications(
   if (applicationIds.length) {
     const { data: fetchedInterviewRows } = await supabase
       .from("application_interviews")
-      .select(
-        "id, application_id, status, format, starts_at, ends_at, timezone, location, meeting_url, notes, interviewer_name, interviewer_email, created_at, updated_at, feedback:application_interview_feedback(id, interview_id, application_id, summary, strengths, concerns, recommendation, proposed_decision, next_action, created_at, updated_at, author:profiles!application_interview_feedback_author_id_fkey(full_name, email))"
-      )
+      .select(APPLICATION_INTERVIEW_WITH_FEEDBACK_SELECT)
       .in("application_id", applicationIds);
 
     interviewRows = (fetchedInterviewRows ?? []) as Record<string, unknown>[];
@@ -2116,9 +2110,7 @@ export async function getAdminApplications(options: { limit?: number } = {}) {
   if (applicationIds.length) {
     const { data: fetchedInterviewRows } = await supabase
       .from("application_interviews")
-      .select(
-        "id, application_id, status, format, starts_at, ends_at, timezone, location, meeting_url, notes, interviewer_name, interviewer_email, created_at, updated_at, feedback:application_interview_feedback(id, interview_id, application_id, summary, strengths, concerns, recommendation, proposed_decision, next_action, created_at, updated_at, author:profiles!application_interview_feedback_author_id_fkey(full_name, email))"
-      )
+      .select(APPLICATION_INTERVIEW_WITH_FEEDBACK_SELECT)
       .in("application_id", applicationIds);
 
     interviewRows = (fetchedInterviewRows ?? []) as Record<string, unknown>[];
@@ -2167,9 +2159,7 @@ export async function getRecruiterInterviews(
   const supabase = await createClient();
   let interviewsQuery = supabase
     .from("application_interviews")
-    .select(
-      "id, application_id, scheduled_by, status, format, starts_at, ends_at, timezone, location, meeting_url, notes, interviewer_name, interviewer_email, created_at, updated_at, feedback:application_interview_feedback(id, interview_id, application_id, summary, strengths, concerns, recommendation, proposed_decision, next_action, created_at, updated_at, author:profiles!application_interview_feedback_author_id_fkey(full_name, email))"
-    )
+    .select(APPLICATION_INTERVIEW_SCHEDULE_WITH_FEEDBACK_SELECT)
     .order("starts_at", { ascending: true });
 
   if (typeof limit === "number") {
@@ -2241,9 +2231,7 @@ export async function getAdminInterviews(options: { limit?: number } = {}): Prom
   const supabase = await createClient();
   let interviewsQuery = supabase
     .from("application_interviews")
-    .select(
-      "id, application_id, scheduled_by, status, format, starts_at, ends_at, timezone, location, meeting_url, notes, interviewer_name, interviewer_email, created_at, updated_at, feedback:application_interview_feedback(id, interview_id, application_id, summary, strengths, concerns, recommendation, proposed_decision, next_action, created_at, updated_at, author:profiles!application_interview_feedback_author_id_fkey(full_name, email))"
-    )
+    .select(APPLICATION_INTERVIEW_SCHEDULE_WITH_FEEDBACK_SELECT)
     .order("starts_at", { ascending: true });
 
   if (typeof limit === "number") {

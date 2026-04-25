@@ -64,6 +64,12 @@ const {
   getAuditEntityHref
 } = require("../lib/audit-entities.ts");
 const {
+  APPLICATION_INTERVIEW_BASIC_SELECT,
+  APPLICATION_INTERVIEW_SCHEDULE_WITH_FEEDBACK_SELECT,
+  APPLICATION_INTERVIEW_WITH_FEEDBACK_SELECT,
+  APPLICATION_INTERVIEW_WITH_SCHEDULER_AND_FEEDBACK_SELECT
+} = require("../lib/application-interview-selects.ts");
+const {
   fallbackApplications,
   fallbackCandidateProfile,
   fallbackInterviews,
@@ -642,6 +648,16 @@ test("interview schedule items: assemble les entretiens avec candidat, offre et 
   assert.equal(items[0].organization_name, "Madajob");
   assert.equal(items[0].scheduled_by_name, "Admin Madajob");
   assert.equal(items[0].scheduled_by_email, "admin@madajob.mg");
+});
+
+test("application interview selects: conservent les champs Supabase attendus", () => {
+  assert.match(APPLICATION_INTERVIEW_BASIC_SELECT, /interviewer_email/);
+  assert.match(APPLICATION_INTERVIEW_WITH_FEEDBACK_SELECT, /application_interview_feedback/);
+  assert.match(APPLICATION_INTERVIEW_SCHEDULE_WITH_FEEDBACK_SELECT, /scheduled_by/);
+  assert.match(
+    APPLICATION_INTERVIEW_WITH_SCHEDULER_AND_FEEDBACK_SELECT,
+    /application_interviews_scheduled_by_fkey/
+  );
 });
 
 test("supabase relations: normalise les relations objet ou tableau", () => {
