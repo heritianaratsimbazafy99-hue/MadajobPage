@@ -48,6 +48,11 @@ const {
   mapManagedJobRecord
 } = require("../lib/job-record-mappers.ts");
 const {
+  buildCandidateApplicationInterviewSignalMap,
+  buildRecruiterApplicationInterviewSignalMap,
+  mapApplicationInterviewRecord
+} = require("../lib/interview-record-mappers.ts");
+const {
   getCandidateJobAlertEligibility
 } = require("../lib/candidate-job-alert-eligibility.ts");
 const {
@@ -376,6 +381,99 @@ test("job record mappers: normalisent les valeurs Supabase des offres", () => {
   assert.equal(managedJob.organization_id, "org-1");
   assert.equal(managedJob.applications_count, 4);
   assert.equal(managedJob.updated_at, "2026-04-21T08:00:00.000Z");
+});
+
+test("interview record mappers: construisent les signaux candidat et recruteur", (t) => {
+  useFixedNow(t);
+
+  const interviewRows = [
+    {
+      id: "interview-latest",
+      application_id: "application-interviews",
+      status: "scheduled",
+      format: "video",
+      starts_at: "2026-04-25T09:00:00.000Z",
+      timezone: "Indian/Antananarivo",
+      meeting_url: "https://meet.example/latest",
+      interviewer_name: "Equipe Madajob",
+      created_at: "2026-04-20T08:00:00.000Z",
+      updated_at: "2026-04-20T08:00:00.000Z"
+    },
+    {
+      id: "interview-next",
+      application_id: "application-interviews",
+      status: "scheduled",
+      format: "phone",
+      starts_at: "2026-04-24T09:00:00.000Z",
+      timezone: "Indian/Antananarivo",
+      location: "Antananarivo",
+      meeting_url: "https://meet.example/next",
+      interviewer_name: "Equipe Madajob",
+      created_at: "2026-04-20T08:00:00.000Z",
+      updated_at: "2026-04-20T08:00:00.000Z"
+    },
+    {
+      id: "interview-feedback",
+      application_id: "application-interviews",
+      status: "completed",
+      format: "video",
+      starts_at: "2026-04-21T09:00:00.000Z",
+      interviewer_name: "Equipe Madajob",
+      created_at: "2026-04-20T08:00:00.000Z",
+      updated_at: "2026-04-21T10:00:00.000Z",
+      feedback: {
+        id: "feedback-1",
+        interview_id: "interview-feedback",
+        application_id: "application-interviews",
+        summary: "Bon echange.",
+        strengths: "Communication claire.",
+        concerns: "",
+        recommendation: "yes",
+        proposed_decision: "advance",
+        next_action: "schedule_next_interview",
+        author: { full_name: "Admin Madajob", email: "admin@madajob.mg" },
+        created_at: "2026-04-21T10:30:00.000Z",
+        updated_at: "2026-04-21T10:30:00.000Z"
+      }
+    },
+    {
+      id: "interview-pending-feedback",
+      application_id: "application-interviews",
+      status: "completed",
+      format: "onsite",
+      starts_at: "2026-04-22T09:00:00.000Z",
+      interviewer_name: "Equipe Madajob",
+      created_at: "2026-04-20T08:00:00.000Z",
+      updated_at: "2026-04-22T10:00:00.000Z"
+    }
+  ];
+
+  const mappedInterview = mapApplicationInterviewRecord(interviewRows[0], {
+    full_name: "Planificateur Madajob",
+    email: "planning@madajob.mg"
+  });
+
+  assert.equal(mappedInterview.scheduled_by_name, "Planificateur Madajob");
+  assert.equal(mappedInterview.scheduled_by_email, "planning@madajob.mg");
+
+  const recruiterSignal = buildRecruiterApplicationInterviewSignalMap(interviewRows).get(
+    "application-interviews"
+  );
+  const candidateSignal = buildCandidateApplicationInterviewSignalMap(interviewRows).get(
+    "application-interviews"
+  );
+
+  assert.equal(recruiterSignal.interviews_count, 4);
+  assert.equal(recruiterSignal.feedback_count, 1);
+  assert.equal(recruiterSignal.pending_feedback, true);
+  assert.equal(recruiterSignal.latest_interview_at, "2026-04-25T09:00:00.000Z");
+  assert.equal(recruiterSignal.next_interview_at, "2026-04-24T09:00:00.000Z");
+  assert.equal(recruiterSignal.latest_feedback.author_name, "Admin Madajob");
+  assert.equal(candidateSignal.interviews_count, 4);
+  assert.equal(candidateSignal.latest_interview_at, "2026-04-25T09:00:00.000Z");
+  assert.equal(candidateSignal.next_interview_at, "2026-04-24T09:00:00.000Z");
+  assert.equal(candidateSignal.next_interview_format, "phone");
+  assert.equal(candidateSignal.next_interview_meeting_url, "https://meet.example/next");
 });
 
 test("matching: detecte un fort alignement candidat/offre", () => {
