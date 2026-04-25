@@ -90,6 +90,12 @@ const {
 const {
   validateCandidateUploadFile
 } = require("../lib/candidate-document-validation.ts");
+const {
+  getDashboardNavigation,
+  getDashboardPrimaryAction,
+  getDashboardRoleLabel,
+  getDashboardSupportMessages
+} = require("../lib/dashboard-navigation.ts");
 
 const fixedNow = new Date("2026-04-23T12:00:00.000Z").getTime();
 
@@ -974,6 +980,27 @@ test("candidate documents: valide les formats d'upload cote serveur", () => {
     ),
     /10 Mo/
   );
+});
+
+test("dashboard navigation: expose les menus et actions par role", () => {
+  const candidateNav = getDashboardNavigation("candidat");
+  const recruiterNav = getDashboardNavigation("recruteur");
+  const adminNav = getDashboardNavigation("admin");
+
+  assert.equal(getDashboardRoleLabel("candidat"), "Candidat");
+  assert.equal(getDashboardRoleLabel("recruteur"), "Recruteur");
+  assert.equal(getDashboardRoleLabel("admin"), "Admin");
+  assert.equal(candidateNav[0].href, "/app/candidat");
+  assert.equal(candidateNav.some((item) => item.href === "/app/candidat/notifications"), true);
+  assert.equal(recruiterNav.some((item) => item.href === "/app/recruteur/cvtheque"), true);
+  assert.equal(recruiterNav.some((item) => item.href === "/carrieres"), true);
+  assert.equal(adminNav.some((item) => item.href === "/app/admin/sante"), true);
+  assert.equal(adminNav.some((item) => item.href === "/app/admin/emails"), true);
+  assert.deepEqual(getDashboardPrimaryAction("admin"), {
+    href: "/app/admin/offres",
+    label: "Piloter les offres"
+  });
+  assert.equal(getDashboardSupportMessages("recruteur").length, 3);
 });
 
 test("refactor hygiene: les anciennes pages statiques racine ne reviennent pas", () => {
