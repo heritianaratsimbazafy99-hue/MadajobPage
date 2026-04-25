@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
-import { LegacyUiEffects } from "@/components/site/legacy-ui-effects";
 import { SiteFooter } from "@/components/site/footer";
 import { SiteHeader } from "@/components/site/header";
+import { SiteUiEffects } from "@/components/site/site-ui-effects";
 
 import "./globals.css";
-import "./legacy.css";
+import "./site.css";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://madajob-page.vercel.app";
 
@@ -37,7 +37,7 @@ export default function RootLayout({
   return (
     <html lang="fr" data-scroll-behavior="smooth">
       <body>
-        <LegacyUiEffects />
+        <SiteUiEffects />
         <SiteHeader />
         {children}
         <SiteFooter />

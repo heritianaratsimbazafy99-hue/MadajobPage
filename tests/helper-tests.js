@@ -977,7 +977,7 @@ test("candidate documents: valide les formats d'upload cote serveur", () => {
 });
 
 test("refactor hygiene: les anciennes pages statiques racine ne reviennent pas", () => {
-  const legacyStaticFiles = [
+  const obsoleteStaticFiles = [
     "index.html",
     "carrieres.html",
     "entreprise.html",
@@ -992,7 +992,7 @@ test("refactor hygiene: les anciennes pages statiques racine ne reviennent pas",
   ];
 
   assert.deepEqual(
-    legacyStaticFiles.filter((filePath) => fs.existsSync(path.join(projectRoot, filePath))),
+    obsoleteStaticFiles.filter((filePath) => fs.existsSync(path.join(projectRoot, filePath))),
     []
   );
 });

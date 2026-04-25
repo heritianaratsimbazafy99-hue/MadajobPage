@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
 
-export function LegacyUiEffects() {
+export function SiteUiEffects() {
   const pathname = usePathname();
 
   useEffect(() => {
